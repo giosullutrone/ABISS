@@ -29,7 +29,10 @@ class Question:
     question_difficulty: QuestionDifficulty
 
     def to_dict(self) -> dict:
-        return asdict(self, dict_factory=lambda x: {k: (v.to_dict() if hasattr(v, "to_dict") else v) for k, v in x})
+        return asdict(self, dict_factory=lambda x: {
+            k: (v.to_dict() if hasattr(v, "to_dict") else (v.value if isinstance(v, Enum) else v)) 
+            for k, v in x
+        })
 
 @dataclass
 class QuestionUnanswerable(Question):

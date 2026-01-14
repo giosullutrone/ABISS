@@ -23,22 +23,28 @@ class Chain:
     def generate(self, db: DBDataset) -> list[Question]:
         db_ids: list[str] = db.get_db_ids()
 
-        questions_unanswerable: list[Question] = []
+        questions: list[Question] = []
 
         categories_answerable = [category for category in self.categories if category.is_answerable()]
-        if categories_answerable:
-            generated_questions = self.generator_answerable.generate(db_ids, categories_answerable)
-            valid_questions = self.generator_answerable.validate(generated_questions)
-
         categories_solvable = [category for category in self.categories if category.is_solvable() and not category.is_answerable()]
-        if categories_solvable:
-            generated_questions = self.generator_solvable.generate(db_ids, categories_solvable)
-            valid_questions = self.generator_solvable.validate(generated_questions)
-            questions_unanswerable.extend([q for q, valid in zip(generated_questions, valid_questions) if valid])
-
         categories_unsolvable = [category for category in self.categories if not category.is_solvable() and not category.is_answerable()]
-        if categories_unsolvable:
-            generated_questions = self.generator_unsolvable.generate(db_ids, categories_unsolvable)
-            valid_questions = self.generator_unsolvable.validate(generated_questions)
-            questions_unanswerable.extend([q for q, valid in zip(generated_questions, valid_questions) if valid])
-        return questions_unanswerable
+
+        # All generators have the same generation function from the parent class so we can call it once on all categories at once
+        generated_questions = self.generator_answerable.generate(db_ids, self.categories)
+
+        # Now we need to validate and filter the questions according to their category type
+        for category in categories_answerable:
+            questions_category = [q for q in generated_questions if q.category == category]
+            validated_questions = self.generator_answerable.validate(questions_category)
+            questions.extend(validated_questions)
+
+        for category in categories_solvable:
+            questions_category = [q for q in generated_questions if q.category == category]
+            validated_questions = self.generator_solvable.validate(questions_category)
+            questions.extend(validated_questions)
+
+        for category in categories_unsolvable:
+            questions_category = [q for q in generated_questions if q.category == category]
+            validated_questions = self.generator_unsolvable.validate(questions_category)
+            questions.extend(validated_questions)
+        return questions
