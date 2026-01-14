@@ -45,9 +45,8 @@ if __name__ == "__main__":
     models: list[Model] = [ModelVLLM(model_name=model,
                                sampling_kwargs={
                                    "n": n_samples,
-                                   "max_tokens": 2048,
-                                   "temperature": 0.0 if n_samples == 1 else 0.7,
-                                   "repetition_penalty": 1.1,
+                                   "max_tokens": 4096,
+                                   "temperature": 0.7,
                                    "seed": 42,
                                },
                                model_kwargs={
@@ -62,9 +61,8 @@ if __name__ == "__main__":
 
     models_validator: list[Model] = [ModelVLLM(model_name=model,
                                sampling_kwargs={
-                                   "max_tokens": 2048,
+                                   "max_tokens": 4096,
                                    "temperature": 0.0,
-                                   "repetition_penalty": 1.1,
                                    "seed": 42,
                                },
                                model_kwargs={

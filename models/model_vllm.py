@@ -104,7 +104,7 @@ class ModelVLLM(Model):
             regenerated_response = self._generate_batch([conversation], structured_sampling_params, continue_final_message=True, use_tqdm=False)[0]
             validated_response = extract_last_json_object(regenerated_response, constraints[idx])
             if validated_response is None:
-                raise ValueError(f"Failed to validate regenerated response for prompt index {idx}.")
+                raise ValueError(f"Failed to validate regenerated response for prompt index {idx}: {regenerated_response}.")
             validated_responses[idx] = validated_response
 
         # At this point, all responses are validated
