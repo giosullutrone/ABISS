@@ -1,4 +1,6 @@
 from typing import cast
+
+from tqdm import tqdm
 from .model import Model
 from vllm import LLM, SamplingParams
 from vllm.lora.request import LoRARequest
@@ -37,7 +39,7 @@ class ModelVLLM(Model):
         # Prepare sampling parameters
         self.sampling_params = SamplingParams(**self.sampling_kwargs) if self.sampling_kwargs is not None else None
     
-    def _generate_batch(self, prompts: list[list[dict[str, str]]], sampling_params: SamplingParams | None, continue_final_message: bool=False) -> list[str]:
+    def _generate_batch(self, prompts: list[list[dict[str, str]]], sampling_params: SamplingParams | None, continue_final_message: bool=False, use_tqdm: bool=True) -> list[str]:
         responses: list[str] = []
         for i in range(0, len(prompts), self.max_batch_with_text_size):
             batch_conversations: list[list[dict[str, str]]] = prompts[i:i + self.max_batch_with_text_size]
@@ -46,7 +48,8 @@ class ModelVLLM(Model):
                 sampling_params=sampling_params,
                 lora_request=self.lora_request,
                 continue_final_message=continue_final_message,
-                add_generation_prompt=not continue_final_message
+                add_generation_prompt=not continue_final_message,
+                use_tqdm=use_tqdm
             )
             for batch_response in batch_responses:
                 responses.extend([x.text for x in batch_response.outputs])
@@ -85,14 +88,14 @@ class ModelVLLM(Model):
 
         # A batch can't have multiple different StructuredOutputsParams, so we regenerate one by one
         # We also set add_generation_prompt to False as continuing from the previous message is not compatible with adding a new generation prompt
-        for idx, conversation in conversations_to_regenerate.items():
+        for idx, conversation in tqdm(conversations_to_regenerate.items(), desc="Regenerating invalid responses"):
             structured_sampling_params = SamplingParams(
                 **(self.sampling_kwargs if self.sampling_kwargs is not None else {}),
                 structured_outputs=StructuredOutputsParams(
                     json=constraints[idx].model_json_schema()
                 ),
             )
-            regenerated_response = self._generate_batch([conversation], structured_sampling_params, continue_final_message=True)[0]
+            regenerated_response = self._generate_batch([conversation], structured_sampling_params, continue_final_message=True, use_tqdm=False)[0]
             validated_response = extract_last_json_object(regenerated_response, constraints[idx])
             if validated_response is None:
                 raise ValueError(f"Failed to validate regenerated response for prompt index {idx}.")
