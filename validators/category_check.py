@@ -22,10 +22,7 @@ class CategoryCheck(Validator):
 
         for model in self.models:
             model.init()
-            responses: list[BaseModel] = model.generate_batch_with_constraints(
-                prompts, 
-                [CategoryCheckResponse] * len(prompts)
-            )
+            responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, [CategoryCheckResponse] * len(prompts))
             model.close()
 
             for i, response in enumerate(responses):

@@ -25,9 +25,13 @@ class Generator(ABC):
 
     def generate_for_model(self, model: Model, db_ids: list[str], categories: list[Category]) -> list[Question]:
         questions: list[Question] = []
-        model.init()
+        
+        # Generate all prompts and constraints for all categories at once
+        prompts: list[str] = []
+        constraints: list[type[BaseModel]] = []
+        metadata: list[tuple[Category, str]] = []  # Track (category, db_id) for each prompt
+        
         for category in categories:
-            prompts: list[str] = []
             for db_id in db_ids:
                 # Prepare the generation prompt
                 prompt = get_generation_prompt(
@@ -39,18 +43,23 @@ class Generator(ABC):
                     examples=category.get_examples(),
                     output=category.get_output()
                 )
-                prompts.append(prompt)
-
-            # Use the model to generate the questions
-            responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, [category.get_output()] * len(prompts) * self.n_samples)
-
-            # Convert the responses into Question instances
-            # Take into account the db_id repetition due to n_samples
-            assert len(responses) == len(prompts) * self.n_samples, "Number of responses does not match number of prompts times n_samples. Check the model sampling settings."
-            for idx, response in enumerate(responses):
-                question = category.get_question(db_ids[idx // self.n_samples], response)
-                questions.extend(question)
+                # Add prompt and constraint n_samples times
+                for _ in range(self.n_samples):
+                    prompts.append(prompt)
+                    constraints.append(category.get_output())
+                    metadata.append((category, db_id))
+        
+        # Use the model to generate all questions in a single call
+        model.init()
+        responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, constraints)
         model.close()
+
+        # Convert the responses into Question instances
+        assert len(responses) == len(prompts), "Number of responses does not match number of prompts."
+        for idx, response in enumerate(responses):
+            category, db_id = metadata[idx]
+            question = category.get_question(db_id, response)
+            questions.extend(question)
         return questions
 
     def generate(self, db_ids: list[str], categories: list[Category]) -> list[Question]:

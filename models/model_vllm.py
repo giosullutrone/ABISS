@@ -62,6 +62,8 @@ class ModelVLLM(Model):
         """
         Generate responses for a batch of prompts while enforcing constraints defined by the input Pydantic models.
         """
+        assert len(prompts) == len(constraints), "Number of prompts must match number of constraints."
+
         # Generate raw responses
         responses = self.generate_batch(prompts)
 

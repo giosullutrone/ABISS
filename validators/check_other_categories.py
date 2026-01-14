@@ -36,10 +36,7 @@ class CheckOtherCategories(Validator):
         for model in self.models:
             # Batch generate for all prompts
             model.init()
-            responses: list[BaseModel] = model.generate_batch_with_constraints(
-                prompts, 
-                [CategoryCheckResponse] * len(prompts)
-            )
+            responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, [CategoryCheckResponse] * len(prompts))
             model.close()
 
             # Process responses: group by question and check if ANY other category fits
