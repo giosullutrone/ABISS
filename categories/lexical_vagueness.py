@@ -3,7 +3,7 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable, Question
+    from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 
 
 class LexicalVaguenessCategory(Category):
@@ -49,7 +49,7 @@ class LexicalVaguenessCategory(Category):
         return LexicalVaguenessCategory.LexicalVaguenessOutput
 
     @staticmethod
-    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
+    def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, LexicalVaguenessCategory.LexicalVaguenessOutput)
         return [QuestionUnanswerable(
@@ -59,7 +59,9 @@ class LexicalVaguenessCategory(Category):
             evidence=None,
             sql=sql,
             hidden_knowledge=hk,
-            is_solvable=LexicalVaguenessCategory.is_solvable()
+            is_solvable=LexicalVaguenessCategory.is_solvable(),
+            question_style=question_style,
+            question_difficulty=question_difficulty
         ) for sql, hk in [
             (output.sql_first_interpretation, output.hidden_knowledge_first_interpretation),
             (output.sql_second_interpretation, output.hidden_knowledge_second_interpretation)

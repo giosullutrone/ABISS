@@ -3,7 +3,7 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import Question
+    from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 
 
 class ConflictingKnowledgeCategory(Category):
@@ -50,7 +50,7 @@ class ConflictingKnowledgeCategory(Category):
         return ConflictingKnowledgeCategory.ConflictingKnowledgeOutput
     
     @staticmethod
-    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
+    def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, ConflictingKnowledgeCategory.ConflictingKnowledgeOutput)
         return [QuestionUnanswerable(
@@ -60,7 +60,9 @@ class ConflictingKnowledgeCategory(Category):
             evidence="1. " + output.evidence_first + "\n2. " + output.evidence_second,
             sql=sql,
             hidden_knowledge=hk,
-            is_solvable=ConflictingKnowledgeCategory.is_solvable()
+            is_solvable=ConflictingKnowledgeCategory.is_solvable(),
+            question_style=question_style,
+            question_difficulty=question_difficulty
         ) for sql, hk in [
             (output.sql_first_evidence, output.hidden_knowledge_first_evidence),
             (output.sql_second_evidence, output.hidden_knowledge_second_evidence)

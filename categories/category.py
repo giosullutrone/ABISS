@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import Question
+    from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 from pydantic import BaseModel
 
 
@@ -44,7 +44,7 @@ class Category(ABC):
 
     @staticmethod
     @abstractmethod
-    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
+    def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         pass
 
     def to_dict(self) -> dict:

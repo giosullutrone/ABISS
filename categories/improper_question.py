@@ -3,7 +3,7 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable, Question
+    from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 
 
 class ImproperQuestionCategory(Category):
@@ -46,7 +46,7 @@ class ImproperQuestionCategory(Category):
         return ImproperQuestionCategory.ImproperQuestionOutput
 
     @staticmethod
-    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
+    def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, ImproperQuestionCategory.ImproperQuestionOutput)
         return [QuestionUnanswerable(
@@ -56,5 +56,7 @@ class ImproperQuestionCategory(Category):
             evidence=None,
             sql=None,
             hidden_knowledge=None,
-            is_solvable=ImproperQuestionCategory.is_solvable()
+            is_solvable=ImproperQuestionCategory.is_solvable(),
+            question_style=question_style,
+            question_difficulty=question_difficulty
         )]

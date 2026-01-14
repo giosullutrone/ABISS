@@ -1,7 +1,22 @@
 from dataclasses import dataclass, asdict
 from categories.category import Category
 from categories import get_category_by_name
+from enum import Enum
 
+
+class QuestionDifficulty(Enum):
+    SIMPLE = "simple"
+    MODERATE = "moderate"
+    COMPLEX = "complex"
+    HIGHLY_COMPLEX = "highly_complex"
+
+class QuestionStyle(Enum):
+    FORMAL = "formal"
+    COLLOQUIAL = "colloquial"
+    IMPERATIVE = "imperative"
+    INTERROGATIVE = "interrogative"
+    DESCRIPTIVE = "descriptive"
+    CONCISE = "concise"
 
 @dataclass
 class Question:
@@ -10,6 +25,8 @@ class Question:
     evidence: str | None
     sql: str | None
     category: Category
+    question_style: QuestionStyle
+    question_difficulty: QuestionDifficulty
 
     def to_dict(self) -> dict:
         return asdict(self, dict_factory=lambda x: {k: (v.to_dict() if hasattr(v, "to_dict") else v) for k, v in x})
@@ -32,6 +49,8 @@ class QuestionUnanswerable(Question):
             evidence=d.get("evidence"),
             sql=d.get("sql"),
             category=category,
+            question_style=QuestionStyle(d["question_style"]),
+            question_difficulty=QuestionDifficulty(d["question_difficulty"]),
             hidden_knowledge=d.get("hidden_knowledge"),
             is_solvable=d["is_solvable"],
         )

@@ -3,7 +3,7 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable, Question
+    from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 
 
 class MissingSchemaRelationshipsCategory(Category):
@@ -39,7 +39,7 @@ class MissingSchemaRelationshipsCategory(Category):
         return MissingSchemaRelationshipsCategory.MissingSchemaRelationshipsOutput
 
     @staticmethod
-    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
+    def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, MissingSchemaRelationshipsCategory.MissingSchemaRelationshipsOutput)
         return [QuestionUnanswerable(
@@ -49,5 +49,7 @@ class MissingSchemaRelationshipsCategory(Category):
             evidence=None,
             sql=None,
             hidden_knowledge=None,
-            is_solvable=MissingSchemaRelationshipsCategory.is_solvable()
+            is_solvable=MissingSchemaRelationshipsCategory.is_solvable(),
+            question_style=question_style,
+            question_difficulty=question_difficulty
         )]

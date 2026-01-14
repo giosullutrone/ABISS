@@ -3,7 +3,7 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable, Question
+    from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 
 
 class MissingUserKnowledgeCategory(Category):
@@ -47,7 +47,7 @@ class MissingUserKnowledgeCategory(Category):
         return MissingUserKnowledgeCategory.MissingUserKnowledgeOutput
 
     @staticmethod
-    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
+    def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, MissingUserKnowledgeCategory.MissingUserKnowledgeOutput)
         return [QuestionUnanswerable(
@@ -57,5 +57,7 @@ class MissingUserKnowledgeCategory(Category):
             evidence=None,
             sql=output.sql_with_user_knowledge,
             hidden_knowledge=output.hidden_knowledge,
-            is_solvable=MissingUserKnowledgeCategory.is_solvable()
+            is_solvable=MissingUserKnowledgeCategory.is_solvable(),
+            question_style=question_style,
+            question_difficulty=question_difficulty
         )]

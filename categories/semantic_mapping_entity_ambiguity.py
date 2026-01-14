@@ -3,7 +3,7 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable, Question
+    from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 
 
 class SemanticMappingEntityAmbiguityCategory(Category):
@@ -48,7 +48,7 @@ class SemanticMappingEntityAmbiguityCategory(Category):
         return SemanticMappingEntityAmbiguityCategory.SemanticMappingEntityAmbiguityOutput
 
     @staticmethod
-    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
+    def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, SemanticMappingEntityAmbiguityCategory.SemanticMappingEntityAmbiguityOutput)
         return [QuestionUnanswerable(
@@ -58,7 +58,9 @@ class SemanticMappingEntityAmbiguityCategory(Category):
             evidence=None,
             sql=sql,
             hidden_knowledge=hk,
-            is_solvable=SemanticMappingEntityAmbiguityCategory.is_solvable()
+            is_solvable=SemanticMappingEntityAmbiguityCategory.is_solvable(),
+            question_style=question_style,
+            question_difficulty=question_difficulty
         ) for sql, hk in [
             (output.sql_first_entity, output.hidden_knowledge_first_entity),
             (output.sql_second_entity, output.hidden_knowledge_second_entity)

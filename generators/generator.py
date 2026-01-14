@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from dataset_dataclasses.question import Question
+from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 from categories.category import Category
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
 import json
 import os
+import random
 from prompts.generator_prompt import get_generation_prompt
 from pydantic import BaseModel
 
@@ -23,31 +24,46 @@ class Generator(ABC):
             with open(os.path.join(self.intermediate_results_folder, f"{'solvable' if self.solvable else 'unsolvable'}_intermediate_{stage}.json"), "w", encoding="utf-8") as f:
                 json.dump([q.to_dict() for q in questions], f, ensure_ascii=False, indent=4)
 
+    def pick_random_style_and_difficulty(self) -> tuple[QuestionStyle, QuestionDifficulty]:
+        """
+        Randomly select a question style and difficulty level.
+        This function can be easily modified to change the selection strategy.
+        """
+        style = random.choice(list(QuestionStyle))
+        difficulty = random.choice(list(QuestionDifficulty))
+        return style, difficulty
+
     def generate_for_model(self, model: Model, db_ids: list[str], categories: list[Category]) -> list[Question]:
         questions: list[Question] = []
         
         # Generate all prompts and constraints for all categories at once
         prompts: list[str] = []
         constraints: list[type[BaseModel]] = []
-        metadata: list[tuple[Category, str]] = []  # Track (category, db_id) for each prompt
+        metadata: list[tuple[Category, str, QuestionStyle, QuestionDifficulty]] = []  # Track (category, db_id, style, difficulty) for each prompt
         
         for category in categories:
             for db_id in db_ids:
-                # Prepare the generation prompt
-                prompt = get_generation_prompt(
-                    db=self.db,
-                    is_solvable=self.solvable,
-                    db_id=db_id,
-                    name=category.get_name(),
-                    definition=category.get_definition(),
-                    examples=category.get_examples(),
-                    output=category.get_output()
-                )
                 # Add prompt and constraint n_samples times
                 for _ in range(self.n_samples):
+                    # Pick random style and difficulty for each sample
+                    style, difficulty = self.pick_random_style_and_difficulty()
+                    
+                    # Prepare the generation prompt
+                    prompt = get_generation_prompt(
+                        db=self.db,
+                        is_solvable=self.solvable,
+                        is_answerable=category.is_answerable(),
+                        db_id=db_id,
+                        name=category.get_name(),
+                        definition=category.get_definition(),
+                        examples=category.get_examples(),
+                        output=category.get_output(),
+                        question_style=style,
+                        question_difficulty=difficulty
+                    )
                     prompts.append(prompt)
                     constraints.append(category.get_output())
-                    metadata.append((category, db_id))
+                    metadata.append((category, db_id, style, difficulty))
         
         # Use the model to generate all questions in a single call
         model.init()
@@ -57,8 +73,8 @@ class Generator(ABC):
         # Convert the responses into Question instances
         assert len(responses) == len(prompts), "Number of responses does not match number of prompts."
         for idx, response in enumerate(responses):
-            category, db_id = metadata[idx]
-            question = category.get_question(db_id, response)
+            category, db_id, style, difficulty = metadata[idx]
+            question = category.get_question(db_id, response, style, difficulty)
             questions.extend(question)
         return questions
 

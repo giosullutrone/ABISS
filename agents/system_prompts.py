@@ -9,9 +9,9 @@ from prompts import model_field_descriptions
 
 
 class SystemResponse(BaseModel):
-    response_type: Annotated[Literal["SQL", "Question"], Field(description="Either 'SQL' if the question is answerable, or 'Question' if clarification is needed.")]
-    content: Annotated[str, Field(description="If response_type is 'SQL': the complete SQL query. If response_type is 'Question': the clarification question to ask the user.")]
-    category: Annotated[Optional[str], Field(description="Required when response_type is 'Question': the specific ambiguity/unanswerability category name from the provided categories. Should be None for SQL responses.")]
+    response_type: Annotated[Literal["SQL", "Question"], Field(description="Either 'SQL' if the question is answerable, or 'Question' if clarification is needed. Put only 'SQL' or 'Question'.")]
+    content: Annotated[str, Field(description="If response_type is 'SQL': the complete SQL query. If response_type is 'Question': the clarification question to ask the user. Put only the SQL or question without any additional text.")]
+    category: Annotated[Optional[str], Field(description="Required when response_type is 'Question': the specific ambiguity/unanswerability category name from the provided categories. Should be None for SQL responses. Put only the category name without any additional text.")] = None
 
 def get_system_response_result(response: BaseModel) -> tuple[str, str, str | None]:
     response_validated = SystemResponse.model_validate(response)

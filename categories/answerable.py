@@ -3,7 +3,7 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import Question
+    from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 
 
 class AnswerableCategory(Category):
@@ -45,7 +45,7 @@ class AnswerableCategory(Category):
         return AnswerableCategory.AnswerableOutput
 
     @staticmethod
-    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
+    def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         from dataset_dataclasses.question import Question
         assert isinstance(output, AnswerableCategory.AnswerableOutput)
         return [Question(
@@ -53,5 +53,7 @@ class AnswerableCategory(Category):
             category=AnswerableCategory(),
             question=output.question,
             evidence=None,
-            sql=output.sql
+            sql=output.sql,
+            question_style=question_style,
+            question_difficulty=question_difficulty
         )]
