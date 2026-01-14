@@ -17,13 +17,9 @@ class CategoryCheckResponse(BaseModel):
     answer: Annotated[Literal["Yes", "No"], Field(description="Final verdict: 'Yes' if the question correctly belongs to the specified category, or "
     "'No' if it doesn't match the category's characteristics or belongs to a different category.")]
 
-def get_category_validation_result(response: str) -> bool:
-    try:
-        response_json = CategoryCheckResponse.model_validate_json(response)
-        answer = response_json.answer.strip().lower()
-        return "yes" in answer
-    except Exception:
-        return False
+def get_category_validation_result(response: BaseModel) -> bool:
+    answer = CategoryCheckResponse.model_validate(response).answer.strip().lower()
+    return "yes" in answer
 
 def get_category_validation_prompt(db: DBDataset, category: Category, question: QuestionUnanswerable) -> str:
     prompt = "You are an expert in Text-to-SQL ambiguity and unanswerability classification. " \

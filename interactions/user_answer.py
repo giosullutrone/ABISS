@@ -35,7 +35,7 @@ class UserAnswer:
 
         for model in self.models:
             model.init()
-            responses = model.generate_batch_with_constraints(prompts, UserAnswerResponse.model_json_schema())
+            responses = model.generate_batch_with_constraints(prompts, [UserAnswerResponse] * len(prompts))
             model.close()
 
             for i, response in enumerate(responses):

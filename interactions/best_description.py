@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from models.model import Model
 from db_datasets.db_dataset import DBDataset
 from prompts.best_description_prompt import get_selection_prompt, BestDescriptionResponse, get_best_description_result
@@ -34,10 +35,10 @@ class BestDescription:
         for db_id in descriptions.keys():
             prompts.extend([prompt for _, _, prompt in pairwise_prompts[db_id]])
 
-        responses_per_model: list[list[str]] = []
+        responses_per_model: list[list[BaseModel]] = []
         for model in self.models:
             model.init()
-            responses = model.generate_batch_with_constraints(prompts, BestDescriptionResponse.model_json_schema())
+            responses = model.generate_batch_with_constraints(prompts, [BestDescriptionResponse] * len(prompts))
             model.close()
             responses_per_model.append(responses)
 

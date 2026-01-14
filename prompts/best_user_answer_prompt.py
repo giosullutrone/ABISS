@@ -17,10 +17,9 @@ class BestUserAnswerResponse(BaseModel):
     "(4) appropriateness to the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.")]
     answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Answer A is better, 'B' if Answer B is better.")]
 
-def get_best_user_answer_result(response: str) -> int:
+def get_best_user_answer_result(response: BaseModel) -> int:
     """Parses the model response and returns '0' or '1' based on whether Answer A is better or B."""
-    response_json = BestUserAnswerResponse.model_validate_json(response)
-    answer = response_json.answer.strip().upper()
+    answer = BestUserAnswerResponse.model_validate(response).answer.strip().upper()
     if "A" in answer:
         return 0
     elif "B" in answer:

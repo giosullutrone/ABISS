@@ -1,8 +1,9 @@
+from pydantic import BaseModel
 from db_datasets.db_dataset import DBDataset
 from validators.validator import Validator
 from dataset_dataclasses.question import QuestionUnanswerable
 from models.model import Model
-from validators.prompts.check_gt_prompt import get_gt_validation_prompt, CheckGTResponse, get_gt_validation_result
+from prompts.check_gt_prompt import get_gt_validation_prompt, CheckGTResponse, get_gt_validation_result
 
 
 class CheckGT(Validator):
@@ -21,7 +22,7 @@ class CheckGT(Validator):
                 prompt = get_gt_validation_prompt(self.db, question)
                 prompts.append(prompt)
             
-            responses: list[str] = model.generate_batch_with_constraints(prompts, CheckGTResponse.model_json_schema())
+            responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, [CheckGTResponse] * len(prompts))
             model.close()
 
             for i, response in enumerate(responses):

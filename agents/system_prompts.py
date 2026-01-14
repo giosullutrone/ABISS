@@ -16,11 +16,11 @@ class SystemResponse(BaseModel):
     content: Annotated[str, Field(description="If response_type is 'SQL': the complete SQL query. If response_type is 'Question': the clarification question to ask the user.")]
     category: Annotated[Optional[str], Field(description="Required when response_type is 'Question': the specific ambiguity/unanswerability category name from the provided categories. Should be None for SQL responses.")]
 
-def get_system_response_result(response: str) -> tuple[str, str, str | None]:
-    response_json = SystemResponse.model_validate_json(response)
-    response_type = response_json.response_type.strip().upper()
-    content = response_json.content.strip()
-    category = response_json.category.strip() if response_json.category else None
+def get_system_response_result(response: BaseModel) -> tuple[str, str, str | None]:
+    response_validated = SystemResponse.model_validate(response)
+    response_type = response_validated.response_type.strip().upper()
+    content = response_validated.content.strip()
+    category = response_validated.category.strip() if response_validated.category else None
     return response_type, content, category
 
 def get_interaction_prompt(db: DBDataset, conversation: Conversation, categories: list[Category]) -> str:

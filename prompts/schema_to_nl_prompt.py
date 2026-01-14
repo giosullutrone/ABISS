@@ -10,9 +10,8 @@ class SchemaToNLResponse(BaseModel):
     "Keep it concise but thorough, about 512 characters.")]
     description: Annotated[str, Field(description="A concise but comprehensive natural language summary of the database schema, covering all important tables, their relationships, and notable features.")]
 
-def get_schema_to_nl_result(response: str) -> str:
-    response_json = SchemaToNLResponse.model_validate_json(response)
-    return response_json.description.strip()
+def get_schema_to_nl_result(response: BaseModel) -> str:
+    return SchemaToNLResponse.model_validate(response).description.strip()
 
 def get_generation_prompt(db: DBDataset, db_id: str) -> str:
     prompt = f"You are an expert at describing database schemas in natural language. " \

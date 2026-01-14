@@ -6,6 +6,7 @@ from models.model import Model
 import json
 import os
 from prompts.generator_prompt import get_generation_prompt
+from pydantic import BaseModel
 
 
 class Generator(ABC):
@@ -41,18 +42,13 @@ class Generator(ABC):
                 prompts.append(prompt)
 
             # Use the model to generate the questions
-            responses: list[str] = model.generate_batch_with_constraints(prompts, category.get_output().model_json_schema())
+            responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, [category.get_output()] * len(prompts) * self.n_samples)
 
-            # Convert the strings to dicts and then to QuestionUnanswerable objects using the category methods
+            # Convert the responses into QuestionUnanswerable instances
             # Take into account the db_id repetition due to n_samples
             assert len(responses) == len(prompts) * self.n_samples, "Number of responses does not match number of prompts times n_samples. Check the model sampling settings."
             for idx, response in enumerate(responses):
-                try:
-                    out = category.get_output().model_validate_json(response)
-                except Exception as e:
-                    print(f"Error parsing model output JSON: {e}")
-                    continue
-                question_unanswerable = category.get_unanswerable_question(db_ids[idx // self.n_samples], out)
+                question_unanswerable = category.get_unanswerable_question(db_ids[idx // self.n_samples], response)
                 questions_unanswerable.extend(question_unanswerable)
         model.close()
         return questions_unanswerable

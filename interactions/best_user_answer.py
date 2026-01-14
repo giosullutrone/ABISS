@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from dataset_dataclasses.results import Conversation
 from models.model import Model
 from prompts import UserKnowledgeLevel, UserAnswerStyle
@@ -39,10 +40,10 @@ class BestUserAnswer:
         for i in range(len(answers)):
             prompts.extend([prompt for _, _, prompt in pairwise_prompts[i]])
 
-        responses_per_model: list[list[str]] = []
+        responses_per_model: list[list[BaseModel]] = []
         for model in self.models:
             model.init()
-            responses = model.generate_batch_with_constraints(prompts, BestUserAnswerResponse.model_json_schema())
+            responses = model.generate_batch_with_constraints(prompts, [BestUserAnswerResponse] * len(prompts))
             model.close()
             responses_per_model.append(responses)
         

@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, BaseModel
 from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 
 class LexicalVaguenessCategory(Category):
-    class LexicalVaguenessOutput(Category.Output):
+    class LexicalVaguenessOutput(BaseModel):
         reasoning: Annotated[str, Field(description="Use this field to think step-by-step about how to construct the question and SQL queries. First, identify which term in the question lacks a precise boundary or threshold. Second, determine what are the different reasonable interpretations of this vague term. Third, explain how each interpretation affects the SQL query's filtering or selection criteria. Fourth, confirm why the vagueness cannot be resolved from schema information alone. Use this reasoning to guide the generation of the 'question', 'sql_first_interpretation', 'sql_second_interpretation', 'hidden_knowledge_first_interpretation', and 'hidden_knowledge_second_interpretation' fields.")]
         question: Annotated[str, Field(description="A natural language question containing a vague term whose meaning lacks a precise or objective boundary, requiring subjective interpretation for query generation. Examples include temporal expressions (recent, old), quantitative adjectives (many, few, high, low), or evaluative terms (good, popular, expensive).")]
         sql_first_interpretation: Annotated[str, Field(description="The SQL query using the first reasonable interpretation of the vague term (e.g., 'recent' interpreted as within the last month).")]
@@ -42,11 +42,11 @@ class LexicalVaguenessCategory(Category):
         return True
 
     @staticmethod
-    def get_output() -> type[Category.Output]:
+    def get_output() -> type[BaseModel]:
         return LexicalVaguenessCategory.LexicalVaguenessOutput
 
     @staticmethod
-    def get_unanswerable_question(db_id: str, output: Category.Output) -> list["QuestionUnanswerable"]:
+    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, LexicalVaguenessCategory.LexicalVaguenessOutput)
         return [QuestionUnanswerable(

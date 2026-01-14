@@ -1,9 +1,9 @@
-from categories.category import Category
+from pydantic import BaseModel
 from prompts import model_field_descriptions
 from db_datasets.db_dataset import DBDataset
 
 
-def get_generation_prompt(db: DBDataset, is_solvable: bool, db_id: str, name: str, definition: str, examples: list[str] | None, output: type[Category.Output]) -> str:
+def get_generation_prompt(db: DBDataset, is_solvable: bool, db_id: str, name: str, definition: str, examples: list[str] | None, output: type[BaseModel]) -> str:
     prompt = f"You are an expert in creating Text-to-SQL benchmarks for natural language questions. " \
             "Your task is to generate realistic, high-quality questions that test the boundaries of Text-to-SQL systems.\n\n"
     

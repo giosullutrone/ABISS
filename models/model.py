@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from pydantic import BaseModel
+from typing import cast
 
 
 class Model(ABC):
@@ -25,10 +27,26 @@ class Model(ABC):
         raise NotImplementedError("This method should be implemented in a subclass.")
 
     @abstractmethod
-    def generate_batch_with_constraints(self, prompts: list[str] | list[list[dict[str, str]]], constraints: dict) -> list[str]:
+    def generate_batch_with_constraints(self, prompts: list[str] | list[list[dict[str, str]]], constraints: list[type[BaseModel]]) -> list[BaseModel]:
         raise NotImplementedError("This method should be implemented in a subclass.")
 
     @abstractmethod
     def close(self):
         raise NotImplementedError("This method should be implemented in a subclass.")
 
+    def convert_prompt_to_conversation_if_needed(self, prompts: list[str] | list[list[dict[str, str]]]) -> list[list[dict[str, str]]]:
+        """
+        Converts a single string prompt into a conversation format expected by the model if needed.
+        """
+        if not isinstance(prompts[0], str) and isinstance(prompts[0], list):
+            return cast(list[list[dict[str, str]]], prompts)
+        
+        prompts = cast(list[str], prompts)
+        conversations: list[list[dict[str, str]]] = []
+        for prompt in prompts:
+            conversation: list[dict[str, str]] = []
+            if self.system_prompt is not None:
+                conversation.append({"role": "system", "content": self.system_prompt})
+            conversation.append({"role": "user", "content": prompt})
+            conversations.append(conversation)
+        return conversations

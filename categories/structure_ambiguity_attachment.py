@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import BaseModel, Field
 from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 
 class StructureAmbiguityAttachmentCategory(Category):
-    class StructureAmbiguityAttachmentOutput(Category.Output):
+    class StructureAmbiguityAttachmentOutput(BaseModel):
         reasoning: Annotated[str, Field(description="Use this field to think step-by-step about how to construct the question and SQL queries. First, identify which modifier or condition will create the ambiguity. Second, determine which elements it could attach to (last only vs. all elements in the conjunction). Third, explain how the SQL filtering will differ between these interpretations. Fourth, confirm why both attachment interpretations are linguistically plausible. Use this reasoning to guide the generation of the 'question', 'sql_last_only', 'sql_all_elements', 'hidden_knowledge_last_only', and 'hidden_knowledge_all_elements' fields.")]
         question: Annotated[str, Field(description="The generated natural language question containing attachment ambiguity, where a modifier or condition can attach to either only the nearest element or to multiple elements in a conjunction or list, leading to different scopes of filtering or constraint.")]
         sql_last_only: Annotated[str, Field(description="The SQL query where the modifier applies only to the last element in the conjunction (e.g., in 'professors and students in engineering', the condition 'in engineering' filters only students, not professors).")]
@@ -41,11 +41,11 @@ class StructureAmbiguityAttachmentCategory(Category):
         return True
 
     @staticmethod
-    def get_output() -> type[Category.Output]:
+    def get_output() -> type[BaseModel]:
         return StructureAmbiguityAttachmentCategory.StructureAmbiguityAttachmentOutput
 
     @staticmethod
-    def get_unanswerable_question(db_id: str, output: Category.Output) -> list["QuestionUnanswerable"]:
+    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, StructureAmbiguityAttachmentCategory.StructureAmbiguityAttachmentOutput)
         return [QuestionUnanswerable(

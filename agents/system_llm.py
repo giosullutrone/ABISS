@@ -7,6 +7,7 @@ from db_datasets.db_dataset import DBDataset
 from difflib import get_close_matches
 from categories.category import Category
 from categories import get_category_by_name
+from pydantic import BaseModel
 
 
 class SystemLLM(System):
@@ -16,7 +17,7 @@ class SystemLLM(System):
         self.model: Model = model
         self.categories: list[Category] = categories
 
-    def get_response_from_response(self, response: str) -> SystemResponseQuestion | SystemResponseSQL:
+    def get_response_from_response(self, response: BaseModel) -> SystemResponseQuestion | SystemResponseSQL:
         response_type, content, category_str = get_system_response_result(response)
         
         response_type = response_type.lower()
@@ -39,6 +40,6 @@ class SystemLLM(System):
     def get_system_responses(self, conversations: list[Conversation]) -> list[SystemResponseQuestion | SystemResponseSQL]:
         self.model.init()
         prompts = [get_interaction_prompt(self.db_dataset, conversation, self.categories) for conversation in conversations]
-        responses = self.model.generate_batch_with_constraints(prompts, SystemResponse.model_json_schema())
+        responses = self.model.generate_batch_with_constraints(prompts, [SystemResponse] * len(prompts))
         self.model.close()
         return [self.get_response_from_response(resp) for resp in responses]

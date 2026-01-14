@@ -28,7 +28,7 @@ class QuestionRelevancy:
         prompts = [get_relevancy_prompt(conversation) for conversation in conversations]
         for model in self.models:
             model.init()
-            responses = model.generate_batch_with_constraints(prompts, QuestionRelevancyResponse.model_json_schema())
+            responses = model.generate_batch_with_constraints(prompts, [QuestionRelevancyResponse] * len(prompts))
             model.close()
 
             for i, response in enumerate(responses):

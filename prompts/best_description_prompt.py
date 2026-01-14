@@ -14,9 +14,8 @@ class BestDescriptionResponse(BaseModel):
     "(4) helpfulness for understanding the database structure. Keep it concise but thorough, about 512 characters.")]
     answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Description A is better, 'B' if Description B is better.")]
 
-def get_best_description_result(response: str) -> int:
-    response_json = BestDescriptionResponse.model_validate_json(response)
-    answer = response_json.answer.strip().upper()
+def get_best_description_result(response: BaseModel) -> int:
+    answer = BestDescriptionResponse.model_validate(response).answer.strip().upper()
     if "A" in answer:
         return 0
     elif "B" in answer:

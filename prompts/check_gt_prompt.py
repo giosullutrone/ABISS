@@ -15,13 +15,9 @@ class CheckGTResponse(BaseModel):
     answer: Annotated[Literal["Yes", "No"], Field(description="Final verdict: 'Yes' if the SQL query correctly answers the disambiguated question (considering the hidden knowledge), "
     "or 'No' if it fails to capture the intended meaning or contains errors.")]
 
-def get_gt_validation_result(response: str) -> bool:
-    try:
-        response_json = CheckGTResponse.model_validate_json(response)
-        answer = response_json.answer.strip().lower()
-        return "yes" in answer
-    except Exception:
-        return False
+def get_gt_validation_result(response: BaseModel) -> bool:
+    answer = CheckGTResponse.model_validate(response).answer.strip().lower()
+    return "yes" in answer
 
 def get_gt_validation_prompt(db: DBDataset, question: QuestionUnanswerable) -> str:
     prompt = "You are an expert SQL validator for Text-to-SQL benchmarks. " \

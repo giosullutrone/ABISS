@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import BaseModel, Field
 from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 
 class SemanticMappingEntityAmbiguityCategory(Category):
-    class SemanticMappingEntityAmbiguityOutput(Category.Output):
+    class SemanticMappingEntityAmbiguityOutput(BaseModel):
         reasoning: Annotated[str, Field(description="Use this field to think step-by-step about how to construct the question and SQL queries. First, identify which term or expression in the question can correspond to attributes from different entities or tables. Second, determine what the different plausible entity sources are and how they differ semantically. Third, explain how each entity interpretation leads to different join paths or table selections. Fourth, confirm why both entity interpretations are reasonable given the question's context. Use this reasoning to guide the generation of the 'question', 'sql_first_entity', 'sql_second_entity', 'hidden_knowledge_first_entity', and 'hidden_knowledge_second_entity' fields.")]
         question: Annotated[str, Field(description="A natural language question where a term or expression can correspond to attributes from multiple different entities or tables in the schema. The ambiguity arises because the same concept could be represented in different tables representing different entities or contexts (e.g., enrollment_date in students table vs. student_courses table).")]
         sql_first_entity: Annotated[str, Field(description="The SQL query using the attribute from the first entity (e.g., using students.enrollment_date to represent when the student enrolled at the university).")]
@@ -41,11 +41,11 @@ class SemanticMappingEntityAmbiguityCategory(Category):
         return True
 
     @staticmethod
-    def get_output() -> type[Category.Output]:
+    def get_output() -> type[BaseModel]:
         return SemanticMappingEntityAmbiguityCategory.SemanticMappingEntityAmbiguityOutput
 
     @staticmethod
-    def get_unanswerable_question(db_id: str, output: Category.Output) -> list["QuestionUnanswerable"]:
+    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, SemanticMappingEntityAmbiguityCategory.SemanticMappingEntityAmbiguityOutput)
         return [QuestionUnanswerable(

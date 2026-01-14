@@ -7,8 +7,6 @@ from pydantic import BaseModel
 
 # Base categories
 class Category(ABC):
-    class Output(BaseModel): pass
-
     @staticmethod
     @abstractmethod
     def get_name() -> str:
@@ -36,12 +34,12 @@ class Category(ABC):
 
     @staticmethod
     @abstractmethod
-    def get_output() -> type[Output]:
+    def get_output() -> type[BaseModel]:
         pass
 
     @staticmethod
     @abstractmethod
-    def get_unanswerable_question(db_id: str, output: Output) -> list["QuestionUnanswerable"]:
+    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
         pass
 
     def to_dict(self) -> dict:

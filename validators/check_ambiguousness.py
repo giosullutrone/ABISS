@@ -1,5 +1,4 @@
 from validators.validator import Validator
-from categories.category import Category
 from dataset_dataclasses.question import QuestionUnanswerable
 from models.model import Model
 from db_datasets.db_dataset import DBDataset

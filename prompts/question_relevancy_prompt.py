@@ -16,9 +16,8 @@ class QuestionRelevancyResponse(BaseModel):
     answer: Annotated[Literal["Relevant", "Technical", "Irrelevant"], Field(description="Final classification: 'Relevant' if the clarification question helps disambiguate the original question using the hidden knowledge, "
     "'Technical' if it focuses on SQL technical aspects unrelated to the ambiguity, or 'Irrelevant' if it doesn't help with disambiguation or tries to extract hidden information.")]
 
-def get_question_relevancy_result(response: str) -> RelevancyLabel:
-    response_json = QuestionRelevancyResponse.model_validate_json(response)
-    answer = response_json.answer.strip().lower()
+def get_question_relevancy_result(response: BaseModel) -> RelevancyLabel:
+    answer = QuestionRelevancyResponse.model_validate(response).answer.strip().lower()
     if 'relevant' in answer:
         return RelevancyLabel.RELEVANT
     elif 'technical' in answer:

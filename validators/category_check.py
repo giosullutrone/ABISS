@@ -2,7 +2,8 @@ from db_datasets.db_dataset import DBDataset
 from validators.validator import Validator
 from dataset_dataclasses.question import QuestionUnanswerable
 from models.model import Model
-from validators.prompts.category_check_prompt import get_category_validation_prompt, CategoryCheckResponse, get_category_validation_result
+from prompts.category_check_prompt import get_category_validation_prompt, CategoryCheckResponse, get_category_validation_result
+from pydantic import BaseModel
 
 
 class CategoryCheck(Validator):
@@ -23,9 +24,9 @@ class CategoryCheck(Validator):
                 if len(prompt) > 32000 * 4: # 4 chars per token approx
                     print("#"* 20, prompt, "#" * 20, flush=True, sep="\n")
             
-            responses: list[str] = model.generate_batch_with_constraints(
+            responses: list[BaseModel] = model.generate_batch_with_constraints(
                 prompts, 
-                CategoryCheckResponse.model_json_schema()
+                [CategoryCheckResponse] * len(prompts)
             )
             model.close()
 

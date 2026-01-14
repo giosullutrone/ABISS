@@ -22,7 +22,7 @@ class SchemaToNL:
 
         for model in self.models:
             model.init()
-            responses = model.generate_batch_with_constraints([get_generation_prompt(self.db, db_id) for db_id in db_ids], SchemaToNLResponse.model_json_schema())
+            responses = model.generate_batch_with_constraints([get_generation_prompt(self.db, db_id) for db_id in db_ids], [SchemaToNLResponse] * len(db_ids))
             model.close()
 
             for i, response in enumerate(responses):

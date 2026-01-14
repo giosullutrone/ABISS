@@ -14,9 +14,8 @@ class UserAnswerResponse(BaseModel):
     thinking_process: Annotated[str, Field(description="Step-by-step reasoning about how to formulate an appropriate answer that helps disambiguate the original question using the hidden knowledge, considering the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.")]
     answer: Annotated[str, Field(description="The final user answer to the clarification question, formulated according to the specified style (conversational or precise pseudo-SQL) and incorporating the hidden knowledge to help disambiguate the original question.")]
 
-def get_user_answer_result(response: str) -> str:
-    response_json = UserAnswerResponse.model_validate_json(response)
-    return response_json.answer.strip()
+def get_user_answer_result(response: BaseModel) -> str:
+    return UserAnswerResponse.model_validate(response).answer.strip()
 
 def get_user_answer_prompt(db: DBDataset, 
                            conversation: Conversation, 
