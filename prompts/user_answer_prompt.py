@@ -22,14 +22,14 @@ def get_user_answer_prompt(db: DBDataset,
                            user_answer_style: UserAnswerStyle,
                            db_descriptions: dict[str, str] | None) -> str:
     """
-    Precise prompt to get the user answer to the clarification question with a conversational style.
+    Generate a prompt to simulate a user's answer to a clarification question in a text-to-SQL scenario.
     """
     question = conversation.question
     assert isinstance(question, QuestionUnanswerable), "Question must be of type QuestionUnanswerable."
     assert isinstance(conversation.interactions[-1].system_response, SystemResponseQuestion), "Last system response must be of type SystemResponseQuestion."
 
-    prompt = f"You are an expert user simulator for text-to-SQL clarification scenarios. " \
-                "Your task is to provide an appropriate answer to a clarification question that helps disambiguate an ambiguous query.\n\n"
+    prompt = "You are an expert user simulator for text-to-SQL clarification scenarios. " \
+             "Your task is to provide an appropriate answer to a clarification question that helps disambiguate an ambiguous query.\n\n"
 
     prompt += "## Context\n"
     prompt += get_db_knowledge_level_prompt(db, user_knowledge_level, db_descriptions, conversation)
@@ -45,14 +45,18 @@ def get_user_answer_prompt(db: DBDataset,
     prompt += "Provide an answer to the clarification question that helps disambiguate the original question using the hidden knowledge.\n\n"
     
     if user_answer_style == UserAnswerStyle.CONVERSATIONAL:
-        prompt += "**Style:** Respond in a natural, conversational manner as if you were speaking directly to the text-to-SQL system. Make sure your answer is relevant and helps clarify the original question.\n\n"
+        prompt += "**Answer Style:** Respond in a natural, conversational manner as if you were speaking directly " \
+                  "to the text-to-SQL system. Ensure your answer is relevant and helps clarify the original question.\n\n"
     else:
-        prompt += "**Style:** Respond in a precise pseudo-SQL manner, focusing on providing the necessary information to clarify the original question. Make sure your answer is relevant and helps clarify the original question.\n\n"
+        prompt += "**Answer Style:** Respond in a precise pseudo-SQL manner, focusing on providing the necessary " \
+                  "information to clarify the original question. Ensure your answer is relevant and helps clarify the original question.\n\n"
     
     prompt += "## Response Format\n"
-    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning about how to formulate an appropriate answer that helps disambiguate the original question using the hidden knowledge, considering the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.\n\n"
-    prompt += "Provide your response as a JSON object with:\n"
+    prompt += "Provide a step-by-step reasoning about how to formulate an appropriate answer that helps disambiguate " \
+              "the original question using the hidden knowledge. Your reasoning should be concise but thorough " \
+              "(approximately 512 characters), considering the user's knowledge level and answer style.\n\n"
+    prompt += "Then provide your final answer as a JSON object with:\n"
     prompt += model_field_descriptions(UserAnswerResponse) + "\n\n"
-    
     prompt += "Ensure the answer appropriately incorporates the hidden knowledge and follows the specified style."
+    
     return prompt

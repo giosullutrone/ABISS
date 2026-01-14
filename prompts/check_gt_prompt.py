@@ -16,9 +16,9 @@ def get_gt_validation_result(response: BaseModel) -> bool:
     return "yes" in answer
 
 def get_gt_validation_prompt(db: DBDataset, question: QuestionUnanswerable) -> str:
-    prompt = "You are an expert SQL validator for Text-to-SQL benchmarks. " \
-                "Your task is to verify whether a ground truth SQL query correctly answers a natural language question " \
-                "after disambiguation through hidden knowledge.\n\n"
+    prompt = "You are an expert SQL validator for text-to-SQL benchmarks. " \
+             "Your task is to verify whether a ground truth SQL query correctly answers a natural language question " \
+             "after disambiguation through hidden knowledge.\n\n"
     
     prompt += "## Context\n"
     prompt += "The original question was ambiguous or underspecified. The user has provided hidden knowledge " \
@@ -26,7 +26,7 @@ def get_gt_validation_prompt(db: DBDataset, question: QuestionUnanswerable) -> s
                 "implements this disambiguated intent.\n\n"
     
     prompt += "## Database Schema\n"
-    prompt += db.get_schema_prompt(question.db_id, rows=5, db_sql_manipulation=None) + "\n\n"
+    prompt += db.get_schema_prompt(question.db_id, rows=5) + "\n\n"
     
     prompt += "## Question Information\n"
     prompt += f"**Natural Language Question:** {question.question}\n"
@@ -39,8 +39,7 @@ def get_gt_validation_prompt(db: DBDataset, question: QuestionUnanswerable) -> s
     assert question.sql is not None, "GT SQL query is None."
     results = db.execute_query(
         db_id=question.db_id, 
-        sql_query=question.sql, 
-        db_sql_manipulation=None
+        sql_query=question.sql
     )
     if results is not None:
         prompt += f"**Query Execution Results (first 5 rows):** {results[:5]}\n\n"

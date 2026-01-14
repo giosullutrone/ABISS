@@ -28,35 +28,38 @@ def get_selection_prompt(db: DBDataset,
                          generation_b: str, 
                          user_knowledge_level: UserKnowledgeLevel, 
                          user_answer_style: UserAnswerStyle) -> str:
-    prompt = f"You are an expert evaluator for user answers in text-to-SQL clarification scenarios. " \
-                "Your task is to select the best user answer that helps disambiguate an ambiguous question.\n\n"
+    prompt = "You are an expert evaluator for user answers in text-to-SQL clarification scenarios. " \
+             "Your task is to select the best user answer that helps disambiguate an ambiguous question.\n\n"
     
     prompt += "## Context\n"
     prompt += get_db_knowledge_level_prompt(db, user_knowledge_level, db_descriptions, conversation)
-    
     prompt += get_conversation_history_prompt(conversation)
 
     if user_answer_style == UserAnswerStyle.PRECISE:
-        prompt += "The answers to compare should be in a precise pseudo-SQL manner.\n\n"
+        prompt += "**Expected Answer Style:** Precise pseudo-SQL manner\n\n"
     else:
-        prompt += "The answers to compare should be in a natural, conversational manner.\n\n"
+        prompt += "**Expected Answer Style:** Natural, conversational manner\n\n"
     
-    prompt += "## Candidates\n"
+    prompt += "## Candidate Answers\n"
     prompt += f"**Answer A:**\n{generation_a}\n\n"
     prompt += f"**Answer B:**\n{generation_b}\n\n"
     
-    prompt += "## Selection Task\n"
-    prompt += "Compare the two candidate answers and select which one better helps disambiguate the original question. "
-    prompt += "Consider:\n"
-    prompt += "- Relevance to the clarification question\n"
-    prompt += "- Incorporation of hidden knowledge\n"
-    prompt += "- Clarity and helpfulness in resolving ambiguity\n"
-    prompt += "- Appropriateness to the user's knowledge level and answer style\n\n"
+    prompt += "## Evaluation Task\n"
+    prompt += "Compare the two candidate answers and determine which one better helps disambiguate the original question. " \
+              "Consider the following criteria:\n"
+    prompt += "- **Relevance:** Direct addressing of the clarification question\n"
+    prompt += "- **Knowledge Integration:** Effective incorporation of hidden knowledge\n"
+    prompt += "- **Clarity:** Helpfulness in resolving the ambiguity\n"
+    prompt += "- **Style Appropriateness:** Alignment with the user's knowledge level and expected answer style\n\n"
     
     prompt += "## Response Format\n"
-    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning analyzing which answer better helps disambiguate the original question. Consider: (1) relevance to the clarification question, (2) how well it incorporates the hidden knowledge, (3) clarity and helpfulness in resolving the ambiguity, and (4) appropriateness to the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.\n\n"
-    prompt += "Provide your evaluation as a JSON object with:\n"
+    prompt += "Provide a step-by-step analysis comparing the two answers across the evaluation criteria. " \
+              "Your reasoning should be concise but thorough (approximately 512 characters), addressing: " \
+              "(1) relevance to the clarification question, (2) how well it incorporates the hidden knowledge, " \
+              "(3) clarity and helpfulness in resolving the ambiguity, and " \
+              "(4) appropriateness to the user's knowledge level and answer style.\n\n"
+    prompt += "Then provide your final selection as a JSON object with:\n"
     prompt += model_field_descriptions(BestUserAnswerResponse) + "\n\n"
-    
     prompt += "Select 'A' or 'B' based on which answer is superior."
+    
     return prompt

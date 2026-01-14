@@ -12,24 +12,26 @@ def get_schema_to_nl_result(response: BaseModel) -> str:
     return SchemaToNLResponse.model_validate(response).description.strip()
 
 def get_generation_prompt(db: DBDataset, db_id: str) -> str:
-    prompt = f"You are an expert at describing database schemas in natural language. " \
-                "Your task is to analyze a database schema and provide a comprehensive description.\n\n"
+    prompt = "You are an expert at describing database schemas in natural language. " \
+             "Your task is to analyze a database schema and provide a comprehensive description.\n\n"
     
     prompt += "## Database Schema\n"
-    prompt += db.get_schema_prompt(db_id, rows=5, db_sql_manipulation=None) + "\n\n"
+    prompt += db.get_schema_prompt(db_id, rows=5) + "\n\n"
     
     prompt += "## Task\n"
     prompt += "Analyze the database schema and generate a natural language description that covers:\n"
-    prompt += "- Main tables and their purposes\n"
-    prompt += "- Key columns and their data types\n"
-    prompt += "- Relationships between tables (foreign keys, joins)\n"
-    prompt += "- Any constraints, indexes, or notable features\n"
-    prompt += "- Overall database structure and purpose\n\n"
+    prompt += "- **Main Tables:** Purpose and role of each table\n"
+    prompt += "- **Key Columns:** Important columns and their data types\n"
+    prompt += "- **Relationships:** Foreign keys and how tables connect\n"
+    prompt += "- **Constraints & Features:** Any constraints, indexes, or notable characteristics\n"
+    prompt += "- **Overall Structure:** The database's organization and intended purpose\n\n"
     
     prompt += "## Response Format\n"
-    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning analyzing the database schema structure, including tables, columns, relationships, and key features that should be described. Keep it concise but thorough, about 512 characters.\n\n"
-    prompt += "Provide your analysis as a JSON object with:\n"
+    prompt += "Provide a step-by-step analysis of the database schema structure. " \
+              "Your reasoning should be concise but thorough (approximately 512 characters), covering: " \
+              "tables, columns, relationships, and key features that should be included in the description.\n\n"
+    prompt += "Then provide your final description as a JSON object with:\n"
     prompt += model_field_descriptions(SchemaToNLResponse) + "\n\n"
-    
     prompt += "Ensure the description is clear, comprehensive, and suitable for understanding the database structure."
+    
     return prompt

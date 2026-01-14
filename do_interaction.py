@@ -20,6 +20,7 @@ class Systems(Enum):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run interaction runner")
+    parser.add_argument("--db_name", type=str, required=False, help="Name of the database to use")
     parser.add_argument("--db_root_path", type=str, required=True, help="Path to the database root")
     parser.add_argument("--question_path", type=str, required=True, help="Path to the questions file")
     parser.add_argument("--model_names", type=str, nargs='+', required=False, help="List of model names to use")
@@ -27,6 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_path", type=str, required=False, help="Path to save the results", default="results.json")
     args = parser.parse_args()
 
+    db_name: str = args.db_name
     db_root_path: str = args.db_root_path
     question_path: str = args.question_path
     model_names: list[str] = args.model_names
@@ -71,7 +73,7 @@ if __name__ == "__main__":
                                },
                                max_batch_with_text_size=100000) for model in model_names]
 
-    db_dataset = DBDataset(db_root_path=db_root_path)
+    db_dataset = DBDataset(db_root_path=db_root_path, db_name=db_name)
     system_instance = system_class(model=model_system, db_dataset=db_dataset, categories=get_all_categories())
     user_instance = User("test", 
                          db_dataset, 

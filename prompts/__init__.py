@@ -33,7 +33,7 @@ def get_conversation_history_prompt(conversation: "Conversation") -> str:
 
 def get_db_knowledge_level_prompt(db: DBDataset, user_knowledge_level: UserKnowledgeLevel, db_descriptions: dict[str, str] | None, conversation: "Conversation") -> str:
     if user_knowledge_level == UserKnowledgeLevel.FULL:
-        db_schema = db.get_schema_prompt(conversation.question.db_id, rows=5, db_sql_manipulation=None)
+        db_schema = db.get_schema_prompt(conversation.question.db_id, rows=5)
         return f"- The full database schema:\n{db_schema}\n"
     elif user_knowledge_level == UserKnowledgeLevel.NL:
         db_description = db_descriptions.get(conversation.question.db_id) # type: ignore

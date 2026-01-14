@@ -31,7 +31,7 @@ def get_interaction_prompt(db: DBDataset, conversation: Conversation, categories
                 "Your task is to either generate SQL queries or identify ambiguities that require clarification.\n\n"
 
     prompt += "## Database Schema\n"
-    prompt += db.get_schema_prompt(question.db_id, 5, None) + "\n\n"
+    prompt += db.get_schema_prompt(question.db_id, 5) + "\n\n"
 
     prompt += "## External Knowledge\n"
     prompt += f"{question.evidence if question.evidence is not None else 'N/A'}\n\n"

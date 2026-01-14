@@ -83,9 +83,10 @@ class ModelVLLM(Model):
             conversations_to_regenerate[idx] = conversation_to_regenerate
 
         # A batch can't have multiple different StructuredOutputsParams, so we regenerate one by one
+        # We also set add_generation_prompt to False as continuing from the previous message is not compatible with adding a new generation prompt
         for idx, conversation in conversations_to_regenerate.items():
             structured_sampling_params = SamplingParams(
-                **(self.sampling_kwargs if self.sampling_kwargs is not None else {}),
+                **{**(self.sampling_kwargs if self.sampling_kwargs is not None else {}), **{"add_generation_prompt": False}},
                 structured_outputs=StructuredOutputsParams(
                     json=constraints[idx].model_json_schema()
                 ),
