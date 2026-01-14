@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable
+    from dataset_dataclasses.question import Question
 from pydantic import BaseModel
 
 
@@ -39,7 +39,7 @@ class Category(ABC):
 
     @staticmethod
     @abstractmethod
-    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
+    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
         pass
 
     def to_dict(self) -> dict:

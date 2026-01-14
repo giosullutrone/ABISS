@@ -9,15 +9,15 @@ class Question:
     question: str
     evidence: str | None
     sql: str | None
-
-@dataclass
-class QuestionUnanswerable(Question):
     category: Category
-    hidden_knowledge: str | None
-    is_solvable: bool
 
     def to_dict(self) -> dict:
         return asdict(self, dict_factory=lambda x: {k: (v.to_dict() if hasattr(v, "to_dict") else v) for k, v in x})
+
+@dataclass
+class QuestionUnanswerable(Question):
+    hidden_knowledge: str | None
+    is_solvable: bool
     
     @classmethod
     def from_dict(cls, d: dict) -> "QuestionUnanswerable":

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from dataset_dataclasses.question import Question
+from dataset_dataclasses.question import Question, QuestionUnanswerable
 from dataset_dataclasses.system import SystemResponseQuestion, SystemResponseSQL
 from prompts import RelevancyLabel
 
@@ -69,7 +69,7 @@ class InteractionEvaluated(Interaction):
 
 @dataclass
 class Conversation:
-    question: Question
+    question: Question | QuestionUnanswerable
     interactions: list[InteractionEvaluated]
 
     def to_dict(self) -> dict:
@@ -78,7 +78,10 @@ class Conversation:
     @classmethod
     def from_dict(cls, d: dict) -> "Conversation":
         question: dict = d.pop("question")
-        q = Question(**question)
+        try:
+            q = QuestionUnanswerable.from_dict(question)
+        except:
+            q = Question(**question)
         interactions = [InteractionEvaluated.from_dict(i) for i in d.pop("interactions")]
         return cls(question=q, interactions=interactions)
 

@@ -3,12 +3,11 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable
+    from dataset_dataclasses.question import QuestionUnanswerable, Question
 
 
 class SemanticMappingLexicalOverlapCategory(Category):
     class SemanticMappingLexicalOverlapOutput(BaseModel):
-        reasoning: Annotated[str, Field(description="Use this field to think step-by-step about how to construct the question and SQL queries. First, identify which term or expression in the question will have multiple possible schema mappings. Second, determine what the different schema attributes are that share similar or identical forms within the same table or closely related tables. Third, explain how each mapping will affect the SQL query structure. Fourth, confirm why both mappings are semantically plausible given the question's wording. Use this reasoning to guide the generation of the 'question', 'sql_first_mapping', 'sql_second_mapping', 'hidden_knowledge_first_mapping', and 'hidden_knowledge_second_mapping' fields.")]
         question: Annotated[str, Field(description="A natural language question containing a term or expression that can map to multiple schema attributes with similar or identical names within the same entity or closely related entities. The ambiguity arises from lexical overlap where the same expression corresponds to different columns representing variants or types of the same concept (e.g., personal_email vs. institutional_email).")]
         sql_first_mapping: Annotated[str, Field(description="The SQL query using the first plausible schema mapping for the ambiguous term (e.g., using students.personal_email to represent the students' personal email addresses).")]
         sql_second_mapping: Annotated[str, Field(description="The SQL query using the second plausible schema mapping for the ambiguous term (e.g., using students.institutional_email to represent the students' institutional email addresses).")]
@@ -45,7 +44,7 @@ class SemanticMappingLexicalOverlapCategory(Category):
         return SemanticMappingLexicalOverlapCategory.SemanticMappingLexicalOverlapOutput
 
     @staticmethod
-    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
+    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, SemanticMappingLexicalOverlapCategory.SemanticMappingLexicalOverlapOutput)
         return [QuestionUnanswerable(

@@ -1,4 +1,5 @@
 from categories.category import Category
+from categories.answerable import AnswerableCategory
 from categories.conflicting_knowledge import ConflictingKnowledgeCategory
 from categories.improper_question import ImproperQuestionCategory
 from categories.lexical_vagueness import LexicalVaguenessCategory
@@ -13,6 +14,7 @@ from categories.structure_ambiguity_scope import StructureAmbiguityScopeCategory
 
 def get_all_categories() -> list[Category]:
     return [
+        AnswerableCategory(),
         ConflictingKnowledgeCategory(),
         ImproperQuestionCategory(),
         LexicalVaguenessCategory(),
@@ -33,6 +35,7 @@ def get_category_by_name(name: str, subname: str | None = None) -> Category | No
     return None
 
 __all__ = [
+    "AnswerableCategory",
     "ConflictingKnowledgeCategory",
     "ImproperQuestionCategory",
     "LexicalVaguenessCategory",

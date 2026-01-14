@@ -1,6 +1,6 @@
 from db_datasets.db_dataset import DBDataset
 from validators.validator import Validator
-from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.question import Question
 from models.model import Model
 from prompts.category_check_prompt import get_category_validation_prompt, CategoryCheckResponse, get_category_validation_result
 from pydantic import BaseModel
@@ -11,7 +11,7 @@ class CategoryCheck(Validator):
         self.db: DBDataset = db
         self.models: list[Model] = models
 
-    def validate(self, questions: list[QuestionUnanswerable]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> list[bool]:
         prompts: list[str] = []
         
         for question in questions:

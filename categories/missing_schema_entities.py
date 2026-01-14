@@ -3,12 +3,11 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable
+    from dataset_dataclasses.question import QuestionUnanswerable, Question
 
 
 class MissingSchemaEntitiesCategory(Category):
     class MissingSchemaEntitiesOutput(BaseModel):
-        reasoning: Annotated[str, Field(description="Use this field to think step-by-step about how to construct the question. First, analyze what information the question should request. Second, identify which specific tables or columns would be needed to answer it. Third, examine what is actually present in the current schema. Fourth, determine why the missing entities or attributes make the question fundamentally unanswerable without schema modifications. Use this reasoning to guide the generation of the 'question' field.")]
         question: Annotated[str, Field(description="A natural language question that requests information about entities or attributes that do not exist in the database schema. The question should be well-formed and realistic, but impossible to answer because key tables or columns are completely absent from the schema.")]
 
     @staticmethod
@@ -36,7 +35,7 @@ class MissingSchemaEntitiesCategory(Category):
         return MissingSchemaEntitiesCategory.MissingSchemaEntitiesOutput
 
     @staticmethod
-    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
+    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, MissingSchemaEntitiesCategory.MissingSchemaEntitiesOutput)
         return [QuestionUnanswerable(

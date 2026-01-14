@@ -3,12 +3,11 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable
+    from dataset_dataclasses.question import QuestionUnanswerable, Question
 
 
 class MissingUserKnowledgeCategory(Category):
     class MissingUserKnowledgeOutput(BaseModel):
-        reasoning: Annotated[str, Field(description="Use this field to think step-by-step about how to construct the question and SQL query. First, determine what the question should be asking for. Second, identify what user-specific information is referenced (e.g., 'my', 'our'). Third, explain why this information is not available in the database. Fourth, consider what specific user fact would be needed to disambiguate and answer the question. Use this reasoning to guide the generation of the 'question', 'sql_with_user_knowledge', and 'hidden_knowledge' fields.")]
         question: Annotated[str, Field(description="A natural language question that contains user-specific references (e.g., 'my department', 'our projects', 'my courses') whose interpretation depends on objective but user-specific facts not present in the database. The question is valid but cannot be answered without knowing context about the specific user asking the question.")]
         sql_with_user_knowledge: Annotated[str, Field(description="The SQL query that would correctly answer the question if the user-specific knowledge were known (e.g., using a concrete department value instead of the unresolved 'my department' reference).")]
         hidden_knowledge: Annotated[str, Field(description="The hidden user-specific fact that would resolve the ambiguity (e.g., 'The user's department is Engineering' or 'The user is employee ID 12345').")]
@@ -44,7 +43,7 @@ class MissingUserKnowledgeCategory(Category):
         return MissingUserKnowledgeCategory.MissingUserKnowledgeOutput
 
     @staticmethod
-    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
+    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, MissingUserKnowledgeCategory.MissingUserKnowledgeOutput)
         return [QuestionUnanswerable(

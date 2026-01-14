@@ -1,7 +1,6 @@
 from generators.generator import Generator
-from categories.category import Category
 from models.model import Model
-from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.question import Question
 from db_datasets.db_dataset import DBDataset
 from validators.sql_executable import SQLExecutable
 from validators.category_check import CategoryCheck
@@ -23,7 +22,7 @@ class GeneratorSolvable(Generator):
         self.check_copy_validator = CheckDuplicate()
         self.other_category_check_validator = CheckOtherCategories(db, models_validator, get_all_categories())
 
-    def validate(self, questions: list[QuestionUnanswerable]) -> list[QuestionUnanswerable]:
+    def validate(self, questions: list[Question]) -> list[Question]:
         # Five validation steps will be performed:
         # 1. Check if the question is not a copy of another question in the dataset.
         # 2. Check if the generated GT SQL executes without errors on the database schema.

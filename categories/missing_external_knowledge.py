@@ -3,12 +3,11 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable
+    from dataset_dataclasses.question import QuestionUnanswerable, Question
 
 
 class MissingExternalKnowledgeCategory(Category):
     class MissingExternalKnowledgeOutput(BaseModel):
-        reasoning: Annotated[str, Field(description="Use this field to think step-by-step about how to construct the question. First, determine what the question should be asking for. Second, identify what objective, domain-specific facts or policies are required to answer it. Third, explain why this knowledge cannot be derived from the database schema or data alone. Fourth, consider what external knowledge source would be needed to make the question answerable. Use this reasoning to guide the generation of the 'question' field.")]
         question: Annotated[str, Field(description="A natural language question whose interpretation depends on objective, domain-specific facts, conventions, or policies that are not present in the database. The question appears valid but cannot be answered without external knowledge such as conversion formulas, grading scales, classification rules, or domain-specific standards.")]
 
     @staticmethod
@@ -42,7 +41,7 @@ class MissingExternalKnowledgeCategory(Category):
         return MissingExternalKnowledgeCategory.MissingExternalKnowledgeOutput
 
     @staticmethod
-    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
+    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, MissingExternalKnowledgeCategory.MissingExternalKnowledgeOutput)
         return [QuestionUnanswerable(

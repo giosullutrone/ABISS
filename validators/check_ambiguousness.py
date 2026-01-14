@@ -1,5 +1,5 @@
 from validators.validator import Validator
-from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.question import Question
 from models.model import Model
 from db_datasets.db_dataset import DBDataset
 
@@ -9,7 +9,7 @@ class CheckAmbiguousness(Validator):
         self.db: DBDataset = db
         self.models: list[Model] = models
 
-    def validate(self, questions: list[QuestionUnanswerable]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> list[bool]:
         valids: list[bool] = [True for _ in questions]
 
         # Generate the SQL generation prompts
@@ -21,8 +21,7 @@ class CheckAmbiguousness(Validator):
             db_id=db_id,
             question=question,
             evidence=evidence,
-            num_rows=5,
-            db_sql_manipulation=None
+            num_rows=5
         ) for db_id, question, evidence in zip(db_ids, questions_text, evidences)]
 
         # Get the generated SQL queries from each model
@@ -48,8 +47,7 @@ class CheckAmbiguousness(Validator):
                 if sql is not None and self.db.compare_query_results(
                         db_id=question.db_id,
                         sql_query_1=gt_sql,
-                        sql_query_2=sql,
-                        db_sql_manipulation=None
+                        sql_query_2=sql
                     ):
                     valids[i] = False
                     break

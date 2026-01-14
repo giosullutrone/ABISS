@@ -1,6 +1,6 @@
 from db_datasets.db_dataset import DBDataset
 from prompts import model_field_descriptions
-from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.question import Question, QuestionUnanswerable
 from pydantic import BaseModel
 from typing import Annotated
 from pydantic import Field
@@ -15,7 +15,7 @@ def get_gt_validation_result(response: BaseModel) -> bool:
     answer = CheckGTResponse.model_validate(response).answer.strip().lower()
     return "yes" in answer
 
-def get_gt_validation_prompt(db: DBDataset, question: QuestionUnanswerable) -> str:
+def get_gt_validation_prompt(db: DBDataset, question: Question) -> str:
     prompt = "You are an expert SQL validator for text-to-SQL benchmarks. " \
              "Your task is to verify whether a ground truth SQL query correctly answers a natural language question " \
              "after disambiguation through hidden knowledge.\n\n"
@@ -31,8 +31,9 @@ def get_gt_validation_prompt(db: DBDataset, question: QuestionUnanswerable) -> s
     prompt += "## Question Information\n"
     prompt += f"**Natural Language Question:** {question.question}\n"
     
-    if question.hidden_knowledge:
-        prompt += f"**Hidden Knowledge (Disambiguating Information):** {question.hidden_knowledge}\n"
+    if isinstance(question, QuestionUnanswerable):
+        if question.hidden_knowledge:
+            prompt += f"**Hidden Knowledge (Disambiguating Information):** {question.hidden_knowledge}\n"
     
     prompt += f"**Ground Truth SQL Query:** {question.sql}\n"
     

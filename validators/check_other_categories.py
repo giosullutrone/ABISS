@@ -1,6 +1,6 @@
 from db_datasets.db_dataset import DBDataset
 from validators.validator import Validator
-from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.question import Question
 from models.model import Model
 from categories.category import Category
 from prompts.category_check_prompt import get_category_validation_prompt, CategoryCheckResponse, get_category_validation_result
@@ -13,7 +13,7 @@ class CheckOtherCategories(Validator):
         self.models: list[Model] = models
         self.categories: list[Category] = categories
 
-    def validate(self, questions: list[QuestionUnanswerable]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> list[bool]:
         # For each question, check if it fits any OTHER category (not its own)
         # If majority of models say it fits another category, mark as invalid
         

@@ -1,4 +1,4 @@
-from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.question import Question
 from validators.category_check import CategoryCheck
 from validators.check_duplicate import CheckDuplicate
 from generators.generator import Generator
@@ -16,7 +16,7 @@ class GeneratorUnsolvable(Generator):
         self.category_check_validator = CategoryCheck(db, models_validator)
         self.other_category_check_validator = CheckOtherCategories(db, models_validator, get_all_categories())
 
-    def validate(self, questions: list[QuestionUnanswerable]) -> list[QuestionUnanswerable]:
+    def validate(self, questions: list[Question]) -> list[Question]:
         # Two validation steps will be performed:
         # 1. Check if the question is not a copy of another question in the dataset.
         # 2. Check if the question fit the category definition by majority voting among the models

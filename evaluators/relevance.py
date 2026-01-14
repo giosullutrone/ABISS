@@ -10,6 +10,9 @@ class Relevance(Evaluator):
         self.user: User = user
 
     def evaluate(self, conversations: list[Conversation]) -> list[Conversation]:
+        """
+        Returns judged relevancies for unanswerable questions with SystemResponseQuestion.
+        """
         questions = [conversation.question for conversation in conversations]
         system_responses = [conversation.interactions[-1].system_response for conversation in conversations]
 

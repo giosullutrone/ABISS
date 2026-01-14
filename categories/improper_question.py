@@ -3,12 +3,11 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable
+    from dataset_dataclasses.question import QuestionUnanswerable, Question
 
 
 class ImproperQuestionCategory(Category):
     class ImproperQuestionOutput(BaseModel):
-        reasoning: Annotated[str, Field(description="Use this field to think step-by-step about how to construct the question. First, determine what the question should be asking for. Second, explain why it is unrelated to database querying or the domain covered by the database. Third, identify what category of improper question it falls into (chit-chat, external reasoning, non-query request). Fourth, confirm why it cannot be addressed with SQL queries against the database. Use this reasoning to guide the generation of the 'question' field.")]
         question: Annotated[str, Field(description="A question that is unrelated to the database domain and cannot be answered through SQL queries. This includes chit-chat, philosophical questions, requests for external reasoning, or commands that are not database queries (e.g., updates, general knowledge questions).")]
 
     @staticmethod
@@ -43,7 +42,7 @@ class ImproperQuestionCategory(Category):
         return ImproperQuestionCategory.ImproperQuestionOutput
 
     @staticmethod
-    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
+    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, ImproperQuestionCategory.ImproperQuestionOutput)
         return [QuestionUnanswerable(

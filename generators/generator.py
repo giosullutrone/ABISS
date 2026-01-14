@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.question import Question
 from categories.category import Category
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
@@ -17,14 +17,14 @@ class Generator(ABC):
         self.solvable: bool = solvable
         self.intermediate_results_folder = intermediate_results_folder
 
-    def save_intermediate_results(self, questions: list[QuestionUnanswerable], stage: str) -> None:
+    def save_intermediate_results(self, questions: list[Question], stage: str) -> None:
         if self.intermediate_results_folder is not None:
             os.makedirs(self.intermediate_results_folder, exist_ok=True)
             with open(os.path.join(self.intermediate_results_folder, f"{'solvable' if self.solvable else 'unsolvable'}_intermediate_{stage}.json"), "w", encoding="utf-8") as f:
                 json.dump([q.to_dict() for q in questions], f, ensure_ascii=False, indent=4)
 
-    def generate_for_model(self, model: Model, db_ids: list[str], categories: list[Category]) -> list[QuestionUnanswerable]:
-        questions_unanswerable: list[QuestionUnanswerable] = []
+    def generate_for_model(self, model: Model, db_ids: list[str], categories: list[Category]) -> list[Question]:
+        questions: list[Question] = []
         model.init()
         for category in categories:
             prompts: list[str] = []
@@ -44,22 +44,22 @@ class Generator(ABC):
             # Use the model to generate the questions
             responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, [category.get_output()] * len(prompts) * self.n_samples)
 
-            # Convert the responses into QuestionUnanswerable instances
+            # Convert the responses into Question instances
             # Take into account the db_id repetition due to n_samples
             assert len(responses) == len(prompts) * self.n_samples, "Number of responses does not match number of prompts times n_samples. Check the model sampling settings."
             for idx, response in enumerate(responses):
-                question_unanswerable = category.get_unanswerable_question(db_ids[idx // self.n_samples], response)
-                questions_unanswerable.extend(question_unanswerable)
+                question = category.get_question(db_ids[idx // self.n_samples], response)
+                questions.extend(question)
         model.close()
-        return questions_unanswerable
+        return questions
 
-    def generate(self, db_ids: list[str], categories: list[Category]) -> list[QuestionUnanswerable]:
-        all_questions_unanswerable: list[QuestionUnanswerable] = []
+    def generate(self, db_ids: list[str], categories: list[Category]) -> list[Question]:
+        all_questions: list[Question] = []
         for model in self.models:
-            questions_unanswerable = self.generate_for_model(model, db_ids, categories)
-            all_questions_unanswerable.extend(questions_unanswerable)
-        return all_questions_unanswerable
-
+            questions = self.generate_for_model(model, db_ids, categories)
+            all_questions.extend(questions)
+        return all_questions
+    
     @abstractmethod
-    def validate(self, questions: list[QuestionUnanswerable]) -> list[QuestionUnanswerable]:
+    def validate(self, questions: list[Question]) -> list[Question]:
         pass

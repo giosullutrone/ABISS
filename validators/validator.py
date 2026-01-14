@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.question import Question
 
 
 class Validator(ABC):
     @abstractmethod
-    def validate(self, questions: list[QuestionUnanswerable]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> list[bool]:
         pass

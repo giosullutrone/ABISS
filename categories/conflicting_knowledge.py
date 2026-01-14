@@ -3,12 +3,11 @@ from typing import Annotated
 from categories.category import Category
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from dataset_dataclasses.question import QuestionUnanswerable
+    from dataset_dataclasses.question import Question
 
 
 class ConflictingKnowledgeCategory(Category):
     class ConflictingKnowledgeOutput(BaseModel):
-        reasoning: Annotated[str, Field(description="Use this field to think step-by-step about how to construct the question, evidence pieces, and SQL queries. First, identify what concept in the question has multiple definitions. Second, determine what the conflicting pieces of evidence are and how they differ. Third, explain how each interpretation leads to different SQL queries. Fourth, confirm why both interpretations are valid based on the available evidence. Use this reasoning to guide the generation of the 'question', 'sql_first_evidence', 'sql_second_evidence', 'evidence_first', 'evidence_second', 'hidden_knowledge_first_evidence', and 'hidden_knowledge_second_evidence' fields.")]
         question: Annotated[str, Field(description="A natural language question that references a concept for which multiple, non-equivalent definitions or interpretations exist in the knowledge base. The ambiguity arises not from the question itself but from conflicting evidence about how to interpret a specific term or calculation.")]
         sql_first_evidence: Annotated[str, Field(description="The SQL query based on the first piece of evidence from the knowledge base (e.g., calculating performance as simple average grade).")]
         sql_second_evidence: Annotated[str, Field(description="The SQL query based on the second piece of evidence from the knowledge base (e.g., calculating performance as credit-weighted average grade).")]
@@ -45,9 +44,9 @@ class ConflictingKnowledgeCategory(Category):
     @staticmethod
     def get_output() -> type[BaseModel]:
         return ConflictingKnowledgeCategory.ConflictingKnowledgeOutput
-
+    
     @staticmethod
-    def get_unanswerable_question(db_id: str, output: BaseModel) -> list["QuestionUnanswerable"]:
+    def get_question(db_id: str, output: BaseModel) -> list["Question"]:
         from dataset_dataclasses.question import QuestionUnanswerable
         assert isinstance(output, ConflictingKnowledgeCategory.ConflictingKnowledgeOutput)
         return [QuestionUnanswerable(
