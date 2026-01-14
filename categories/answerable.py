@@ -31,6 +31,10 @@ class AnswerableCategory(Category):
             "What is the average grade for students in Biology 101?",
             "Show the names of professors who teach in the Engineering department."
         ]
+    
+    @staticmethod
+    def is_answerable() -> bool:
+        return True
 
     @staticmethod
     def is_solvable() -> bool:

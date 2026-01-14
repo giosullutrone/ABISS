@@ -37,6 +37,10 @@ class LexicalVaguenessCategory(Category):
         ]
 
     @staticmethod
+    def is_answerable() -> bool:
+        return False
+
+    @staticmethod
     def is_solvable() -> bool:
         return True
 

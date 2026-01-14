@@ -36,6 +36,10 @@ class ConflictingKnowledgeCategory(Category):
             "Find experienced employees.",  # Experience = years at company vs. years in industry
             "Display high-priority tasks."  # Priority based on deadline vs. priority based on importance score
         ]
+    
+    @staticmethod
+    def is_answerable() -> bool:
+        return False
 
     @staticmethod
     def is_solvable() -> bool:

@@ -40,22 +40,21 @@ def get_category_validation_prompt(db: DBDataset, category: Category, question: 
     prompt += "## Question to Validate\n"
     prompt += f"**Natural Language Question:** {question.question}\n"
     
-    # Only include hidden knowledge and SQL if the question is of type QuestionUnanswerable
+    # Include SQL for all questions (both answerable and unanswerable)
+    if question.sql:
+        prompt += f"**Ground Truth SQL:** {question.sql}\n"
+        
+        results = db.execute_query(
+            db_id=question.db_id, 
+            sql_query=question.sql
+        )
+        if results is not None:
+            prompt += f"**Query Results (first 5 rows):** {results[:5]}\n"
+    
+    # Only include hidden knowledge if the question is of type QuestionUnanswerable
     if isinstance(question, QuestionUnanswerable):
-        if question.is_solvable:
-            # Solvable category - should have hidden knowledge and SQL
-            if question.hidden_knowledge:
-                prompt += f"**Hidden Knowledge:** {question.hidden_knowledge}\n"
-            
-            if question.sql:
-                prompt += f"**Ground Truth SQL:** {question.sql}\n"
-                
-                results = db.execute_query(
-                    db_id=question.db_id, 
-                    sql_query=question.sql
-                )
-                if results is not None:
-                    prompt += f"**Query Results (first 5 rows):** {results[:5]}\n"
+        if question.hidden_knowledge:
+            prompt += f"**Hidden Knowledge:** {question.hidden_knowledge}\n"
     
     prompt += "\n## Validation Task\n"
     
@@ -90,6 +89,24 @@ def get_category_validation_prompt(db: DBDataset, category: Category, question: 
             prompt += "- The question is actually answerable with the current schema\n"
             prompt += "- The issue is not a schema limitation but another type of problem\n"
             prompt += "- The question would fit better in a different category\n"
+    else:
+        # Regular answerable question
+        prompt += "For this **answerable** category, verify that:\n"
+        prompt += "1. The question is clear and unambiguous\n"
+        prompt += "2. The question can be directly answered using the available database schema\n"
+        prompt += "3. The question does not require any hidden knowledge, external information, or disambiguation\n"
+        prompt += "4. The provided SQL query is syntactically correct and executable\n"
+        prompt += "5. The SQL query correctly answers the question as stated\n"
+        prompt += "6. The question does not exhibit any ambiguity or characteristics of other categories\n"
+        prompt += "7. The question is realistic and natural\n\n"
+        
+        prompt += "**Answer 'Yes' if:** All conditions are met and the question is genuinely answerable without ambiguity.\n\n"
+        prompt += "**Answer 'No' if:**\n"
+        prompt += "- The question is ambiguous or exhibits characteristics of other categories (vagueness, ambiguity, etc.)\n"
+        prompt += "- The question requires information not available in the database\n"
+        prompt += "- The SQL query doesn't correctly answer the question\n"
+        prompt += "- The SQL query has syntax errors or cannot be executed\n"
+        prompt += "- The question would fit better in a different category\n"
     
     prompt += "\n## Response Format\n"
     prompt += "Provide a step-by-step analysis of whether the question fits the specified category. " \

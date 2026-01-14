@@ -29,6 +29,11 @@ class Category(ABC):
 
     @staticmethod
     @abstractmethod
+    def is_answerable() -> bool:
+        pass
+
+    @staticmethod
+    @abstractmethod
     def is_solvable() -> bool:
         pass
 
