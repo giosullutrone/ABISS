@@ -50,8 +50,8 @@ if __name__ == "__main__":
                                    "seed": 42,
                                },
                                model_kwargs={
-                                   "max_model_len": 32000, 
-                                   "max_num_batched_tokens": 32000,
+                                   "max_model_len": 16000, 
+                                   "max_num_batched_tokens": 16000,
                                    "enable_prefix_caching": True, 
                                    "enforce_eager": True,
                                    "tensor_parallel_size": tensor_parallel_size,
