@@ -7,7 +7,7 @@ from typing import Literal
 
 
 class BestDescriptionResponse(BaseModel):
-    answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Description A is better, 'B' if Description B is better.")]
+    answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Description A is better, 'B' if Description B is better. Put only 'A' or 'B'.")]
 
 def get_best_description_result(response: BaseModel) -> int:
     answer = BestDescriptionResponse.model_validate(response).answer.strip().upper()

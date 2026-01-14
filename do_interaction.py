@@ -43,14 +43,15 @@ if __name__ == "__main__":
     tensor_parallel_size: int = args.tensor_parallel_size
     output_path: str = args.output_path
 
-    ### System and Model Initialization ###
-    system_class: Type[System] = Systems.DEFAULT.value
+    ################################################################################
+    ### System and Model Initialization
+    system_class: Type[System] = SystemLLM
     model_system_name = "../models/Mistral-Small-3.2-24B-Instruct-2506"
 
     model_system = ModelVLLM(model_name=model_system_name,
                                 sampling_kwargs={
                                     "max_tokens": 2048,
-                                    "temperature": 0.0,
+                                    "temperature": 0.15, # Suggested for Mistral-Small-3.2-24B-Instruct-2506
                                     "seed": 42,
                                 },
                                 model_kwargs={
@@ -61,7 +62,8 @@ if __name__ == "__main__":
                                     "tensor_parallel_size": tensor_parallel_size,
                                     "limit_mm_per_prompt": {"image": 0, "video": 0}, 
                                 },
-                                max_batch_with_text_size=100000) 
+                                max_batch_with_text_size=100000)
+    ################################################################################
 
     models_validator: list[Model] = [ModelVLLM(model_name=model,
                                sampling_kwargs={
@@ -82,7 +84,9 @@ if __name__ == "__main__":
                                max_batch_with_text_size=100000) for model in model_names]
 
     db_dataset = DBDataset(db_root_path=db_root_path, db_name=db_name)
+
     system_instance = system_class(model=model_system, db_dataset=db_dataset, categories=get_all_categories())
+
     user_instance = User("test", 
                          db_dataset, 
                          models_validator, 

@@ -10,7 +10,7 @@ from typing import Literal
 
 class QuestionRelevancyResponse(BaseModel):
     answer: Annotated[Literal["Relevant", "Technical", "Irrelevant"], Field(description="Final classification: 'Relevant' if the clarification question helps disambiguate the original question using the hidden knowledge, "
-    "'Technical' if it focuses on SQL technical aspects unrelated to the ambiguity, or 'Irrelevant' if it doesn't help with disambiguation or tries to extract hidden information.")]
+    "'Technical' if it focuses on SQL technical aspects unrelated to the ambiguity, or 'Irrelevant' if it doesn't help with disambiguation or tries to extract hidden information. Put only 'Relevant', 'Technical', or 'Irrelevant'.")]
 
 def get_question_relevancy_result(response: BaseModel) -> RelevancyLabel:
     answer = QuestionRelevancyResponse.model_validate(response).answer.strip().lower()

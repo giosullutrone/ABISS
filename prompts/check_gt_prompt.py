@@ -9,7 +9,7 @@ from typing import Literal
 
 class CheckGTResponse(BaseModel):
     answer: Annotated[Literal["Yes", "No"], Field(description="Final verdict: 'Yes' if the SQL query correctly answers the disambiguated question (considering the hidden knowledge), "
-    "or 'No' if it fails to capture the intended meaning or contains errors.")]
+    "or 'No' if it fails to capture the intended meaning or contains errors. Put only 'Yes' or 'No'.")]
 
 def get_gt_validation_result(response: BaseModel) -> bool:
     answer = CheckGTResponse.model_validate(response).answer.strip().lower()

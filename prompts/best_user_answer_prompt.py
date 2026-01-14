@@ -10,7 +10,7 @@ from typing import Literal
 
 
 class BestUserAnswerResponse(BaseModel):
-    answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Answer A is better, 'B' if Answer B is better.")]
+    answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Answer A is better, 'B' if Answer B is better. Put only 'A' or 'B'.")]
 
 def get_best_user_answer_result(response: BaseModel) -> int:
     """Parses the model response and returns '0' or '1' based on whether Answer A is better or B."""

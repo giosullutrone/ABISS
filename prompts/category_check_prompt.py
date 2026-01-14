@@ -10,7 +10,7 @@ from typing import Literal
 
 class CategoryCheckResponse(BaseModel):
     answer: Annotated[Literal["Yes", "No"], Field(description="Final verdict: 'Yes' if the question correctly belongs to the specified category, or "
-    "'No' if it doesn't match the category's characteristics or belongs to a different category.")]
+    "'No' if it doesn't match the category's characteristics or belongs to a different category. Put only 'Yes' or 'No'.")]
 
 def get_category_validation_result(response: BaseModel) -> bool:
     answer = CategoryCheckResponse.model_validate(response).answer.strip().lower()
