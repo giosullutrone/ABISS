@@ -8,6 +8,7 @@ from validators.check_gt import CheckGT
 from validators.check_duplicate import CheckDuplicate
 from categories import get_all_categories
 from validators.check_other_categories import CheckOtherCategories
+from validators.style_difficulty_check import StyleDifficultyCheck
 
 
 class GeneratorAnswerable(Generator):
@@ -19,6 +20,7 @@ class GeneratorAnswerable(Generator):
         self.check_gt_validator = CheckGT(db, models_validator)
         self.check_copy_validator = CheckDuplicate()
         self.other_category_check_validator = CheckOtherCategories(db, models_validator, get_all_categories())
+        self.style_difficulty_check_validator = StyleDifficultyCheck(db, models_validator)
 
     def validate(self, questions: list[Question]) -> list[Question]:
         # Five validation steps will be performed:
@@ -49,7 +51,12 @@ class GeneratorAnswerable(Generator):
         questions = [q for i, q in enumerate(questions) if other_category_valids[i]]
         self.save_intermediate_results(questions, "after_other_categories_check")
 
-        # Step 5: GT Satisfaction Validation
+        # Step 5: Check style and difficulty
+        style_difficulty_valids: list[bool] = self.style_difficulty_check_validator.validate(questions=questions)
+        questions = [q for i, q in enumerate(questions) if style_difficulty_valids[i]]
+        self.save_intermediate_results(questions, "after_style_difficulty_check")
+
+        # Step 6: GT Satisfaction Validation
         gt_satisfaction_valids: list[bool] = self.check_gt_validator.validate(questions=questions)
         questions = [q for i, q in enumerate(questions) if gt_satisfaction_valids[i]]
         self.save_intermediate_results(questions, "after_gt_satisfaction_check")

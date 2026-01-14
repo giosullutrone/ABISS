@@ -6,6 +6,7 @@ from models.model import Model
 from db_datasets.db_dataset import DBDataset
 from categories import get_all_categories
 from validators.check_other_categories import CheckOtherCategories
+from validators.style_difficulty_check import StyleDifficultyCheck
 
 
 class GeneratorUnsolvable(Generator):
@@ -15,11 +16,9 @@ class GeneratorUnsolvable(Generator):
         self.check_copy_validator = CheckDuplicate()
         self.category_check_validator = CategoryCheck(db, models_validator)
         self.other_category_check_validator = CheckOtherCategories(db, models_validator, get_all_categories())
+        self.style_difficulty_check_validator = StyleDifficultyCheck(db, models_validator)
 
     def validate(self, questions: list[Question]) -> list[Question]:
-        # Two validation steps will be performed:
-        # 1. Check if the question is not a copy of another question in the dataset.
-        # 2. Check if the question fit the category definition by majority voting among the models
         self.save_intermediate_results(questions, "initial")
 
         # Step 1: Check Copy Validation
@@ -36,4 +35,9 @@ class GeneratorUnsolvable(Generator):
         other_category_valids: list[bool] = self.other_category_check_validator.validate(questions=questions)
         questions = [q for i, q in enumerate(questions) if other_category_valids[i]]
         self.save_intermediate_results(questions, "after_other_categories_check")
+
+        # Step 4. Check style and difficulty
+        style_difficulty_valids: list[bool] = self.style_difficulty_check_validator.validate(questions=questions)
+        questions = [q for i, q in enumerate(questions) if style_difficulty_valids[i]]
+        self.save_intermediate_results(questions, "after_style_difficulty_check")
         return questions
