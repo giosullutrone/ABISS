@@ -4,7 +4,7 @@ from interactions.user_answer import UserAnswer
 from interactions.schema_to_nl import SchemaToNL
 from db_datasets.db_dataset import DBDataset
 from dataset_dataclasses.results import Conversation
-from interactions import UserKnowledgeLevel, UserAnswerStyle
+from prompts import UserKnowledgeLevel, UserAnswerStyle
 
 
 class User:

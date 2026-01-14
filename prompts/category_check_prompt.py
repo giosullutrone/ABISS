@@ -1,4 +1,4 @@
-from generators import model_field_descriptions
+from prompts import model_field_descriptions
 from categories.category import Category
 from dataset_dataclasses.question import QuestionUnanswerable
 from db_datasets.db_dataset import DBDataset

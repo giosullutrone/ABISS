@@ -3,12 +3,10 @@ from dataset_dataclasses.question import QuestionUnanswerable
 from pydantic import BaseModel
 from typing import Annotated
 from pydantic import Field
-from generators import model_field_descriptions
-from interactions import RelevancyLabel
+from prompts import model_field_descriptions
+from prompts import RelevancyLabel
 from typing import Literal
-from interactions.prompts import response_debug
 
-first = True
 
 class QuestionRelevancyResponse(BaseModel):
     thinking_process: Annotated[str, Field(description="Step-by-step reasoning analyzing whether the clarification question is relevant to the original ambiguous question and hidden knowledge. "
@@ -18,7 +16,6 @@ class QuestionRelevancyResponse(BaseModel):
     answer: Annotated[Literal["Relevant", "Technical", "Irrelevant"], Field(description="Final classification: 'Relevant' if the clarification question helps disambiguate the original question using the hidden knowledge, "
     "'Technical' if it focuses on SQL technical aspects unrelated to the ambiguity, or 'Irrelevant' if it doesn't help with disambiguation or tries to extract hidden information.")]
 
-@response_debug
 def get_question_relevancy_result(response: str) -> RelevancyLabel:
     response_json = QuestionRelevancyResponse.model_validate_json(response)
     answer = response_json.answer.strip().lower()
@@ -31,8 +28,6 @@ def get_question_relevancy_result(response: str) -> RelevancyLabel:
     raise ValueError("Invalid answer in QuestionRelevancyResponse: must contain 'Relevant', 'Technical', or 'Irrelevant'.")
 
 def get_relevancy_prompt(conversation: Conversation) -> str:
-    global first
-
     prompt = f"You are an expert evaluator for text-to-SQL clarification question relevance. " \
                 "Your task is to assess whether a clarification question helps disambiguate an ambiguous user query.\n\n"
     
@@ -60,7 +55,4 @@ def get_relevancy_prompt(conversation: Conversation) -> str:
     prompt += model_field_descriptions(QuestionRelevancyResponse) + "\n\n"
     
     prompt += "Choose exactly one classification: 'Relevant', 'Technical', or 'Irrelevant'."
-    if first:
-        first = False
-        print("Question Relevancy Prompt:", prompt)
     return prompt

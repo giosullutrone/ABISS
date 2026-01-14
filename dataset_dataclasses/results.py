@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict
 from dataset_dataclasses.question import Question
 from dataset_dataclasses.system import SystemResponseQuestion, SystemResponseSQL
-from interactions import RelevancyLabel
+from prompts import RelevancyLabel
 
 
 @dataclass

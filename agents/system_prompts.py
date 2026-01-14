@@ -1,11 +1,11 @@
 from db_datasets.db_dataset import DBDataset
 from dataset_dataclasses.results import Conversation
 from categories.category import Category
-from interactions import get_conversation_history_prompt
+from prompts import get_conversation_history_prompt
 from pydantic import BaseModel
 from typing import Annotated, Optional, Literal
 from pydantic import Field
-from generators import model_field_descriptions
+from prompts import model_field_descriptions
 
 
 class SystemResponse(BaseModel):

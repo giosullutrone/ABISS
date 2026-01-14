@@ -5,7 +5,7 @@ from db_datasets.db_dataset import DBDataset
 from models.model import Model
 import json
 import os
-from generators.prompts.generator_prompt import get_generation_prompt
+from prompts.generator_prompt import get_generation_prompt
 
 
 class Generator(ABC):

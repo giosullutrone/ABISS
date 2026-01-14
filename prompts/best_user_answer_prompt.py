@@ -1,15 +1,13 @@
 from dataset_dataclasses.results import Conversation
 from db_datasets.db_dataset import DBDataset
-from interactions import get_db_knowledge_level_prompt, get_conversation_history_prompt
-from interactions import UserKnowledgeLevel, UserAnswerStyle
+from prompts import get_db_knowledge_level_prompt, get_conversation_history_prompt
+from prompts import UserKnowledgeLevel, UserAnswerStyle
 from pydantic import BaseModel
 from typing import Annotated
 from pydantic import Field
-from generators import model_field_descriptions
+from prompts import model_field_descriptions
 from typing import Literal
-from interactions.prompts import response_debug
 
-first = True
 
 class BestUserAnswerResponse(BaseModel):
     thinking_process: Annotated[str, Field(description="Step-by-step reasoning analyzing which answer better helps disambiguate the original question. "
@@ -19,7 +17,6 @@ class BestUserAnswerResponse(BaseModel):
     "(4) appropriateness to the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.")]
     answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Answer A is better, 'B' if Answer B is better.")]
 
-@response_debug
 def get_best_user_answer_result(response: str) -> int:
     """Parses the model response and returns '0' or '1' based on whether Answer A is better or B."""
     response_json = BestUserAnswerResponse.model_validate_json(response)
@@ -37,7 +34,6 @@ def get_selection_prompt(db: DBDataset,
                          generation_b: str, 
                          user_knowledge_level: UserKnowledgeLevel, 
                          user_answer_style: UserAnswerStyle) -> str:
-    global first
     prompt = f"You are an expert evaluator for user answers in text-to-SQL clarification scenarios. " \
                 "Your task is to select the best user answer that helps disambiguate an ambiguous question.\n\n"
     
@@ -68,7 +64,4 @@ def get_selection_prompt(db: DBDataset,
     prompt += model_field_descriptions(BestUserAnswerResponse) + "\n\n"
     
     prompt += "Select 'A' or 'B' based on which answer is superior."
-    if first:
-        first = False
-        print("Best User Answer Prompt:", prompt)
     return prompt

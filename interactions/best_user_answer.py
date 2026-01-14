@@ -1,8 +1,8 @@
 from dataset_dataclasses.results import Conversation
 from models.model import Model
-from interactions import UserKnowledgeLevel, UserAnswerStyle
+from prompts import UserKnowledgeLevel, UserAnswerStyle
 from db_datasets.db_dataset import DBDataset
-from interactions.prompts.best_user_answer_prompt import get_selection_prompt, BestUserAnswerResponse, get_best_user_answer_result
+from prompts.best_user_answer_prompt import get_selection_prompt, BestUserAnswerResponse, get_best_user_answer_result
 
 
 class BestUserAnswer:

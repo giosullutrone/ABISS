@@ -10,7 +10,7 @@ import json
 from models.model import Model
 from models.model_vllm import ModelVLLM
 from interactions.user import User
-from interactions import UserKnowledgeLevel, UserAnswerStyle
+from prompts import UserKnowledgeLevel, UserAnswerStyle
 from categories import get_all_categories
 import os
 

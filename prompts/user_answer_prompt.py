@@ -2,21 +2,18 @@ from db_datasets.db_dataset import DBDataset
 from dataset_dataclasses.results import Conversation
 from dataset_dataclasses.question import QuestionUnanswerable
 from dataset_dataclasses.system import SystemResponseQuestion
-from interactions import UserAnswerStyle, UserKnowledgeLevel
-from interactions import get_db_knowledge_level_prompt, get_conversation_history_prompt
+from prompts import UserAnswerStyle, UserKnowledgeLevel
+from prompts import get_db_knowledge_level_prompt, get_conversation_history_prompt
 from pydantic import BaseModel
 from typing import Annotated
 from pydantic import Field
-from generators import model_field_descriptions
-from interactions.prompts import response_debug
+from prompts import model_field_descriptions
 
-first = True
 
 class UserAnswerResponse(BaseModel):
     thinking_process: Annotated[str, Field(description="Step-by-step reasoning about how to formulate an appropriate answer that helps disambiguate the original question using the hidden knowledge, considering the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.")]
     answer: Annotated[str, Field(description="The final user answer to the clarification question, formulated according to the specified style (conversational or precise pseudo-SQL) and incorporating the hidden knowledge to help disambiguate the original question.")]
 
-@response_debug
 def get_user_answer_result(response: str) -> str:
     response_json = UserAnswerResponse.model_validate_json(response)
     return response_json.answer.strip()
@@ -29,7 +26,6 @@ def get_user_answer_prompt(db: DBDataset,
     """
     Precise prompt to get the user answer to the clarification question with a conversational style.
     """
-    global first
     question = conversation.question
     assert isinstance(question, QuestionUnanswerable), "Question must be of type QuestionUnanswerable."
     assert isinstance(conversation.interactions[-1].system_response, SystemResponseQuestion), "Last system response must be of type SystemResponseQuestion."
@@ -60,7 +56,4 @@ def get_user_answer_prompt(db: DBDataset,
     prompt += model_field_descriptions(UserAnswerResponse) + "\n\n"
     
     prompt += "Ensure the answer appropriately incorporates the hidden knowledge and follows the specified style."
-    if first:
-        first = False
-        print("User Answer Prompt:", prompt)
     return prompt

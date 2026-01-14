@@ -6,10 +6,7 @@ from agents.system_prompts import get_interaction_prompt, SystemResponse, get_sy
 from db_datasets.db_dataset import DBDataset
 from difflib import get_close_matches
 from categories.category import Category
-from categories import get_category_by_name, get_all_categories
-from enum import Enum
-
-categories_enum = Enum('CategoriesEnum', {cat.get_name(): cat for cat in get_all_categories()})
+from categories import get_category_by_name
 
 
 class SystemLLM(System):

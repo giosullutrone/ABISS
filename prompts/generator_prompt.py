@@ -1,5 +1,5 @@
 from categories.category import Category
-from generators import model_field_descriptions
+from prompts import model_field_descriptions
 from db_datasets.db_dataset import DBDataset
 
 
