@@ -1,0 +1,44 @@
+from db_datasets import DBDataset
+from pydantic import BaseModel
+from typing import Annotated
+from pydantic import Field
+from generators import model_field_descriptions
+from interactions.prompts import response_debug
+
+first = True
+
+class SchemaToNLResponse(BaseModel):
+    thinking_process: Annotated[str, Field(description="Step-by-step reasoning analyzing the database schema structure, including tables, columns, relationships, and key features that should be described. " \
+    "Keep it concise but thorough, about 512 characters.")]
+    description: Annotated[str, Field(description="A concise but comprehensive natural language summary of the database schema, covering all important tables, their relationships, and notable features.")]
+
+@response_debug
+def get_schema_to_nl_result(response: str) -> str:
+    response_json = SchemaToNLResponse.model_validate_json(response)
+    return response_json.description.strip()
+
+def get_generation_prompt(db: DBDataset, db_id: str) -> str:
+    global first
+    prompt = f"You are an expert at describing database schemas in natural language. " \
+                "Your task is to analyze a database schema and provide a comprehensive description.\n\n"
+    
+    prompt += "## Database Schema\n"
+    prompt += db.get_schema_prompt(db_id, rows=5, db_sql_manipulation=None) + "\n\n"
+    
+    prompt += "## Task\n"
+    prompt += "Analyze the database schema and generate a natural language description that covers:\n"
+    prompt += "- Main tables and their purposes\n"
+    prompt += "- Key columns and their data types\n"
+    prompt += "- Relationships between tables (foreign keys, joins)\n"
+    prompt += "- Any constraints, indexes, or notable features\n"
+    prompt += "- Overall database structure and purpose\n\n"
+    
+    prompt += "## Response Format\n"
+    prompt += "Provide your analysis as a JSON object with:\n"
+    prompt += model_field_descriptions(SchemaToNLResponse) + "\n\n"
+    
+    prompt += "Ensure the description is clear, comprehensive, and suitable for understanding the database structure."
+    if first:
+        first = False
+        print("Schema to NL Prompt:", prompt)
+    return prompt
