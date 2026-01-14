@@ -11,7 +11,6 @@ from prompts import model_field_descriptions
 
 
 class UserAnswerResponse(BaseModel):
-    thinking_process: Annotated[str, Field(description="Step-by-step reasoning about how to formulate an appropriate answer that helps disambiguate the original question using the hidden knowledge, considering the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.")]
     answer: Annotated[str, Field(description="The final user answer to the clarification question, formulated according to the specified style (conversational or precise pseudo-SQL) and incorporating the hidden knowledge to help disambiguate the original question.")]
 
 def get_user_answer_result(response: BaseModel) -> str:
@@ -51,6 +50,7 @@ def get_user_answer_prompt(db: DBDataset,
         prompt += "**Style:** Respond in a precise pseudo-SQL manner, focusing on providing the necessary information to clarify the original question. Make sure your answer is relevant and helps clarify the original question.\n\n"
     
     prompt += "## Response Format\n"
+    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning about how to formulate an appropriate answer that helps disambiguate the original question using the hidden knowledge, considering the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.\n\n"
     prompt += "Provide your response as a JSON object with:\n"
     prompt += model_field_descriptions(UserAnswerResponse) + "\n\n"
     

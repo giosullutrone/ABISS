@@ -7,11 +7,6 @@ from typing import Literal
 
 
 class BestDescriptionResponse(BaseModel):
-    thinking_process: Annotated[str, Field(description="Step-by-step reasoning analyzing which description better represents the database schema. "
-    "Consider: (1) completeness and coverage of schema elements, "
-    "(2) clarity and readability, "
-    "(3) accuracy in describing tables, columns, and relationships, and "
-    "(4) helpfulness for understanding the database structure. Keep it concise but thorough, about 512 characters.")]
     answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Description A is better, 'B' if Description B is better.")]
 
 def get_best_description_result(response: BaseModel) -> int:
@@ -42,6 +37,7 @@ def get_selection_prompt(db: DBDataset, db_id: str, generation_a: str, generatio
     prompt += "- Helpfulness for understanding the schema\n\n"
     
     prompt += "## Response Format\n"
+    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning analyzing which description better represents the database schema. Consider: (1) completeness and coverage of schema elements, (2) clarity and readability, (3) accuracy in describing tables, columns, and relationships, and (4) helpfulness for understanding the database structure. Keep it concise but thorough, about 512 characters.\n\n"
     prompt += "Provide your evaluation as a JSON object with:\n"
     prompt += model_field_descriptions(BestDescriptionResponse) + "\n\n"
     

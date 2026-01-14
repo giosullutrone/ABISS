@@ -9,9 +9,6 @@ from prompts import model_field_descriptions
 
 
 class SystemResponse(BaseModel):
-    thinking_process: Annotated[str, Field(description="Step-by-step reasoning analyzing whether the question is answerable and unambiguous, or if it requires clarification. "
-    "Consider: (1) whether the question can be directly translated to SQL using the schema and external knowledge, "
-    "(2) whether there are ambiguities that need clarification, and (3) what specific clarification would help resolve any identified issues.")]
     response_type: Annotated[Literal["SQL", "Question"], Field(description="Either 'SQL' if the question is answerable, or 'Question' if clarification is needed.")]
     content: Annotated[str, Field(description="If response_type is 'SQL': the complete SQL query. If response_type is 'Question': the clarification question to ask the user.")]
     category: Annotated[Optional[str], Field(description="Required when response_type is 'Question': the specific ambiguity/unanswerability category name from the provided categories. Should be None for SQL responses.")]
@@ -54,6 +51,7 @@ def get_interaction_prompt(db: DBDataset, conversation: Conversation, categories
     prompt += "**For ambiguous/unanswerable questions:** Ask one focused clarification question and specify the category.\n\n"
 
     prompt += "## Response Format\n"
+    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning analyzing whether the question is answerable and unambiguous, or if it requires clarification. Consider: (1) whether the question can be directly translated to SQL using the schema and external knowledge, (2) whether there are ambiguities that need clarification, and (3) what specific clarification would help resolve any identified issues.\n\n"
     prompt += "Provide your response as a JSON object with:\n"
     prompt += model_field_descriptions(SystemResponse) + "\n\n"
 

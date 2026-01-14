@@ -9,11 +9,6 @@ from typing import Literal
 
 
 class CategoryCheckResponse(BaseModel):
-    thinking_process: Annotated[str, Field(description="Step-by-step analysis of whether the question fits the specified category. Consider: " \
-    "(1) the category's definition and characteristics, "
-    "(2) the nature of the ambiguity or unanswerability in the question, "
-    "(3) whether the question exhibits the specific issues defined by the category, and "
-    "(4) for solvable categories, whether the hidden knowledge appropriately resolves the ambiguity.")]
     answer: Annotated[Literal["Yes", "No"], Field(description="Final verdict: 'Yes' if the question correctly belongs to the specified category, or "
     "'No' if it doesn't match the category's characteristics or belongs to a different category.")]
 
@@ -95,8 +90,7 @@ def get_category_validation_prompt(db: DBDataset, category: Category, question: 
         prompt += "- The question would fit better in a different category\n"
     
     prompt += "\n## Response Format\n"
+    prompt += "Think step by step before answering, using the following as a guide: Step-by-step analysis of whether the question fits the specified category. Consider: (1) the category's definition and characteristics, (2) the nature of the ambiguity or unanswerability in the question, (3) whether the question exhibits the specific issues defined by the category, and (4) for solvable categories, whether the hidden knowledge appropriately resolves the ambiguity.\n\n"
     prompt += "Provide your evaluation as a JSON object with:\n"
     prompt += model_field_descriptions(CategoryCheckResponse) + "\n\n"
-    
-    prompt += "Carefully analyze whether the question truly belongs to this specific category before deciding."
     return prompt

@@ -8,10 +8,6 @@ from typing import Literal
 
 
 class CheckGTResponse(BaseModel):
-    thinking_process: Annotated[str, Field(description="Step-by-step reasoning analyzing whether the SQL query correctly implements the disambiguated intent. " \
-    "Consider: (1) whether the query uses the correct tables and columns from the schema, "
-    "(2) whether the joins, filters, and aggregations match the question's requirements given the hidden knowledge, and "
-    "(3) whether the query results align with what the question is asking for.")]
     answer: Annotated[Literal["Yes", "No"], Field(description="Final verdict: 'Yes' if the SQL query correctly answers the disambiguated question (considering the hidden knowledge), "
     "or 'No' if it fails to capture the intended meaning or contains errors.")]
 
@@ -66,8 +62,7 @@ def get_gt_validation_prompt(db: DBDataset, question: QuestionUnanswerable) -> s
     prompt += "- The query would return incorrect or incomplete results\n\n"
     
     prompt += "## Response Format\n"
+    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning analyzing whether the SQL query correctly implements the disambiguated intent. Consider: (1) whether the query uses the correct tables and columns from the schema, (2) whether the joins, filters, and aggregations match the question's requirements given the hidden knowledge, and (3) whether the query results align with what the question is asking for.\n\n"
     prompt += "Provide your evaluation as a JSON object with:\n"
     prompt += model_field_descriptions(CheckGTResponse) + "\n\n"
-    
-    prompt += "Think carefully about whether the SQL correctly implements the disambiguated question before deciding."
     return prompt

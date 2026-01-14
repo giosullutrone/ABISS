@@ -6,8 +6,6 @@ from prompts import model_field_descriptions
 
 
 class SchemaToNLResponse(BaseModel):
-    thinking_process: Annotated[str, Field(description="Step-by-step reasoning analyzing the database schema structure, including tables, columns, relationships, and key features that should be described. " \
-    "Keep it concise but thorough, about 512 characters.")]
     description: Annotated[str, Field(description="A concise but comprehensive natural language summary of the database schema, covering all important tables, their relationships, and notable features.")]
 
 def get_schema_to_nl_result(response: BaseModel) -> str:
@@ -29,6 +27,7 @@ def get_generation_prompt(db: DBDataset, db_id: str) -> str:
     prompt += "- Overall database structure and purpose\n\n"
     
     prompt += "## Response Format\n"
+    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning analyzing the database schema structure, including tables, columns, relationships, and key features that should be described. Keep it concise but thorough, about 512 characters.\n\n"
     prompt += "Provide your analysis as a JSON object with:\n"
     prompt += model_field_descriptions(SchemaToNLResponse) + "\n\n"
     

@@ -10,11 +10,6 @@ from typing import Literal
 
 
 class BestUserAnswerResponse(BaseModel):
-    thinking_process: Annotated[str, Field(description="Step-by-step reasoning analyzing which answer better helps disambiguate the original question. "
-    "Consider: (1) relevance to the clarification question, "
-    "(2) how well it incorporates the hidden knowledge, "
-    "(3) clarity and helpfulness in resolving the ambiguity, and "
-    "(4) appropriateness to the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.")]
     answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Answer A is better, 'B' if Answer B is better.")]
 
 def get_best_user_answer_result(response: BaseModel) -> int:
@@ -59,6 +54,7 @@ def get_selection_prompt(db: DBDataset,
     prompt += "- Appropriateness to the user's knowledge level and answer style\n\n"
     
     prompt += "## Response Format\n"
+    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning analyzing which answer better helps disambiguate the original question. Consider: (1) relevance to the clarification question, (2) how well it incorporates the hidden knowledge, (3) clarity and helpfulness in resolving the ambiguity, and (4) appropriateness to the user's knowledge level and answer style. Keep it concise but thorough, about 512 characters.\n\n"
     prompt += "Provide your evaluation as a JSON object with:\n"
     prompt += model_field_descriptions(BestUserAnswerResponse) + "\n\n"
     

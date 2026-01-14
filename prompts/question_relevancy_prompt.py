@@ -9,10 +9,6 @@ from typing import Literal
 
 
 class QuestionRelevancyResponse(BaseModel):
-    thinking_process: Annotated[str, Field(description="Step-by-step reasoning analyzing whether the clarification question is relevant to the original ambiguous question and hidden knowledge. "
-    "Consider: (1) whether the clarification question addresses the ambiguity in the original question, "
-    "(2) whether it relates to the hidden knowledge that disambiguates the question, and "
-    "(3) whether it focuses on disambiguation rather than extracting hidden information or technical SQL details. Keep it concise but thorough, about 512 characters.")]
     answer: Annotated[Literal["Relevant", "Technical", "Irrelevant"], Field(description="Final classification: 'Relevant' if the clarification question helps disambiguate the original question using the hidden knowledge, "
     "'Technical' if it focuses on SQL technical aspects unrelated to the ambiguity, or 'Irrelevant' if it doesn't help with disambiguation or tries to extract hidden information.")]
 
@@ -50,6 +46,7 @@ def get_relevancy_prompt(conversation: Conversation) -> str:
     prompt += "**Irrelevant:** The clarification question does not help resolve the ambiguity, tries to extract the hidden knowledge directly, or is unrelated to the disambiguation task.\n\n"
     
     prompt += "## Response Format\n"
+    prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning analyzing whether the clarification question is relevant to the original ambiguous question and hidden knowledge. Consider: (1) whether the clarification question addresses the ambiguity in the original question, (2) whether it relates to the hidden knowledge that disambiguates the question, and (3) whether it focuses on disambiguation rather than extracting hidden information or technical SQL details. Keep it concise but thorough, about 512 characters.\n\n"
     prompt += "Provide your evaluation as a JSON object with:\n"
     prompt += model_field_descriptions(QuestionRelevancyResponse) + "\n\n"
     
