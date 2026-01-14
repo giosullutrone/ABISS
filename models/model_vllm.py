@@ -45,7 +45,8 @@ class ModelVLLM(Model):
                 messages=batch_conversations, # type: ignore
                 sampling_params=sampling_params,
                 lora_request=self.lora_request,
-                continue_final_message=continue_final_message
+                continue_final_message=continue_final_message,
+                add_generation_prompt=not continue_final_message
             )
             for batch_response in batch_responses:
                 responses.extend([x.text for x in batch_response.outputs])
@@ -86,7 +87,7 @@ class ModelVLLM(Model):
         # We also set add_generation_prompt to False as continuing from the previous message is not compatible with adding a new generation prompt
         for idx, conversation in conversations_to_regenerate.items():
             structured_sampling_params = SamplingParams(
-                **{**(self.sampling_kwargs if self.sampling_kwargs is not None else {}), **{"add_generation_prompt": False}},
+                **(self.sampling_kwargs if self.sampling_kwargs is not None else {}),
                 structured_outputs=StructuredOutputsParams(
                     json=constraints[idx].model_json_schema()
                 ),

@@ -12,18 +12,16 @@ class CategoryCheck(Validator):
         self.models: list[Model] = models
 
     def validate(self, questions: list[QuestionUnanswerable]) -> list[bool]:
+        prompts: list[str] = []
+        
+        for question in questions:
+            prompt = get_category_validation_prompt(self.db, question.category, question)
+            prompts.append(prompt)
+        
         valids: list[list[bool]] = [[] for _ in questions]
 
         for model in self.models:
             model.init()
-            prompts: list[str] = []
-            
-            for question in questions:
-                prompt = get_category_validation_prompt(self.db, question.category, question)
-                prompts.append(prompt)
-                if len(prompt) > 32000 * 4: # 4 chars per token approx
-                    print("#"* 20, prompt, "#" * 20, flush=True, sep="\n")
-            
             responses: list[BaseModel] = model.generate_batch_with_constraints(
                 prompts, 
                 [CategoryCheckResponse] * len(prompts)
