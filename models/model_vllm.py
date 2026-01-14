@@ -1,4 +1,5 @@
 from typing import cast
+import logging
 
 from tqdm import tqdm
 from .model import Model
@@ -7,6 +8,8 @@ from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 from models import extract_last_json_object
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class ModelVLLM(Model):
@@ -76,12 +79,13 @@ class ModelVLLM(Model):
         if all(v is not None for v in validated_responses):
             return cast(list[BaseModel], validated_responses)
 
-        # If there are any None values, Re-Generate those specific responses with StructuredOutputsParams while asking the model to continue from where it left off
+        # If there are any None values, Re-Generate those specific responses with StructuredOutputsParams while asking the model to continue from where it left off        
         conversations_to_regenerate: dict[int, list[dict[str, str]]] = {}
-
         for idx, validated_response in enumerate(validated_responses):
             if validated_response is not None:
                 continue
+            
+            logger.info(f"Response for prompt index {idx} was '{responses[idx]}', which is invalid. Regenerating...")
 
             conversation_to_regenerate = prompts[idx]
             # We have to add the assistance message with the previous incomplete response

@@ -1,4 +1,5 @@
 import argparse
+import logging
 from db_datasets.db_dataset import DBDataset
 from generators.chain import Chain
 from generators.generator_answerable import GeneratorAnswerable
@@ -21,7 +22,14 @@ if __name__ == "__main__":
     parser.add_argument("--tensor_parallel_size", type=int, required=False, help="Tensor parallel size for VLLM models", default=1)
     parser.add_argument("--intermediate_results_folder", type=str, required=False, help="Folder to save intermediate results", default=None)
     parser.add_argument("--output_path", type=str, required=False, help="Path to save the results", default="dataset.json")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
+
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO if args.verbose else logging.WARNING,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 
     db_name: str = args.db_name
     db_root_path: str = args.db_root_path
