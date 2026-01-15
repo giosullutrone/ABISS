@@ -8,6 +8,7 @@ from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 from models import extract_last_json_object
 from pydantic import BaseModel
+from prompts import model_field_descriptions
 
 logger = logging.getLogger(__name__)
 
@@ -98,24 +99,43 @@ class ModelVLLM(Model):
 
             # We copy the original conversation prompt since it is a list which is mutable
             conversation_to_regenerate = prompts[prompt_idx].copy()
+            additional_prompt = (
+                "\n\nLet me complete this JSON response properly. "
+                f"The complete JSON object must follow this schema:\n{model_field_descriptions(constraint)}\n\n"
+                "Here is the complete, valid JSON:\n"
+            )
             # We have to add the assistance message with the previous incomplete response
-            conversation_to_regenerate.append({"role": "assistant", "content": responses[idx] + "\n"})
+            conversation_to_regenerate.append({"role": "assistant", "content": responses[idx] + additional_prompt})
             conversations_to_regenerate[idx] = (conversation_to_regenerate, constraint)
 
-        # A batch can't have multiple different StructuredOutputsParams, so we regenerate one by one
-        for idx, (conversation, constraint) in tqdm(conversations_to_regenerate.items(), desc="Regenerating invalid responses"):
+        # Group conversations by constraint type for batched regeneration
+        constraint_groups: dict[type[BaseModel], list[tuple[int, list[dict[str, str]]]]] = {}
+        for idx, (conversation, constraint) in conversations_to_regenerate.items():
+            if constraint not in constraint_groups:
+                constraint_groups[constraint] = []
+            constraint_groups[constraint].append((idx, conversation))
+
+        # Process each constraint group in batch
+        for constraint, idx_conversation_pairs in tqdm(constraint_groups.items(), desc="Regenerating invalid responses by constraint"):
+            indices = [idx for idx, _ in idx_conversation_pairs]
+            conversations = [conversation for _, conversation in idx_conversation_pairs]
+            
+            # Create new SamplingParams with StructuredOutputsParams for the constraint
             structured_sampling_params = SamplingParams(
-                **(self.sampling_kwargs if self.sampling_kwargs is not None else {}),
-                n=1,  # Only generate 1 response when regenerating with structured outputs
+                **{**(self.sampling_kwargs if self.sampling_kwargs is not None else {}), **{"n": 1}},
                 structured_outputs=StructuredOutputsParams(
-                    json=constraint.model_json_schema()
+                    json=constraint.model_json_schema(),
+                    disable_any_whitespace=True
                 ),
             )
-            regenerated_response = self._generate_batch([conversation], structured_sampling_params, continue_final_message=True, use_tqdm=False)[0]
-            validated_response = extract_last_json_object(regenerated_response, constraint)
-            if validated_response is None:
-                raise ValueError(f"Failed to validate regenerated response at index {idx}: {regenerated_response}.")
-            validated_responses[idx] = validated_response
+            
+            regenerated_responses = self._generate_batch(conversations, structured_sampling_params, continue_final_message=True, use_tqdm=False)
+            
+            for idx, regenerated_response in zip(indices, regenerated_responses):
+                validated_response = extract_last_json_object(regenerated_response, constraint)
+                if validated_response is None:
+                    raise ValueError(f"Failed to validate regenerated response at index {idx}: {regenerated_response}.")
+                validated_responses[idx] = validated_response
 
         # At this point, all responses are validated
         return cast(list[BaseModel], validated_responses)

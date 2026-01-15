@@ -45,9 +45,10 @@ if __name__ == "__main__":
     models: list[Model] = [ModelVLLM(model_name=model,
                                sampling_kwargs={
                                    "n": n_samples,
-                                   "max_tokens": 4096,
+                                   "max_tokens": 2048,
                                    "temperature": 0.7,
                                    "seed": 42,
+                                   "frequency_penalty": 0.2,
                                },
                                model_kwargs={
                                    "max_model_len": 16000, 
@@ -61,13 +62,13 @@ if __name__ == "__main__":
 
     models_validator: list[Model] = [ModelVLLM(model_name=model,
                                sampling_kwargs={
-                                   "max_tokens": 4096,
+                                   "max_tokens": 2048,
                                    "temperature": 0.0,
                                    "seed": 42,
                                },
                                model_kwargs={
-                                   "max_model_len": 32000, 
-                                   "max_num_batched_tokens": 32000,
+                                   "max_model_len": 16000, 
+                                   "max_num_batched_tokens": 16000,
                                    "enable_prefix_caching": True, 
                                    "enforce_eager": True,
                                    "tensor_parallel_size": tensor_parallel_size,

@@ -5,7 +5,6 @@ from db_datasets.db_dataset import DBDataset
 from models.model import Model
 import json
 import os
-import random
 from prompts.generator_prompt import get_generation_prompt
 from pydantic import BaseModel
 
