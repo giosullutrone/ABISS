@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 from categories.category import Category
 from db_datasets.db_dataset import DBDataset
@@ -7,20 +6,41 @@ import json
 import os
 from prompts.generator_prompt import get_generation_prompt
 from pydantic import BaseModel
+from validators.sql_executable import SQLExecutable
+from validators.category_check import CategoryCheck
+from validators.check_ambiguousness import CheckAmbiguousness
+from validators.check_gt import CheckGT
+from validators.check_duplicate import CheckDuplicate
+from categories import get_all_categories
+from validators.check_other_categories import CheckOtherCategories
+from validators.style_difficulty_check import StyleDifficultyCheck
+from validators.validator import Validator
 
 
-class Generator(ABC):
-    def __init__(self, db: DBDataset, models: list[Model], n_samples: int, solvable: bool, intermediate_results_folder: str | None) -> None:
+class Generator:
+    def __init__(self, 
+                 db: DBDataset, 
+                 models: list[Model], 
+                 models_validator: list[Model],
+                 n_samples: int, 
+                 intermediate_results_folder: str | None) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models
         self.n_samples: int = n_samples
-        self.solvable: bool = solvable
         self.intermediate_results_folder = intermediate_results_folder
+
+        self.sql_validator = SQLExecutable(db)
+        self.category_check_validator = CategoryCheck(db, models_validator)
+        self.check_ambiguousness_validator = CheckAmbiguousness(db, models_validator)
+        self.check_gt_validator = CheckGT(db, models_validator)
+        self.check_copy_validator = CheckDuplicate()
+        self.other_category_check_validator = CheckOtherCategories(db, models_validator, get_all_categories())
+        self.style_difficulty_check_validator = StyleDifficultyCheck(db, models_validator)
 
     def save_intermediate_results(self, questions: list[Question], stage: str) -> None:
         if self.intermediate_results_folder is not None:
             os.makedirs(self.intermediate_results_folder, exist_ok=True)
-            with open(os.path.join(self.intermediate_results_folder, f"{'solvable' if self.solvable else 'unsolvable'}_intermediate_{stage}.json"), "w", encoding="utf-8") as f:
+            with open(os.path.join(self.intermediate_results_folder, f"intermediate_{stage}.json"), "w", encoding="utf-8") as f:
                 json.dump([q.to_dict() for q in questions], f, ensure_ascii=False, indent=4)
 
     def generate_for_model(self, model: Model, db_ids: list[str], categories: list[Category]) -> list[Question]:
@@ -39,7 +59,7 @@ class Generator(ABC):
                         # Prepare the generation prompt
                         prompt = get_generation_prompt(
                             db=self.db,
-                            is_solvable=self.solvable,
+                            is_solvable=category.is_solvable(),
                             is_answerable=category.is_answerable(),
                             db_id=db_id,
                             name=category.get_name(),
@@ -73,6 +93,53 @@ class Generator(ABC):
             all_questions.extend(questions)
         return all_questions
     
-    @abstractmethod
+    def apply_validator(self, 
+                        questions: list[Question], 
+                        validator: Validator, 
+                        intermediate_results_label: str,
+                        check_if_amb_solvable: bool=False,
+                        check_if_answerable: bool=False) -> list[Question]:
+        questions_to_check: list[Question] = []
+        # Determine which questions to validate based on their category properties and flags
+        if check_if_amb_solvable:
+            questions_to_check.extend([q for q in questions if not q.category.is_answerable() and q.category.is_solvable()])
+        if check_if_answerable:
+            questions_to_check.extend([q for q in questions if q.category.is_answerable()])
+        if not check_if_amb_solvable and not check_if_answerable:
+            questions_to_check = questions
+        # Remove from the original list the questions that need to be validated
+        questions = [q for q in questions if q not in questions_to_check]
+        
+        validities: list[bool] = validator.validate(questions=questions_to_check)
+        questions_to_check = [q for i, q in enumerate(questions_to_check) if validities[i]]
+
+        # Combine validated questions with those that didn't need validation
+        questions.extend(questions_to_check)
+
+        self.save_intermediate_results(questions, intermediate_results_label)
+        return questions
+
     def validate(self, questions: list[Question]) -> list[Question]:
-        pass
+        self.save_intermediate_results(questions, "initial")
+
+        # Step 1: Check Copy Validation
+        questions = self.apply_validator(questions, self.check_copy_validator, "after_copy_check")
+
+        # Step 2: SQL Executability Validation if answerable or amb solvable
+        questions = self.apply_validator(questions, self.sql_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
+
+        # Step 3: Category Fit Validation
+        questions = self.apply_validator(questions, self.category_check_validator, "after_category_check")
+
+        # Step 4: Other Categories Check Validation
+        questions = self.apply_validator(questions, self.other_category_check_validator, "after_other_categories_check")
+
+        # Step 5: Check style and difficulty
+        questions = self.apply_validator(questions, self.style_difficulty_check_validator, "after_style_difficulty_check")
+
+        # Step 6: Ambiguity Validation if amb solvable
+        questions = self.apply_validator(questions, self.check_ambiguousness_validator, "after_ambiguity_check", check_if_amb_solvable=True)
+
+        # Step 7: GT Satisfaction Validation if amb solvable or answerable
+        questions = self.apply_validator(questions, self.check_gt_validator, "after_gt_satisfaction_check", check_if_amb_solvable=True, check_if_answerable=True)
+        return questions

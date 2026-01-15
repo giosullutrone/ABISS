@@ -2,9 +2,7 @@ import argparse
 import logging
 from db_datasets.db_dataset import DBDataset
 from generators.chain import Chain
-from generators.generator_answerable import GeneratorAnswerable
-from generators.generator_solvable import GeneratorSolvable
-from generators.generator_unsolvable import GeneratorUnsolvable
+from generators.generator import Generator
 from categories import *
 import json
 from models.model_vllm import ModelVLLM
@@ -76,22 +74,7 @@ if __name__ == "__main__":
                                },
                                max_batch_with_text_size=100000) for model in model_names]
 
-    generator_answerable = GeneratorAnswerable(
-        db=db_dataset,
-        models=models,
-        models_validator=models_validator,
-        n_samples=n_samples,
-        intermediate_results_folder=intermediate_results_folder
-    )
-
-    generator_solvable = GeneratorSolvable(
-        db=db_dataset,
-        models=models,
-        models_validator=models_validator,
-        n_samples=n_samples,
-        intermediate_results_folder=intermediate_results_folder
-    )
-    generator_unsolvable = GeneratorUnsolvable(
+    generator = Generator(
         db=db_dataset,
         models=models,
         models_validator=models_validator,
@@ -101,9 +84,7 @@ if __name__ == "__main__":
 
     chain = Chain(
         models=models,
-        generator_answerable=generator_answerable,
-        generator_solvable=generator_solvable,
-        generator_unsolvable=generator_unsolvable,
+        generator=generator,
         categories=get_all_categories()
     )
 
