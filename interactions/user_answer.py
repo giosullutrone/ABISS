@@ -2,7 +2,6 @@ from db_datasets.db_dataset import DBDataset
 from models.model import Model
 from dataset_dataclasses.results import Conversation
 from interactions.best_user_answer import BestUserAnswer
-from prompts import UserAnswerStyle, UserKnowledgeLevel
 from prompts.user_answer_prompt import get_user_answer_prompt, UserAnswerResponse, get_user_answer_result
 
 
@@ -17,21 +16,16 @@ class UserAnswer:
     def __init__(self, 
                  db: DBDataset, 
                  models: list[Model], 
-                 user_knowledge_level: UserKnowledgeLevel, 
-                 user_answer_style: UserAnswerStyle,
-                 db_descriptions: dict[str, str] | None) -> None:
+                 db_descriptions: dict[str, str]) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models
-        self.user_knowledge_level: UserKnowledgeLevel = user_knowledge_level
-        self.user_answer_style: UserAnswerStyle = user_answer_style
-        self.db_descriptions: dict[str, str] | None = db_descriptions
-        assert self.user_knowledge_level == UserKnowledgeLevel.NL and self.db_descriptions is not None, "NL knowledge level requires db descriptions."
-        self.best_user_answer_interaction = BestUserAnswer(db, models, db_descriptions, user_answer_style, user_knowledge_level)
+        self.db_descriptions: dict[str, str] = db_descriptions
+        self.best_user_answer_interaction = BestUserAnswer(db, models, db_descriptions)
 
     def get_user_answers(self, conversations: list[Conversation]) -> list[Conversation]:
         answers: list[list[str]] = [[] for _ in range(len(conversations))]
         # Get the prompts
-        prompts = [get_user_answer_prompt(self.db, conversation, self.user_knowledge_level, self.user_answer_style, self.db_descriptions) for conversation in conversations]
+        prompts = [get_user_answer_prompt(self.db, conversation, conversation.user_knowledge_level, self.db_descriptions) for conversation in conversations]
 
         for model in self.models:
             model.init()

@@ -2,8 +2,9 @@ from db_datasets.db_dataset import DBDataset
 from dataset_dataclasses.results import Conversation
 from dataset_dataclasses.question import QuestionUnanswerable
 from dataset_dataclasses.system import SystemResponseQuestion
-from prompts import UserAnswerStyle, UserKnowledgeLevel
+from prompts import UserKnowledgeLevel
 from prompts import get_db_knowledge_level_prompt, get_conversation_history_prompt
+from prompts import STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES
 from pydantic import BaseModel
 from typing import Annotated
 from pydantic import Field
@@ -19,7 +20,6 @@ def get_user_answer_result(response: BaseModel) -> str:
 def get_user_answer_prompt(db: DBDataset, 
                            conversation: Conversation, 
                            user_knowledge_level: UserKnowledgeLevel, 
-                           user_answer_style: UserAnswerStyle,
                            db_descriptions: dict[str, str] | None) -> str:
     """
     Generate a prompt to simulate a user's answer to a clarification question in a text-to-SQL scenario.
@@ -44,12 +44,10 @@ def get_user_answer_prompt(db: DBDataset,
     prompt += "## Task\n"
     prompt += "Provide an answer to the clarification question that helps disambiguate the original question using the hidden knowledge.\n\n"
     
-    if user_answer_style == UserAnswerStyle.CONVERSATIONAL:
-        prompt += "**Answer Style:** Respond in a natural, conversational manner as if you were speaking directly " \
-                  "to the text-to-SQL system. Ensure your answer is relevant and helps clarify the original question.\n\n"
-    else:
-        prompt += "**Answer Style:** Respond in a precise pseudo-SQL manner, focusing on providing the necessary " \
-                  "information to clarify the original question. Ensure your answer is relevant and helps clarify the original question.\n\n"
+    question_style = question.question_style
+    style_description = STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES[question_style]
+    prompt += f"**Answer Style:**\n{style_description}\n"
+    prompt += "Ensure your answer is relevant and helps clarify the original question.\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide a step-by-step reasoning about how to formulate an appropriate answer that helps disambiguate " \

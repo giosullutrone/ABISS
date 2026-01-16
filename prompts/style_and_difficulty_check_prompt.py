@@ -3,7 +3,7 @@ from dataset_dataclasses.question import Question, QuestionUnanswerable, Questio
 from db_datasets.db_dataset import DBDataset
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal
-from prompts.generator_style_and_difficulty_prompt import STYLE_DESCRIPTIONS, DIFFICULTY_CRITERIA
+from prompts import STYLE_DESCRIPTIONS, DIFFICULTY_CRITERIA
 
 
 class StyleDifficultyCheckResponse(BaseModel):

@@ -9,6 +9,7 @@ from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 from models import extract_last_json_object
 from pydantic import BaseModel
 from prompts import model_field_descriptions
+from models import reorder_by_prefix_similarity, restore_original_order
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,17 @@ class ModelVLLM(Model):
         return responses
 
     def generate_batch(self, prompts: list[str] | list[list[dict[str, str]]]) -> list[str]:
-        return self._generate_batch(self.convert_prompt_to_conversation_if_needed(prompts), self.sampling_params)
+        converted_prompts = self.convert_prompt_to_conversation_if_needed(prompts)
+        converted_prompts_reordered, original_indices, _ = reorder_by_prefix_similarity(converted_prompts)
+        responses_reordered = self._generate_batch(converted_prompts_reordered, self.sampling_params)
+        return restore_original_order(responses_reordered, original_indices)
+
+    def generate_batch_with_constraints(self, prompts: list[str] | list[list[dict[str, str]]], constraints: list[type[BaseModel]]) -> list[BaseModel]:
+        converted_prompts = self.convert_prompt_to_conversation_if_needed(prompts)
+        converted_prompts_reordered, original_indices, _constraints_reordered = reorder_by_prefix_similarity(converted_prompts, constraints)
+        constraints_reordered = _constraints_reordered[0]
+        validated_responses_reordered = self._generate_batch_with_constraints(converted_prompts_reordered, constraints_reordered)
+        return restore_original_order(validated_responses_reordered, original_indices)
 
     def _generate_batch_with_constraints(self, prompts: list[list[dict[str, str]]], constraints: list[type[BaseModel]]) -> list[BaseModel]:
         """
@@ -139,9 +150,6 @@ class ModelVLLM(Model):
 
         # At this point, all responses are validated
         return cast(list[BaseModel], validated_responses)
-
-    def generate_batch_with_constraints(self, prompts: list[str] | list[list[dict[str, str]]], constraints: list[type[BaseModel]]) -> list[BaseModel]:
-        return self._generate_batch_with_constraints(self.convert_prompt_to_conversation_if_needed(prompts), constraints)
 
     def close(self):
         del self.model

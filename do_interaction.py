@@ -11,7 +11,7 @@ import json
 from models.model import Model
 from models.model_vllm import ModelVLLM
 from interactions.user import User
-from prompts import UserKnowledgeLevel, UserAnswerStyle
+from prompts import UserKnowledgeLevel
 from categories import get_all_categories
 import os
 
@@ -68,10 +68,8 @@ if __name__ == "__main__":
     models_validator: list[Model] = [ModelVLLM(model_name=model,
                                sampling_kwargs={
                                    "max_tokens": 2048,
-                                   "temperature": 0.2,
+                                   "temperature": 0.0,
                                    "seed": 42,
-                                   "frequency_penalty": 0.0,
-                                   "top_k": 1,
                                },
                                model_kwargs={
                                    "max_model_len": 32000, 
@@ -90,9 +88,7 @@ if __name__ == "__main__":
     user_instance = User("test", 
                          db_dataset, 
                          models_validator, 
-                         db_dataset.get_db_ids(), 
-                         UserKnowledgeLevel.NL, 
-                         UserAnswerStyle.PRECISE)
+                         db_dataset.get_db_ids())
 
     runner = Runner(
         db_dataset=db_dataset,

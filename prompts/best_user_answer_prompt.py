@@ -1,7 +1,8 @@
 from dataset_dataclasses.results import Conversation
 from db_datasets.db_dataset import DBDataset
 from prompts import get_db_knowledge_level_prompt, get_conversation_history_prompt
-from prompts import UserKnowledgeLevel, UserAnswerStyle
+from prompts import UserKnowledgeLevel
+from prompts import STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES
 from pydantic import BaseModel
 from typing import Annotated
 from pydantic import Field
@@ -26,8 +27,7 @@ def get_selection_prompt(db: DBDataset,
                          conversation: Conversation, 
                          generation_a: str, 
                          generation_b: str, 
-                         user_knowledge_level: UserKnowledgeLevel, 
-                         user_answer_style: UserAnswerStyle) -> str:
+                         user_knowledge_level: UserKnowledgeLevel) -> str:
     prompt = "You are an expert evaluator for user answers in text-to-SQL clarification scenarios. " \
              "Your task is to select the best user answer that helps disambiguate an ambiguous question.\n\n"
     
@@ -35,10 +35,9 @@ def get_selection_prompt(db: DBDataset,
     prompt += get_db_knowledge_level_prompt(db, user_knowledge_level, db_descriptions, conversation)
     prompt += get_conversation_history_prompt(conversation)
 
-    if user_answer_style == UserAnswerStyle.PRECISE:
-        prompt += "**Expected Answer Style:** Precise pseudo-SQL manner\n\n"
-    else:
-        prompt += "**Expected Answer Style:** Natural, conversational manner\n\n"
+    question_style = conversation.question.question_style
+    style_description = STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES[question_style]
+    prompt += f"**Expected Answer Style:**\n{style_description}\n\n"
     
     prompt += "## Candidate Answers\n"
     prompt += f"**Answer A:**\n{generation_a}\n\n"

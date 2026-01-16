@@ -1,7 +1,8 @@
 from dataclasses import dataclass, asdict
 from dataset_dataclasses.question import Question, QuestionUnanswerable
 from dataset_dataclasses.system import SystemResponseQuestion, SystemResponseSQL
-from prompts import RelevancyLabel
+from prompts import RelevancyLabel, UserKnowledgeLevel
+from enum import Enum
 
 
 @dataclass
@@ -70,10 +71,14 @@ class InteractionEvaluated(Interaction):
 @dataclass
 class Conversation:
     question: Question | QuestionUnanswerable
+    user_knowledge_level: UserKnowledgeLevel
     interactions: list[InteractionEvaluated]
 
     def to_dict(self) -> dict:
-        return asdict(self, dict_factory=lambda x: {k: (v.to_dict() if hasattr(v, "to_dict") else v) for k, v in x})
+        return asdict(self, dict_factory=lambda x: {
+            k: (v.to_dict() if hasattr(v, "to_dict") else (v.value if isinstance(v, Enum) else v)) 
+            for k, v in x
+        })
 
     @classmethod
     def from_dict(cls, d: dict) -> "Conversation":
@@ -83,7 +88,7 @@ class Conversation:
         except:
             q = Question(**question)
         interactions = [InteractionEvaluated.from_dict(i) for i in d.pop("interactions")]
-        return cls(question=q, interactions=interactions)
+        return cls(question=q, user_knowledge_level=UserKnowledgeLevel(d.get("user_knowledge_level")), interactions=interactions)
 
 
 @dataclass

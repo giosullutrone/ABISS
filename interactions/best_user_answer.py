@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from dataset_dataclasses.results import Conversation
 from models.model import Model
-from prompts import UserKnowledgeLevel, UserAnswerStyle
 from db_datasets.db_dataset import DBDataset
 from prompts.best_user_answer_prompt import get_selection_prompt, BestUserAnswerResponse, get_best_user_answer_result
 
@@ -11,12 +10,10 @@ class BestUserAnswer:
     Interaction that selects the best user answer generated among multiple candidates based on a 1vs1 comparison performed by a list of models on all candidates.
     """
 
-    def __init__(self, db: DBDataset, models: list[Model], db_descriptions: dict[str, str] | None, user_answer_style: UserAnswerStyle, user_knowledge_level: UserKnowledgeLevel) -> None:
+    def __init__(self, db: DBDataset, models: list[Model], db_descriptions: dict[str, str]) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models
-        self.db_descriptions: dict[str, str] | None = db_descriptions
-        self.user_answer_style: UserAnswerStyle = user_answer_style
-        self.user_knowledge_level: UserKnowledgeLevel = user_knowledge_level
+        self.db_descriptions: dict[str, str] = db_descriptions
 
     def select_best_user_answers(self, conversations: list[Conversation], answers: list[list[str]]) -> list[str]:
         """
@@ -32,7 +29,7 @@ class BestUserAnswer:
             for j in range(len(gens)):
                 for k in range(len(gens)):
                     if j != k:
-                        prompt = get_selection_prompt(self.db, self.db_descriptions, conversations[i], gens[j], gens[k], self.user_knowledge_level, self.user_answer_style)
+                        prompt = get_selection_prompt(self.db, self.db_descriptions, conversations[i], gens[j], gens[k], conversations[i].user_knowledge_level)
                         pairwise_prompts[i].append((j, k, prompt))
 
         # Now flatten the prompts into a single list

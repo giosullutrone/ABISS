@@ -2,7 +2,7 @@ from db_datasets.db_dataset import DBDataset
 from validators.validator import Validator
 from dataset_dataclasses.question import Question
 from models.model import Model
-from prompts.style_difficulty_check_prompt import (
+from prompts.style_and_difficulty_check_prompt import (
     get_style_difficulty_validation_prompt,
     StyleDifficultyCheckResponse,
     get_style_difficulty_validation_result

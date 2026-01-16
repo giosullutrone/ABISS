@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from prompts import model_field_descriptions
 from db_datasets.db_dataset import DBDataset
 from dataset_dataclasses.question import QuestionStyle, QuestionDifficulty
-from prompts.generator_style_and_difficulty_prompt import STYLE_DESCRIPTIONS, DIFFICULTY_CRITERIA
+from prompts import STYLE_DESCRIPTIONS_WITH_QUESTION_EXAMPLES, DIFFICULTY_CRITERIA
 
 
 def get_generation_prompt(
@@ -62,7 +62,7 @@ def get_generation_prompt(
     # Add style requirements
     prompt += "## Question Style Requirements\n" \
               f"The question MUST be written in the following style:\n" \
-              f"{STYLE_DESCRIPTIONS[question_style]}\n\n"
+              f"{STYLE_DESCRIPTIONS_WITH_QUESTION_EXAMPLES[question_style]}\n\n"
     
     # Add difficulty requirements
     prompt += "## SQL Difficulty Requirements\n"

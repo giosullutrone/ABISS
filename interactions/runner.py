@@ -8,6 +8,7 @@ from evaluators.recognition import Recognition
 from evaluators.classification import Classification
 from evaluators.relevance import Relevance
 from evaluators.generation import Generation
+from prompts import UserKnowledgeLevel
 
 
 class Runner:
@@ -75,6 +76,7 @@ class Runner:
         for idx, conversation in enumerate(conversations):
             partial_conversation = Conversation(
                 question=conversation.question,
+                user_knowledge_level=conversation.user_knowledge_level,
                 interactions=conversation.interactions + [InteractionEvaluated(system_response=system_responses[idx])]
             )
             partial_conversations.append(partial_conversation)
@@ -101,10 +103,13 @@ class Runner:
 
     def run(self, questions: list[Question]) -> Results:
         # Initialize conversations
-        conversations: list[Conversation] = [Conversation(question=question, interactions=[]) for question in questions]
+        conversations: list[Conversation] = []
+        for question in questions:
+            for knowledge_level in UserKnowledgeLevel:
+                conversations.append(Conversation(question=question, interactions=[], user_knowledge_level=knowledge_level))
+        
         # List of tuples (index, Conversation) of conversations that need to continue
         conversations_to_continue: list[tuple[int, Conversation]] = [(idx, conv) for idx, conv in enumerate(conversations)]
-
         for step in range(self.max_steps):
             conversations_current_step = [conversation for _, conversation in conversations_to_continue]
             if not conversations_current_step:
