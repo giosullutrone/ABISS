@@ -55,6 +55,9 @@ class Generator:
             for db_id in db_ids:
                 # Generate prompts for all combinations of style and difficulty
                 for style in QuestionStyle:
+                    # TODO: Remove
+                    if style != QuestionStyle.FORMAL:
+                        continue
                     for difficulty in QuestionDifficulty:
                         # Prepare the generation prompt
                         prompt = get_generation_prompt(

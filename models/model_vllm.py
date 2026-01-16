@@ -134,7 +134,7 @@ class ModelVLLM(Model):
             for idx, regenerated_response in zip(indices, regenerated_responses):
                 validated_response = extract_last_json_object(regenerated_response, constraint)
                 if validated_response is None:
-                    raise ValueError(f"Failed to validate regenerated response at index {idx}: {regenerated_response}.")
+                    raise ValueError(f"Failed to validate regenerated response at index {idx}: {regenerated_response[:100]}.")
                 validated_responses[idx] = validated_response
 
         # At this point, all responses are validated
