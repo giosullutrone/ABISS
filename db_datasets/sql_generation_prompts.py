@@ -30,7 +30,7 @@ def generate_comment_prompt(question, knowledge=None):
 
     return result_prompt
 
-def get_sql_generation_prompt(db: DBDataset, db_id: str, question: str, evidence: str | None = None) -> str:
+def get_sql_generation_prompt(db: "DBDataset", db_id: str, question: str, evidence: str | None = None) -> str:
     """Generate a prompt for SQL generation with JSON output format."""
     prompt = "You are an expert in converting natural language questions to SQL queries.\n\n"
     

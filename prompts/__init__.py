@@ -2,7 +2,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from dataset_dataclasses.results import Conversation
-from db_datasets.db_dataset import DBDataset
+    from db_datasets.db_dataset import DBDataset
 from pydantic import BaseModel
 from dataset_dataclasses.question import QuestionDifficulty, QuestionStyle
 
@@ -229,7 +229,7 @@ def get_conversation_history_prompt(conversation: "Conversation") -> str:
         prompt += f"\n"
     return prompt
 
-def get_db_knowledge_level_prompt(db: DBDataset, user_knowledge_level: UserKnowledgeLevel, db_descriptions: dict[str, str] | None, conversation: "Conversation") -> str:
+def get_db_knowledge_level_prompt(db: "DBDataset", user_knowledge_level: UserKnowledgeLevel, db_descriptions: dict[str, str] | None, conversation: "Conversation") -> str:
     if user_knowledge_level == UserKnowledgeLevel.FULL:
         db_schema = db.get_schema_prompt(conversation.question.db_id, rows=5)
         return f"- The full database schema:\n{db_schema}\n"
