@@ -12,7 +12,7 @@ from validators.check_ambiguousness import CheckAmbiguousness
 from validators.check_gt import CheckGT
 from validators.check_duplicate import CheckDuplicate
 from categories import get_all_categories
-from validators.check_other_categories import CheckOtherCategories
+from validators.category_comparison import CategoryComparison
 from validators.style_difficulty_check import StyleDifficultyCheck
 from validators.validator import Validator
 
@@ -34,7 +34,7 @@ class Generator:
         self.check_ambiguousness_validator = CheckAmbiguousness(db, models_validator)
         self.check_gt_validator = CheckGT(db, models_validator)
         self.check_copy_validator = CheckDuplicate()
-        self.other_category_check_validator = CheckOtherCategories(db, models_validator, get_all_categories())
+        self.category_comparison_validator = CategoryComparison(db, models_validator, get_all_categories())
         self.style_difficulty_check_validator = StyleDifficultyCheck(db, models_validator)
 
     def save_intermediate_results(self, questions: list[Question], stage: str) -> None:
@@ -43,7 +43,7 @@ class Generator:
             with open(os.path.join(self.intermediate_results_folder, f"intermediate_{stage}.json"), "w", encoding="utf-8") as f:
                 json.dump([q.to_dict() for q in questions], f, ensure_ascii=False, indent=4)
 
-    def generate_for_model(self, model: Model, db_ids: list[str], categories: list[Category]) -> list[Question]:
+    def generate_for_model(self, model: Model, db_ids: list[str], categories: list[Category], styles: list[QuestionStyle], difficulties: list[QuestionDifficulty]) -> list[Question]:
         questions: list[Question] = []
         
         # Generate all prompts and constraints for all categories at once
@@ -54,11 +54,14 @@ class Generator:
         for category in categories:
             for db_id in db_ids:
                 # Generate prompts for all combinations of style and difficulty
-                for style in QuestionStyle:
-                    # TODO: Remove
+                for style in styles:
+                    # TODO: Remove this line to enable all styles
                     if style != QuestionStyle.FORMAL:
                         continue
-                    for difficulty in QuestionDifficulty:
+                    for difficulty in difficulties:
+                        # TODO: Remove this line to enable all difficulties
+                        if difficulty != QuestionDifficulty.MODERATE:
+                            continue
                         # Prepare the generation prompt
                         prompt = get_generation_prompt(
                             db=self.db,
@@ -89,10 +92,10 @@ class Generator:
             questions.extend(question)
         return questions
 
-    def generate(self, db_ids: list[str], categories: list[Category]) -> list[Question]:
+    def generate(self, db_ids: list[str], categories: list[Category], styles: list[QuestionStyle], difficulties: list[QuestionDifficulty]) -> list[Question]:
         all_questions: list[Question] = []
         for model in self.models:
-            questions = self.generate_for_model(model, db_ids, categories)
+            questions = self.generate_for_model(model, db_ids, categories, styles, difficulties)
             all_questions.extend(questions)
         return all_questions
     
@@ -110,6 +113,10 @@ class Generator:
             questions_to_check.extend([q for q in questions if q.category.is_answerable()])
         if not check_if_amb_solvable and not check_if_answerable:
             questions_to_check = questions
+        
+        if len(questions_to_check) == 0:
+            return questions  # Nothing to validate
+
         # Remove from the original list the questions that need to be validated
         questions = [q for q in questions if q not in questions_to_check]
         
@@ -135,7 +142,7 @@ class Generator:
         questions = self.apply_validator(questions, self.category_check_validator, "after_category_check")
 
         # Step 4: Other Categories Check Validation
-        questions = self.apply_validator(questions, self.other_category_check_validator, "after_other_categories_check")
+        questions = self.apply_validator(questions, self.category_comparison_validator, "after_category_comparison_check")
 
         # Step 5: Check style and difficulty
         questions = self.apply_validator(questions, self.style_difficulty_check_validator, "after_style_difficulty_check")

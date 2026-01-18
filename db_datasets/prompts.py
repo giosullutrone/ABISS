@@ -28,7 +28,8 @@ def generate_schema_prompt(db_path, num_rows=None):
     :return:
     '''
     full_schema_prompt_list = []
-    conn = sqlite3.connect(db_path)
+    # Open in immutable mode to avoid locking issues on network filesystems
+    conn = sqlite3.connect(f'file:{db_path}?immutable=1', uri=True)
     # Create a cursor object
     cursor = conn.cursor()
 

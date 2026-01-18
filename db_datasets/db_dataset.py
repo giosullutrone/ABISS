@@ -46,7 +46,9 @@ class DBDataset:
         Execute the given SQL query on the specified database and return the results.
         If max_seconds is provided, the query will be aborted if it runs longer than that.
         """
-        conn = sqlite3.connect(self._get_db_path(db_id))
+        # Open in immutable mode to avoid locking issues on network filesystems
+        db_path = self._get_db_path(db_id)
+        conn = sqlite3.connect(f'file:{db_path}?immutable=1', uri=True)
         cursor = conn.cursor()
 
         # Set up timeout via progress handler

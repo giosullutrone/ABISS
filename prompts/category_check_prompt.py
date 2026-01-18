@@ -19,23 +19,24 @@ def get_category_validation_result(response: BaseModel) -> bool:
 def get_category_validation_prompt(db: DBDataset, category: Category, question: Question) -> str:
     prompt = "You are an expert in text-to-SQL ambiguity and unanswerability classification. " \
              "Your task is to verify whether a generated question correctly belongs to a specific category " \
-             "based on the category's definition and characteristics.\n\n"
+             "based on the category's definition, characteristics, and provided examples.\n\n"
+    
+    prompt += "## Database Schema\n"
+    prompt += db.get_schema_prompt(question.db_id, rows=5) + "\n\n"
     
     prompt += "## Category Information\n"
-    prompt += f"**Category Name:** {category.get_name()}\n"
+    prompt += f"**Category Name:** {category.get_name()}"
     if category.get_subname():
-        prompt += f"**Subcategory:** {category.get_subname()}\n"
-    prompt += f"**Category Definition:** {category.get_definition()}\n"
+        prompt += f" - {category.get_subname()}"
+    prompt += "\n"
+    prompt += f"**Definition:** {category.get_definition()}\n\n"
     
     examples = category.get_examples()
     if examples:
         prompt += "**Category Examples:**\n"
         for example in examples:
             prompt += f"  - {example}\n"
-    prompt += "\n"
-    
-    prompt += "## Database Schema\n"
-    prompt += db.get_schema_prompt(question.db_id, rows=5) + "\n\n"
+        prompt += "\n"
     
     prompt += "## Question to Validate\n"
     prompt += f"**Natural Language Question:** {question.question}\n"
@@ -109,12 +110,14 @@ def get_category_validation_prompt(db: DBDataset, category: Category, question: 
         prompt += "- The question would fit better in a different category\n"
     
     prompt += "\n## Response Format\n"
-    prompt += "Provide a step-by-step analysis of whether the question fits the specified category. " \
-              "Your reasoning should address: (1) the category's definition and characteristics, " \
-              "(2) the nature of the ambiguity or unanswerability in the question, " \
-              "(3) whether the question exhibits the specific issues defined by the category, and " \
-              "(4) for solvable categories, whether the hidden knowledge appropriately resolves the ambiguity.\n\n"
+    prompt += "Provide a concise but thorough analysis evaluating whether the question fits the specified category. " \
+              "Your reasoning should systematically address the validation criteria listed above, focusing on: " \
+              "(1) how the question aligns with the category's core definition, " \
+              "(2) whether the question exhibits the specific characteristics unique to this category, " \
+              "(3) comparison with the provided category examples, and " \
+              "(4) any evidence that suggests the question might belong to a different category instead.\n\n"
     prompt += "Then provide your final verdict as a JSON object with:\n"
     prompt += model_field_descriptions(CategoryCheckResponse) + "\n\n"
+    prompt += "Remember: Be strict and objective. The question should clearly and unambiguously exhibit the category's defining characteristics."
     
     return prompt

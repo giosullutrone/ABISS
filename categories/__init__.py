@@ -28,9 +28,15 @@ def get_all_categories() -> list[Category]:
         StructureAmbiguityScopeCategory(),
     ]
 
-def get_category_by_name(name: str, subname: str | None = None) -> Category | None:
+def get_category_by_name_and_subname(name: str, subname: str | None = None) -> Category | None:
     for category in get_all_categories():
         if category.get_name() == name and (subname is None or category.get_subname() == subname):
+            return category
+    return None
+
+def get_category_by_class_name(name: str) -> Category | None:
+    for category in get_all_categories():
+        if category.__class__.__name__ == name:
             return category
     return None
 

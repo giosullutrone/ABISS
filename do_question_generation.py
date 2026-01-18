@@ -1,13 +1,63 @@
 import argparse
 import logging
+from categories.category import Category
 from db_datasets.db_dataset import DBDataset
 from generators.chain import Chain
 from generators.generator import Generator
-from categories import *
+from categories import get_all_categories, get_category_by_class_name
+from dataset_dataclasses.question import QuestionStyle, QuestionDifficulty, get_all_question_styles, get_all_question_difficulties
 import json
 from models.model_vllm import ModelVLLM
 from models.model import Model
 import os
+
+
+def get_categories_styles_difficulties(
+    category_names: list[str] | None,
+    style_names: list[str] | None,
+    difficulty_names: list[str] | None
+) -> tuple[list[Category], list[QuestionStyle], list[QuestionDifficulty]]:
+    # Normally we would use all categories
+    categories = get_all_categories()
+
+    # If the user specified categories, use only those
+    if category_names is not None:
+        categories = []
+        for cat_name in category_names:
+            # Try exact match first, then try with "Category" suffix
+            category = get_category_by_class_name(cat_name)
+            if category is None and not cat_name.endswith("Category"):
+                category = get_category_by_class_name(f"{cat_name}Category")
+            if category is None:
+                raise ValueError(f"Category '{cat_name}' not found")
+            categories.append(category)
+
+    # Normally we would use all styles
+    styles = get_all_question_styles()
+
+    # If the user specified styles, use only those
+    if style_names is not None:
+        styles = []
+        for style_name in style_names:
+            try:
+                style = QuestionStyle(style_name.lower())
+                styles.append(style)
+            except ValueError:
+                raise ValueError(f"Style '{style_name}' not found. Valid styles: {[s.value for s in QuestionStyle]}")
+
+    # Normally we would use all difficulties
+    difficulties = get_all_question_difficulties()
+
+    # If the user specified difficulties, use only those
+    if difficulty_names is not None:
+        difficulties = []
+        for diff_name in difficulty_names:
+            try:
+                difficulty = QuestionDifficulty(diff_name.lower())
+                difficulties.append(difficulty)
+            except ValueError:
+                raise ValueError(f"Difficulty '{diff_name}' not found. Valid difficulties: {[d.value for d in QuestionDifficulty]}")
+    return categories, styles, difficulties
 
 
 if __name__ == "__main__":
@@ -20,6 +70,9 @@ if __name__ == "__main__":
     parser.add_argument("--tensor_parallel_size", type=int, required=False, help="Tensor parallel size for VLLM models", default=1)
     parser.add_argument("--intermediate_results_folder", type=str, required=False, help="Folder to save intermediate results", default=None)
     parser.add_argument("--output_path", type=str, required=False, help="Path to save the results", default="dataset.json")
+    parser.add_argument("--categories", type=str, nargs='+', required=False, help="List of category names to generate (if not specified, all categories will be used)", default=None)
+    parser.add_argument("--styles", type=str, nargs='+', required=False, help="List of question styles to generate (formal, colloquial, imperative, interrogative, descriptive, concise)", default=None)
+    parser.add_argument("--difficulties", type=str, nargs='+', required=False, help="List of question difficulties to generate (simple, moderate, complex, highly_complex)", default=None)
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
@@ -37,6 +90,9 @@ if __name__ == "__main__":
     tensor_parallel_size: int = args.tensor_parallel_size
     intermediate_results_folder: str | None = args.intermediate_results_folder
     output_path: str = args.output_path
+    category_names: list[str] | None = args.categories
+    style_names: list[str] | None = args.styles
+    difficulty_names: list[str] | None = args.difficulties
 
     db_dataset = DBDataset(db_root_path=db_root_path, db_name=db_name)
 
@@ -82,10 +138,18 @@ if __name__ == "__main__":
         intermediate_results_folder=intermediate_results_folder
     )
 
+    categories, styles, difficulties = get_categories_styles_difficulties(
+        category_names,
+        style_names,
+        difficulty_names
+    )
+
     chain = Chain(
         models=models,
         generator=generator,
-        categories=get_all_categories()
+        categories=categories,
+        styles=styles,
+        difficulties=difficulties
     )
 
     questions = chain.generate(

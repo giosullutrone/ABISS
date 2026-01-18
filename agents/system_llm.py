@@ -6,7 +6,7 @@ from agents.system_prompts import get_interaction_prompt, SystemResponse, get_sy
 from db_datasets.db_dataset import DBDataset
 from difflib import get_close_matches
 from categories.category import Category
-from categories import get_category_by_name
+from categories import get_category_by_name_and_subname
 from pydantic import BaseModel
 
 
@@ -32,7 +32,7 @@ class SystemLLM(System):
                 category_values = [cat.get_name() for cat in self.categories]
                 closest_matches = get_close_matches(category_str, category_values, n=1, cutoff=0.6)
                 if closest_matches:
-                    category = get_category_by_name(closest_matches[0])
+                    category = get_category_by_name_and_subname(closest_matches[0])
             return SystemResponseQuestion(question=content, category=category)
         else:
             raise ValueError(f"Invalid response_type: {response_type}. Must be 'SQL' or 'QUESTION'.")

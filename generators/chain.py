@@ -1,4 +1,4 @@
-from dataset_dataclasses.question import Question
+from dataset_dataclasses.question import Question, QuestionDifficulty, QuestionStyle
 from models.model import Model
 from categories.category import Category
 from db_datasets.db_dataset import DBDataset
@@ -9,15 +9,19 @@ class Chain:
     def __init__(self, 
                  models: list[Model], 
                  generator: Generator,
-                 categories: list[Category]) -> None:
+                 categories: list[Category],
+                 styles: list[QuestionStyle],
+                 difficulties: list[QuestionDifficulty]) -> None:
         self.models: list[Model] = models
         self.generator: Generator = generator
         self.categories: list[Category] = categories
+        self.styles: list[QuestionStyle] = styles
+        self.difficulties: list[QuestionDifficulty] = difficulties
 
     def generate(self, db: DBDataset) -> list[Question]:
         db_ids: list[str] = db.get_db_ids()
         # Generate questions
-        generated_questions = self.generator.generate(db_ids, self.categories)
+        generated_questions = self.generator.generate(db_ids, self.categories, self.styles, self.difficulties)
         # Validate questions
         questions = self.generator.validate(generated_questions)
         return questions

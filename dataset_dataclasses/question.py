@@ -1,6 +1,6 @@
 from dataclasses import dataclass, asdict
 from categories.category import Category
-from categories import get_category_by_name
+from categories import get_category_by_name_and_subname
 from enum import Enum
 
 
@@ -17,6 +17,24 @@ class QuestionStyle(Enum):
     INTERROGATIVE = "interrogative"
     DESCRIPTIVE = "descriptive"
     CONCISE = "concise"
+
+def get_all_question_styles() -> list[QuestionStyle]:
+    return [
+        QuestionStyle.FORMAL,
+        QuestionStyle.COLLOQUIAL,
+        QuestionStyle.IMPERATIVE,
+        QuestionStyle.INTERROGATIVE,
+        QuestionStyle.DESCRIPTIVE,
+        QuestionStyle.CONCISE,
+    ]
+
+def get_all_question_difficulties() -> list[QuestionDifficulty]:
+    return [
+        QuestionDifficulty.SIMPLE,
+        QuestionDifficulty.MODERATE,
+        QuestionDifficulty.COMPLEX,
+        QuestionDifficulty.HIGHLY_COMPLEX,
+    ]
 
 @dataclass
 class Question:
@@ -42,7 +60,7 @@ class QuestionUnanswerable(Question):
     @classmethod
     def from_dict(cls, d: dict) -> "QuestionUnanswerable":
         category_dict = d.pop("category")
-        category = get_category_by_name(category_dict["name"], category_dict.get("subname"))
+        category = get_category_by_name_and_subname(category_dict["name"], category_dict.get("subname"))
 
         assert category is not None, f"Unknown category: {category_dict}"
 
