@@ -1,7 +1,9 @@
-from db_datasets.db_dataset import DBDataset
 from pydantic import BaseModel, Field
 from typing import Annotated
 from prompts import model_field_descriptions
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from db_datasets.db_dataset import DBDataset
 
 
 class SQLGenerationResponse(BaseModel):
