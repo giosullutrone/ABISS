@@ -7,10 +7,10 @@ import os
 from prompts.generator_prompt import get_generation_prompt
 from pydantic import BaseModel
 from validators.sql_executable import SQLExecutable
-from validators.category_check import CategoryCheck
 from validators.check_ambiguousness import CheckAmbiguousness
 from validators.check_gt import CheckGT
 from validators.check_duplicate import CheckDuplicate
+from validators.check_unsolvable import CheckUnsolvable
 from validators.category_comparison import CategoryComparison
 from validators.style_difficulty_check import StyleDifficultyCheck
 from validators.validator import Validator
@@ -30,10 +30,10 @@ class Generator:
         self.intermediate_results_folder = intermediate_results_folder
 
         self.sql_validator = SQLExecutable(db)
-        self.category_check_validator = CategoryCheck(db, models_validator)
         self.check_ambiguousness_validator = CheckAmbiguousness(db, models_validator)
         self.check_gt_validator = CheckGT(db, models_validator)
         self.check_copy_validator = CheckDuplicate()
+        self.check_unsolvable_validator = CheckUnsolvable(db, models_validator, self.sql_validator, self.check_gt_validator)
         self.category_comparison_validator = CategoryComparison(db, models_validator, categories)
         self.style_difficulty_check_validator = StyleDifficultyCheck(db, models_validator)
 
@@ -104,14 +104,17 @@ class Generator:
                         validator: Validator, 
                         intermediate_results_label: str,
                         check_if_amb_solvable: bool=False,
+                        check_if_amb_unsolvable: bool=False,
                         check_if_answerable: bool=False) -> list[Question]:
         questions_to_check: list[Question] = []
         # Determine which questions to validate based on their category properties and flags
         if check_if_amb_solvable:
             questions_to_check.extend([q for q in questions if not q.category.is_answerable() and q.category.is_solvable()])
+        if check_if_amb_unsolvable:
+            questions_to_check.extend([q for q in questions if not q.category.is_answerable() and not q.category.is_solvable()])
         if check_if_answerable:
             questions_to_check.extend([q for q in questions if q.category.is_answerable()])
-        if not check_if_amb_solvable and not check_if_answerable:
+        if not check_if_amb_solvable and not check_if_amb_unsolvable and not check_if_answerable:
             questions_to_check = questions
         
         if len(questions_to_check) == 0:
@@ -138,18 +141,18 @@ class Generator:
         # Step 2: SQL Executability Validation if answerable or amb solvable
         questions = self.apply_validator(questions, self.sql_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
 
-        # Step 3: Category Fit Validation
-        questions = self.apply_validator(questions, self.category_check_validator, "after_category_check")
-
-        # Step 4: Other Categories Check Validation
-        questions = self.apply_validator(questions, self.category_comparison_validator, "after_category_comparison_check")
-
-        # Step 5: Check style and difficulty
-        questions = self.apply_validator(questions, self.style_difficulty_check_validator, "after_style_difficulty_check")
-
-        # Step 6: Ambiguity Validation if amb solvable
+        # Step 3: Ambiguity Validation if amb solvable
         questions = self.apply_validator(questions, self.check_ambiguousness_validator, "after_ambiguity_check", check_if_amb_solvable=True)
 
-        # Step 7: GT Satisfaction Validation if amb solvable or answerable
+        # Step 4: Unsolvability Validation if amb unsolvable
+        questions = self.apply_validator(questions, self.check_unsolvable_validator, "after_unsolvability_check", check_if_amb_unsolvable=True)
+
+        # Step 5: GT Satisfaction Validation if answerable or amb solvable
         questions = self.apply_validator(questions, self.check_gt_validator, "after_gt_satisfaction_check", check_if_amb_solvable=True, check_if_answerable=True)
+
+        # Step 6: Other Categories Check Validation
+        questions = self.apply_validator(questions, self.category_comparison_validator, "after_category_comparison_check")
+
+        # Step 7: Check style and difficulty
+        questions = self.apply_validator(questions, self.style_difficulty_check_validator, "after_style_difficulty_check")
         return questions

@@ -21,7 +21,7 @@ class AnswerableCategory(Category):
 
     @staticmethod
     def get_definition() -> str:
-        return "A question is Answerable when it can be directly answered using a SQL query against the database without requiring additional information, clarification, or disambiguation. The question clearly maps to the database schema, and all necessary information to construct a correct SQL query is available."
+        return "A question is Answerable when it can be directly answered using a SQL query against the database without requiring additional information, clarification, or disambiguation. The question clearly maps to the database schema, and all necessary information to construct a correct SQL query is available. Crucially, answerable questions do not require any external knowledge, user-provided context, or database modifications to be answered - they can be answered solely with the existing database schema and data."
 
     @staticmethod
     def get_examples() -> list[str] | None:

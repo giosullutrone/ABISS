@@ -1,8 +1,11 @@
 import os
-from db_datasets.prompts import generate_combined_prompts_one, generate_schema_prompt, extract_last_sql_query_from_block
 from typing import Any
 import sqlite3
 import time
+from db_datasets.sql_generation_prompts import SQLGenerationResponse, get_sql_generation_prompt, get_sql_result
+from db_datasets.sql_schema_prompts import generate_schema_prompt
+from dataset_dataclasses.question import Question
+from models.model import Model
 
 
 class DBDataset:
@@ -17,24 +20,27 @@ class DBDataset:
     def get_db_ids(self) -> list[str]:
         return [name for name in os.listdir(self.db_root_path) if os.path.isdir(os.path.join(self.db_root_path, name))]
 
-    ### Prompt generation and query execution methods ###
+    ### Generation methods ###
     def get_schema_prompt(self, db_id: str, rows: int | None) -> str:
         return generate_schema_prompt(
             db_path=self._get_db_path(db_id),
             num_rows=rows
         )
 
-    def get_prompt(self, db_id: str, question: str, evidence: str | None, num_rows: int | None) -> str:        
-        return generate_combined_prompts_one(
-            db_path=self._get_db_path(db_id),
-            question=question,
-            knowledge=evidence,
-            num_rows=num_rows
-        )
+    def generate_sqls(self, model: Model, questions: list[Question]) -> list[str]:
+        # Generate the SQL generation prompts
+        prompts = [get_sql_generation_prompt(
+            db=self,
+            db_id=q.db_id,
+            question=q.question,
+            evidence=q.evidence
+        ) for q in questions]
 
-    def extract_last_sql_query_from_block(self, text: str) -> str | None:
-        return extract_last_sql_query_from_block(text)
-
+        model.init()
+        responses = model.generate_batch_with_constraints(prompts, [SQLGenerationResponse for _ in prompts])
+        model.close()
+        return [get_sql_result(response) for response in responses]
+    
     ### Query execution and result comparison methods ###
     def _execute_query(
         self,
