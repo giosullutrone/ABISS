@@ -71,6 +71,7 @@ if __name__ == "__main__":
     parser.add_argument("--intermediate_results_folder", type=str, required=False, help="Folder to save intermediate results", default=None)
     parser.add_argument("--output_path", type=str, required=False, help="Path to save the results", default="dataset.json")
     parser.add_argument("--categories", type=str, nargs='+', required=False, help="List of category names to generate (if not specified, all categories will be used)", default=None)
+    parser.add_argument("--limit_categories", action="store_true", help="Limit the categories to use as validation to the ones specified in 'categories'")
     parser.add_argument("--styles", type=str, nargs='+', required=False, help="List of question styles to generate (formal, colloquial, imperative, interrogative, descriptive, concise)", default=None)
     parser.add_argument("--difficulties", type=str, nargs='+', required=False, help="List of question difficulties to generate (simple, moderate, complex, highly_complex)", default=None)
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
@@ -91,6 +92,7 @@ if __name__ == "__main__":
     intermediate_results_folder: str | None = args.intermediate_results_folder
     output_path: str = args.output_path
     category_names: list[str] | None = args.categories
+    limit_categories: bool = args.limit_categories
     style_names: list[str] | None = args.styles
     difficulty_names: list[str] | None = args.difficulties
 
@@ -130,18 +132,19 @@ if __name__ == "__main__":
                                },
                                max_batch_with_text_size=100000) for model in model_names]
 
-    generator = Generator(
-        db=db_dataset,
-        models=models,
-        models_validator=models_validator,
-        n_samples=n_samples,
-        intermediate_results_folder=intermediate_results_folder
-    )
-
     categories, styles, difficulties = get_categories_styles_difficulties(
         category_names,
         style_names,
         difficulty_names
+    )
+
+    generator = Generator(
+        db=db_dataset,
+        models=models,
+        models_validator=models_validator,
+        categories=categories if limit_categories else get_all_categories(),
+        n_samples=n_samples,
+        intermediate_results_folder=intermediate_results_folder
     )
 
     chain = Chain(

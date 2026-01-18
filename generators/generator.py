@@ -11,7 +11,6 @@ from validators.category_check import CategoryCheck
 from validators.check_ambiguousness import CheckAmbiguousness
 from validators.check_gt import CheckGT
 from validators.check_duplicate import CheckDuplicate
-from categories import get_all_categories
 from validators.category_comparison import CategoryComparison
 from validators.style_difficulty_check import StyleDifficultyCheck
 from validators.validator import Validator
@@ -22,6 +21,7 @@ class Generator:
                  db: DBDataset, 
                  models: list[Model], 
                  models_validator: list[Model],
+                 categories: list[Category],
                  n_samples: int, 
                  intermediate_results_folder: str | None) -> None:
         self.db: DBDataset = db
@@ -34,7 +34,7 @@ class Generator:
         self.check_ambiguousness_validator = CheckAmbiguousness(db, models_validator)
         self.check_gt_validator = CheckGT(db, models_validator)
         self.check_copy_validator = CheckDuplicate()
-        self.category_comparison_validator = CategoryComparison(db, models_validator, get_all_categories())
+        self.category_comparison_validator = CategoryComparison(db, models_validator, categories)
         self.style_difficulty_check_validator = StyleDifficultyCheck(db, models_validator)
 
     def save_intermediate_results(self, questions: list[Question], stage: str) -> None:
