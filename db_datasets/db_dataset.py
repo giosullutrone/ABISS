@@ -47,10 +47,13 @@ class DBDataset:
         db_id: str,
         sql_query: str,
         max_seconds: float | None = 30.0,
-    ) -> list[tuple[Any, ...]]:
+    ) -> tuple[list[str], list[tuple[Any, ...]]]:
         """
-        Execute the given SQL query on the specified database and return the results.
+        Execute the given SQL query on the specified database and return column names and results.
         If max_seconds is provided, the query will be aborted if it runs longer than that.
+        
+        Returns:
+            Tuple of (column_names, results)
         """
         # Open in immutable mode to avoid locking issues on network filesystems
         db_path = self._get_db_path(db_id)
@@ -73,13 +76,24 @@ class DBDataset:
         try:
             cursor.execute(sql_query)
             results = cursor.fetchall()
+            # Get column names from cursor description
+            column_names = [desc[0] for desc in cursor.description] if cursor.description else []
         finally:
             # Always clear handler and close connection
             conn.set_progress_handler(None, 0)
             conn.close()
-        return results
+        return column_names, results
 
     def execute_query(self, db_id: str, sql_query: str) -> list[tuple] | None:
+        """Execute query and return only results (for backward compatibility)."""
+        try:
+            _, results = self._execute_query(db_id=db_id, sql_query=sql_query)
+            return results
+        except Exception:
+            return None
+    
+    def execute_query_with_columns(self, db_id: str, sql_query: str) -> tuple[list[str], list[tuple]] | None:
+        """Execute query and return both column names and results."""
         try:
             return self._execute_query(db_id=db_id, sql_query=sql_query)
         except Exception:
@@ -89,12 +103,70 @@ class DBDataset:
         results = self.execute_query(db_id=db_id, sql_query=sql_query)
         return results is not None and len(results) > 0
 
+    def _compare_results_relaxed(self, 
+                                  cols_generated: list[str],
+                                  result_generated: list[tuple[Any, ...]], 
+                                  cols_ground_truth: list[str],
+                                  result_ground_truth: list[tuple[Any, ...]]) -> bool:
+        """
+        Compare query results using relaxed semantic equivalence criteria from Floratou et al.
+        
+        Rules:
+        1. Row ordering is ignored
+        2. Generated query can return a superset of columns (column names must match)
+        3. Columns can be in any order, we match by name and reorder accordingly
+        
+        Returns:
+            True if results are semantically equivalent under relaxed criteria
+        """
+        # Handle empty results
+        if len(result_generated) != len(result_ground_truth):
+            return False
+        
+        if len(result_generated) == 0:
+            return True
+        
+        # Check that all ground truth columns are present in generated columns
+        cols_gt_set = set(cols_ground_truth)
+        cols_gen_set = set(cols_generated)
+        
+        if not cols_gt_set.issubset(cols_gen_set):
+            return False
+        
+        # Build a mapping from ground truth column positions to generated column positions
+        column_mapping = [cols_generated.index(col) for col in cols_ground_truth]
+        
+        # Reorder generated results to match ground truth column order
+        projected_generated = [
+            tuple(row[i] for i in column_mapping) 
+            for row in result_generated
+        ]
+        
+        # Compare as unordered sets (ignoring row ordering)
+        set_generated = set(projected_generated)
+        set_ground_truth = set(result_ground_truth)
+        
+        return set_generated == set_ground_truth
+
     def compare_query_results(self, 
                               db_id: str, 
                               sql_query_1: str, 
                               sql_query_2: str) -> bool | None:
-        result_1 = self.execute_query(db_id=db_id, sql_query=sql_query_1)
-        result_2 = self.execute_query(db_id=db_id, sql_query=sql_query_2)
+        """
+        Compare results of two SQL queries using relaxed semantic equivalence.
+        
+        sql_query_1 is treated as the generated query (can have more columns)
+        sql_query_2 is treated as the ground truth query
+        
+        Returns:
+            True if semantically equivalent, False if not, None if execution error
+        """
+        result_1 = self.execute_query_with_columns(db_id=db_id, sql_query=sql_query_1)
+        result_2 = self.execute_query_with_columns(db_id=db_id, sql_query=sql_query_2)
         if result_1 is None or result_2 is None:
             return None
-        return result_1 == result_2
+        
+        cols_1, data_1 = result_1
+        cols_2, data_2 = result_2
+        
+        return self._compare_results_relaxed(cols_1, data_1, cols_2, data_2)

@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 class ImproperQuestionCategory(Category):
     class ImproperQuestionOutput(BaseModel):
         question: Annotated[str, Field(description="A question that is unrelated to the database domain and cannot be answered through SQL queries. This includes chit-chat, philosophical questions, requests for external reasoning, or commands that are not database queries (e.g., updates, general knowledge questions).")]
+        feedback: Annotated[str, Field(description="Explanation of why this question is not solvable, specifying why it is improper (e.g., chit-chat, off-topic, non-query request, general knowledge, etc.) and unrelated to the database domain.")]
 
     @staticmethod
     def get_name() -> str:
@@ -55,7 +56,7 @@ class ImproperQuestionCategory(Category):
             question=output.question,
             evidence=None,
             sql=None,
-            hidden_knowledge=None,
+            hidden_knowledge=output.feedback,
             is_solvable=ImproperQuestionCategory.is_solvable(),
             question_style=question_style,
             question_difficulty=question_difficulty

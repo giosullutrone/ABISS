@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 class MissingSchemaRelationshipsCategory(Category):
     class MissingSchemaRelationshipsOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question that requires connecting two or more entities that exist in the schema but lack any relationship or foreign key linkage between them. The question should be well-formed and realistic, appearing answerable at first glance because the relevant tables exist, but impossible to answer because no connection exists between them.")]
+        feedback: Annotated[str, Field(description="Explanation of why this question is not solvable, specifying which entities exist in the schema but lack the necessary relationships or foreign keys to connect them and answer the question.")]
 
     @staticmethod
     def get_name() -> str:
@@ -48,7 +49,7 @@ class MissingSchemaRelationshipsCategory(Category):
             question=output.question,
             evidence=None,
             sql=None,
-            hidden_knowledge=None,
+            hidden_knowledge=output.feedback,
             is_solvable=MissingSchemaRelationshipsCategory.is_solvable(),
             question_style=question_style,
             question_difficulty=question_difficulty

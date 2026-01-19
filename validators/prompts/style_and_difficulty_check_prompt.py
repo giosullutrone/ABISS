@@ -26,6 +26,10 @@ def get_style_difficulty_validation_prompt(db: DBDataset, question: Question) ->
     prompt += "## Question Information\n"
     prompt += f"**Natural Language Question:** {question.question}\n"
     
+    if question.evidence:
+        prompt += f"**Additional Context:** {question.evidence}\n"
+    prompt += "\n"
+    
     # Show the database schema
     prompt += "## Database Schema\n"
     prompt += db.get_schema_prompt(question.db_id, rows=5) + "\n\n"
@@ -42,7 +46,7 @@ def get_style_difficulty_validation_prompt(db: DBDataset, question: Question) ->
     
     if question.sql:
         prompt += "## Generated SQL Query\n"
-        if isinstance(question, QuestionUnanswerable) and question.is_solvable:
+        if isinstance(question, QuestionUnanswerable):
             prompt += f"**SQL Query:** {question.sql}\n"
             if question.hidden_knowledge:
                 prompt += f"**Context:** This SQL represents one interpretation knowing that: {question.hidden_knowledge}\n"

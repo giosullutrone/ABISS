@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 class MissingExternalKnowledgeCategory(Category):
     class MissingExternalKnowledgeOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question whose interpretation depends on objective, domain-specific facts, conventions, or policies that are not present in the database. The question appears valid but cannot be answered without external knowledge such as conversion formulas, grading scales, classification rules, or domain-specific standards.")]
+        feedback: Annotated[str, Field(description="Explanation of why this question is not solvable, specifying what external knowledge (formulas, conventions, policies, standards, etc.) is missing and required to answer the question.")]
 
     @staticmethod
     def get_name() -> str:
@@ -54,7 +55,7 @@ class MissingExternalKnowledgeCategory(Category):
             question=output.question,
             evidence=None,
             sql=None,
-            hidden_knowledge=None,
+            hidden_knowledge=output.feedback,
             is_solvable=MissingExternalKnowledgeCategory.is_solvable(),
             question_style=question_style,
             question_difficulty=question_difficulty

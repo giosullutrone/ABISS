@@ -5,17 +5,6 @@ from prompts.question_relevancy_prompt import get_relevancy_prompt, QuestionRele
 
 
 class QuestionRelevancy:
-    """
-    Module that given a list of QuestionUnanswerable and a list of models, checks if the question by a text-to-SQL system to clarify ambiguity is relevant to the original question given also the category of the question and the hidden user intent.
-    
-    Possible cases:
-    - Relevant: The clarification question is relevant to the original question and hidden knowledge and helps in disambiguating it.
-    - Technical: The clarification question is relevant but focuses on technical SQL aspects (like ordering or limits) and is not related to the original question and hidden knowledge.
-    - Irrelevant: The clarification question is not relevant to the original question and hidden knowledge.
-
-    The final result is done via majority voting across the models. Where the option that gets the most votes is selected as final. Irrelevant in case of a tie.
-    """
-
     def __init__(self, db: DBDataset, models: list[Model]) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models

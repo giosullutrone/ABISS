@@ -31,6 +31,10 @@ def get_category_comparison_prompt(db: DBDataset, category_a: Category, category
     prompt += "## Question Under Analysis\n"
     prompt += f"**Natural Language Question:** {question.question}\n"
     
+    if question.evidence:
+        prompt += f"**Evidence/Context:** {question.evidence}\n"
+        prompt += "Pay close attention to the evidence above as it may reveal crucial information for the task.\n"
+    
     # Include SQL for all questions (both answerable and unanswerable)
     if question.sql:
         prompt += f"**Ground Truth SQL:** {question.sql}\n"
@@ -45,7 +49,7 @@ def get_category_comparison_prompt(db: DBDataset, category_a: Category, category
     # Only include hidden knowledge if the question is of type QuestionUnanswerable
     if isinstance(question, QuestionUnanswerable):
         if question.hidden_knowledge:
-            prompt += f"**Hidden Knowledge:** {question.hidden_knowledge}\n"
+            prompt += f"**Hidden Knowledge:**\n{question.hidden_knowledge}\n"
     
     prompt += "\n## Category A\n"
     prompt += f"**Name:** {category_a.get_name()}"

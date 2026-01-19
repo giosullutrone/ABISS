@@ -40,6 +40,9 @@ def get_gt_validation_prompt(db: DBDataset, question: Question) -> str:
     prompt += "## Question Information\n"
     prompt += f"**Natural Language Question:** {question.question}\n"
     
+    if question.evidence:
+        prompt += f"**Additional Context:** {question.evidence}\n"
+    
     if isinstance(question, QuestionUnanswerable):
         if question.hidden_knowledge:
             prompt += f"**Hidden Knowledge (Disambiguating Information):** {question.hidden_knowledge}\n"

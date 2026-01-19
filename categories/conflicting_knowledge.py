@@ -57,7 +57,7 @@ class ConflictingKnowledgeCategory(Category):
             db_id=db_id,
             category=ConflictingKnowledgeCategory(),
             question=output.question,
-            evidence="1. " + output.evidence_first + "\n2. " + output.evidence_second,
+            evidence="Evidence 1: " + output.evidence_first + "\nEvidence 2: " + output.evidence_second,
             sql=sql,
             hidden_knowledge=hk,
             is_solvable=ConflictingKnowledgeCategory.is_solvable(),

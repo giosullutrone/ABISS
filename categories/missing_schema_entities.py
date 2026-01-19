@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 class MissingSchemaEntitiesCategory(Category):
     class MissingSchemaEntitiesOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question that requests information about entities or attributes that do not exist in the database schema. The question should be well-formed and realistic, but impossible to answer because key tables or columns are completely absent from the schema.")]
+        feedback: Annotated[str, Field(description="Explanation of why this question is not solvable, specifying which entities or attributes are missing from the database schema and are required to answer the question.")]
 
     @staticmethod
     def get_name() -> str:
@@ -48,7 +49,7 @@ class MissingSchemaEntitiesCategory(Category):
             question=output.question,
             evidence=None,
             sql=None,
-            hidden_knowledge=None,
+            hidden_knowledge=output.feedback,
             is_solvable=MissingSchemaEntitiesCategory.is_solvable(),
             question_style=question_style,
             question_difficulty=question_difficulty

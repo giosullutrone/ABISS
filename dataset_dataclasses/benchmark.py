@@ -69,6 +69,7 @@ class Conversation:
     recognition: bool | None = None
     classification: bool | None = None
     solved: bool | None = None
+    explained: bool | None = None
 
     def to_dict(self) -> dict:
         return generic_to_dict(self)
@@ -88,6 +89,7 @@ class Conversation:
             interactions=interactions,
             recognition=d.get("recognition"),
             classification=d.get("classification"),
+            explained=d.get("explained"),
             solved=d.get("solved"),
         )
 

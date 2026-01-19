@@ -7,13 +7,6 @@ from prompts.user_answer_prompt import get_user_answer_prompt, UserAnswerRespons
 
 
 class UserAnswer:
-    """
-    Module that given a list of QuestionUnanswerable and a list of models, generates the answer provided by the user to the clarification question asked by the text-to-SQL system.
-    The answer is expected to help disambiguate the original question. It may be question related to the hidden knowledge or may be technical question related to SQL aspects (like ordering or limits).
-    
-    We return a list of answers for each question, one for each model, to be used in a 1vs1 voting scheme later on.
-    """
-
     def __init__(self, 
                  db: DBDataset, 
                  models: list[Model], 
