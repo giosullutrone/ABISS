@@ -3,7 +3,7 @@ from db_datasets.db_dataset import DBDataset
 from models.model import Model
 from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from users.best_user_answer import BestUserAnswer
-from prompts.user_answer_prompt import get_user_answer_prompt, UserAnswerResponse, get_user_answer_result
+from users.prompts.user_answer_prompt import get_user_answer_prompt, UserAnswerResponse, get_user_answer_result
 
 
 class UserAnswer:

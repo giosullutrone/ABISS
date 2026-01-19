@@ -1,7 +1,7 @@
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
 from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
-from prompts.question_relevancy_prompt import get_relevancy_prompt, QuestionRelevancyResponse, get_question_relevancy_result
+from users.prompts.question_relevancy_prompt import get_relevancy_prompt, QuestionRelevancyResponse, get_question_relevancy_result
 
 
 class QuestionRelevancy:

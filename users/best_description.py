@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from models.model import Model
 from db_datasets.db_dataset import DBDataset
-from prompts.best_description_prompt import get_selection_prompt, BestDescriptionResponse, get_best_description_result
+from users.prompts.best_description_prompt import get_selection_prompt, BestDescriptionResponse, get_best_description_result
 
 
 class BestDescription:

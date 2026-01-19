@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from models.model import Model
 from db_datasets.db_dataset import DBDataset
-from prompts.best_user_answer_prompt import get_selection_prompt, BestUserAnswerResponse, get_best_user_answer_result
+from users.prompts.best_user_answer_prompt import get_selection_prompt, BestUserAnswerResponse, get_best_user_answer_result
 
 
 class BestUserAnswer:

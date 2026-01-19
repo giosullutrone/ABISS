@@ -9,12 +9,22 @@ class Generation(Evaluator):
 
     def evaluate(self, conversations: list[Conversation]) -> None:
         """
-        Set the solved to True if the predicted SQL matches the ground truth SQL.
+        Set the solved to True if the predicted SQL matches the ground truth SQL
+        using relaxed semantic equivalence (ignores row order, allows column supersets).
         """
-        sqls = [conversation.question.sql for conversation in conversations]
-        predicted_sqls = [conversation.interactions[-1].system_response.system_sql for conversation in conversations]
-
-        results = [(sql == psql) if (psql is not None and sql is not None) else False for sql, psql in zip(sqls, predicted_sqls)]
-
-        for conversation, result in zip(conversations, results):
+        for conversation in conversations:
+            sql = conversation.question.sql
+            predicted_sql = conversation.predicted_sql
+            
+            if predicted_sql is None or sql is None:
+                conversation.solved = False
+                continue
+            
+            # Use relaxed semantic equivalence comparison
+            result = self.db.compare_query_results(
+                db_id=conversation.question.db_id,
+                sql_query_1=predicted_sql,  # generated query
+                sql_query_2=sql  # ground truth query
+            )
+            
             conversation.solved = result
