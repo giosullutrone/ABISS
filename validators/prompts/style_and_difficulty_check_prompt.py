@@ -1,9 +1,9 @@
-from prompts import model_field_descriptions
-from dataset_dataclasses.question import Question, QuestionUnanswerable, QuestionStyle, QuestionDifficulty
+from utils.prompt_utils import model_field_descriptions
+from dataset_dataclasses.question import Question, QuestionUnanswerable
 from db_datasets.db_dataset import DBDataset
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal
-from prompts import STYLE_DESCRIPTIONS, DIFFICULTY_CRITERIA
+from utils.style_and_difficulty_utils import STYLE_DESCRIPTIONS, DIFFICULTY_CRITERIA
 
 
 class StyleDifficultyCheckResponse(BaseModel):

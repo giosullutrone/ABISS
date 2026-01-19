@@ -1,5 +1,5 @@
 from db_datasets.db_dataset import DBDataset
-from prompts import model_field_descriptions
+from utils.prompt_utils import model_field_descriptions
 from dataset_dataclasses.question import Question, QuestionUnanswerable
 from pydantic import BaseModel
 from typing import Annotated

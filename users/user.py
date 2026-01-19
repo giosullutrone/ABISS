@@ -1,9 +1,9 @@
 from models.model import Model
-from interactions.question_relevancy import QuestionRelevancy
-from interactions.user_answer import UserAnswer
-from interactions.schema_to_nl import SchemaToNL
+from users.question_relevancy import QuestionRelevancy
+from users.user_answer import UserAnswer
+from users.schema_to_nl import SchemaToNL
 from db_datasets.db_dataset import DBDataset
-from dataset_dataclasses.results import Conversation
+from dataset_dataclasses.benchmark import Conversation
 
 
 class User:
@@ -27,8 +27,8 @@ class User:
 
         self.user_answer_interaction = UserAnswer(self.db, self.models, db_descriptions)
     
-    def get_relevancy(self, conversations: list[Conversation]) -> list[Conversation]:       
-        return self.question_relevancy_interaction.get_relevancy(conversations)
+    def get_relevancy(self, conversations: list[Conversation]) -> None:       
+        self.question_relevancy_interaction.get_relevancy(conversations)
 
-    def get_answers(self, conversations: list[Conversation]) -> list[Conversation]:
-        return self.user_answer_interaction.get_user_answers(conversations)
+    def get_answers(self, conversations: list[Conversation]) -> None:
+        self.user_answer_interaction.get_user_answers(conversations)

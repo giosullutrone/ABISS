@@ -8,7 +8,7 @@ from vllm.lora.request import LoRARequest
 from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 from models import extract_last_json_object
 from pydantic import BaseModel
-from prompts import model_field_descriptions
+from utils.prompt_utils import model_field_descriptions
 from models import reorder_by_prefix_similarity, restore_original_order
 
 logger = logging.getLogger(__name__)
@@ -110,13 +110,24 @@ class ModelVLLM(Model):
 
             # We copy the original conversation prompt since it is a list which is mutable
             conversation_to_regenerate = prompts[prompt_idx].copy()
+            
+            # Remove <think> tags if present without the closing tag </think> to avoid chat template parsing issues
+            response_text = responses[idx]
+            
+            # Check if there's an unclosed <think> tag and remove it
+            if "<think>" in response_text and not "</think>" in response_text:
+                # Remove the <think> tag but keep all the content
+                response_text = response_text.replace("<think>", "")
+            
+            # Add continuation prompt to guide the model
             additional_prompt = (
                 "\n\nLet me complete this JSON response properly. "
                 f"The complete JSON object must follow this schema:\n{model_field_descriptions(constraint)}\n\n"
                 "Here is the complete, valid JSON:\n"
             )
+            
             # We have to add the assistance message with the previous incomplete response
-            conversation_to_regenerate.append({"role": "assistant", "content": responses[idx] + additional_prompt})
+            conversation_to_regenerate.append({"role": "assistant", "content": response_text + additional_prompt})
             conversations_to_regenerate[idx] = (conversation_to_regenerate, constraint)
 
         # Group conversations by constraint type for batched regeneration

@@ -1,7 +1,7 @@
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
-from interactions.best_description import BestDescription
-from prompts.schema_to_nl_prompt import get_generation_prompt, SchemaToNLResponse, get_schema_to_nl_result
+from users.best_description import BestDescription
+from users.prompts.schema_to_nl_prompt import get_generation_prompt, SchemaToNLResponse, get_schema_to_nl_result
 
 
 class SchemaToNL:

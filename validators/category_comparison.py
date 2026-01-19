@@ -26,6 +26,14 @@ class CategoryComparison(Validator):
             for cat_idx, other_cat in enumerate(self.categories):
                 if other_cat == main_cat:
                     continue
+                if not main_cat.is_answerable() and other_cat.is_answerable():
+                    # Skip comparisons where main is unanswerable and other is answerable
+                    # Reason: By this point, unanswerable questions have already been validated:
+                    # - Solvable questions passed CheckAmbiguousness (proven ambiguous, thus NOT answerable)
+                    # - Unsolvable questions passed CheckUnsolvable (proven unsolvable, thus NOT answerable)
+                    # Comparing against answerable would be redundant and waste LLM calls.
+                    # We focus on distinguishing between ambiguous subcategories instead for them.
+                    continue
                 
                 # Prompt with main as A, other as B
                 prompt = get_category_comparison_prompt(self.db, main_cat, other_cat, question)

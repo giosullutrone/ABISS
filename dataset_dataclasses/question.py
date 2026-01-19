@@ -1,6 +1,7 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from categories.category import Category
 from categories import get_category_by_name_and_subname
+from utils.dataclass_utils import generic_to_dict
 from enum import Enum
 
 
@@ -47,10 +48,20 @@ class Question:
     question_difficulty: QuestionDifficulty
 
     def to_dict(self) -> dict:
-        return asdict(self, dict_factory=lambda x: {
-            k: (v.to_dict() if hasattr(v, "to_dict") else (v.value if isinstance(v, Enum) else v)) 
-            for k, v in x
-        })
+        return generic_to_dict(self)
+    
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Question):
+            return False
+        return (
+            self.db_id == value.db_id and
+            self.question == value.question and
+            self.evidence == value.evidence and
+            self.sql == value.sql and
+            self.category == value.category and
+            self.question_style == value.question_style and
+            self.question_difficulty == value.question_difficulty
+        )
 
 @dataclass
 class QuestionUnanswerable(Question):

@@ -4,7 +4,7 @@ from db_datasets.db_dataset import DBDataset
 from models.model import Model
 import json
 import os
-from prompts.generator_prompt import get_generation_prompt
+from generators.generator_prompt import get_generation_prompt
 from pydantic import BaseModel
 from validators.sql_executable import SQLExecutable
 from validators.check_ambiguousness import CheckAmbiguousness

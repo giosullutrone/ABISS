@@ -51,6 +51,7 @@ class Category(ABC):
         return {
             "name": self.get_name(),
             "subname": self.get_subname(),
+            "answerable": self.is_answerable(),
             "solvable": self.is_solvable()
         }
     

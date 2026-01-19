@@ -1,6 +1,5 @@
 from evaluators.evaluator import Evaluator
-from dataset_dataclasses.results import Conversation
-from dataset_dataclasses.system import SystemResponseSQL
+from dataset_dataclasses.benchmark import Conversation
 from dataset_dataclasses.question import Question, QuestionUnanswerable
 from db_datasets.db_dataset import DBDataset
 
@@ -9,21 +8,14 @@ class Generation(Evaluator):
     def __init__(self, db: DBDataset) -> None:
         self.db: DBDataset = db
 
-    def evaluate(self, conversations: list[Conversation]) -> list[Conversation]:
+    def evaluate(self, conversations: list[Conversation]) -> None:
         """
-        Returns True if the generated SQL query produces the same results as the ground truth SQL query for answerable or unanswerable but solvable questions
+        Set the solved to True if the predicted SQL matches the ground truth SQL.
         """
-        questions = [conversation.question for conversation in conversations]
-        system_responses = [conversation.interactions[-1].system_response for conversation in conversations]
-        generations: list[bool | None] = [None] * len(questions)
-        for idx, (question, system_response) in enumerate(zip(questions, system_responses)):
-            # Generation is only applicable for unanswerable questions with SQL responses
-            if isinstance(system_response, SystemResponseSQL) and \
-                ((isinstance(question, QuestionUnanswerable) and question.category.is_solvable()) or isinstance(question, Question)):
-                # We check if the generated SQL resolves the ambiguity (i.e. they are equivalent)
-                assert question.sql is not None, "Ground truth SQL should be available for unanswerable questions."
-                generations[idx] = self.db.compare_query_results(question.db_id, system_response.sql, question.sql)
-        
-        for conversation, generation in zip(conversations, generations):
-            conversation.interactions[-1].solved = generation
-        return conversations
+        sqls = [conversation.question.sql for conversation in conversations]
+        predicted_sqls = [conversation.interactions[-1].system_response.system_sql for conversation in conversations]
+
+        results = [(sql == psql) if psql is not None else False for sql, psql in zip(sqls, predicted_sqls)]
+
+        for conversation, result in zip(conversations, results):
+            conversation.solved = result

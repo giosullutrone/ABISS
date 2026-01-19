@@ -1,7 +1,6 @@
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
-from dataset_dataclasses.results import Conversation
-from prompts import RelevancyLabel
+from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from prompts.question_relevancy_prompt import get_relevancy_prompt, QuestionRelevancyResponse, get_question_relevancy_result
 
 
@@ -21,7 +20,7 @@ class QuestionRelevancy:
         self.db: DBDataset = db
         self.models: list[Model] = models
 
-    def get_relevancy(self, conversations: list[Conversation]) -> list[Conversation]:
+    def get_relevancy(self, conversations: list[Conversation]) -> None:
         labels: list[dict[RelevancyLabel, int]] = [{RelevancyLabel.RELEVANT: 0, RelevancyLabel.TECHNICAL: 0, RelevancyLabel.IRRELEVANT: 0} for _ in range(len(conversations))]
 
         # Get the prompts
@@ -50,4 +49,3 @@ class QuestionRelevancy:
         
         for i, conversation in enumerate(conversations):
             conversation.interactions[-1].relevance = final_labels[i]
-        return conversations

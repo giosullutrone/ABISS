@@ -2,7 +2,7 @@ from db_datasets.db_dataset import DBDataset
 from pydantic import BaseModel
 from typing import Annotated
 from pydantic import Field
-from prompts import model_field_descriptions
+from utils.prompt_utils import model_field_descriptions
 from typing import Literal
 
 

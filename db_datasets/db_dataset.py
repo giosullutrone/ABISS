@@ -69,7 +69,7 @@ class DBDataset:
 
             # Call handler every 1000 "virtual machine" steps (tune as needed)
             conn.set_progress_handler(progress_handler, 1000)
-
+        
         try:
             cursor.execute(sql_query)
             results = cursor.fetchall()

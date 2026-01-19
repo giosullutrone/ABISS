@@ -3,16 +3,16 @@ import logging
 from typing import Type
 from dataset_dataclasses.question import Question, QuestionUnanswerable
 from db_datasets.db_dataset import DBDataset
-from interactions.runner import Runner
+from benchmarks.benchmark import Benchmark
 from enum import Enum
 from agents.system_llm import SystemLLM
 from agents.system import System
 import json
 from models.model import Model
 from models.model_vllm import ModelVLLM
-from interactions.user import User
+from users.user import User
 from prompts import UserKnowledgeLevel
-from categories import get_all_categories
+from categories import get_all_categories, get_category_by_class_name
 import os
 
 
@@ -25,6 +25,8 @@ if __name__ == "__main__":
     parser.add_argument("--db_root_path", type=str, required=True, help="Path to the database root")
     parser.add_argument("--question_path", type=str, required=True, help="Path to the questions file")
     parser.add_argument("--model_names", type=str, nargs='+', required=False, help="List of model names to use")
+    parser.add_argument("--categories", type=str, nargs='+', required=False, help="List of category names to generate (if not specified, all categories will be used). Note: Use the same categories used to generate the dataset", default=None)
+    parser.add_argument("--max_steps", type=int, required=False, help="Maximum number of interaction steps", default=5)
     parser.add_argument("--tensor_parallel_size", type=int, required=False, help="Tensor parallel size for VLLM models", default=1)
     parser.add_argument("--output_path", type=str, required=False, help="Path to save the results", default="results.json")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
@@ -40,8 +42,25 @@ if __name__ == "__main__":
     db_root_path: str = args.db_root_path
     question_path: str = args.question_path
     model_names: list[str] = args.model_names
+    category_names: list[str] | None = args.categories
+    max_steps: int = args.max_steps
     tensor_parallel_size: int = args.tensor_parallel_size
     output_path: str = args.output_path
+
+    # Normally we would use all categories
+    categories = get_all_categories()
+
+    # If the user specified categories, use only those
+    if category_names is not None:
+        categories = []
+        for cat_name in category_names:
+            # Try exact match first, then try with "Category" suffix
+            category = get_category_by_class_name(cat_name)
+            if category is None and not cat_name.endswith("Category"):
+                category = get_category_by_class_name(f"{cat_name}Category")
+            if category is None:
+                raise ValueError(f"Category '{cat_name}' not found")
+            categories.append(category)
 
     ################################################################################
     ### System and Model Initialization
@@ -83,18 +102,18 @@ if __name__ == "__main__":
 
     db_dataset = DBDataset(db_root_path=db_root_path, db_name=db_name)
 
-    system_instance = system_class(model=model_system, db_dataset=db_dataset, categories=get_all_categories())
+    system_instance = system_class("LLM", model=model_system, db=db_dataset, categories=categories, max_steps=max_steps)
 
     user_instance = User("test", 
                          db_dataset, 
                          models_validator, 
                          db_dataset.get_db_ids())
 
-    runner = Runner(
+    runner = Benchmark(
         db_dataset=db_dataset,
         system=system_instance,
         user=user_instance,
-        max_steps=5
+        max_steps=max_steps
     )
 
     # Load raw question dicts and dispatch to the appropriate dataclass

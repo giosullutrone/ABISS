@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from dataset_dataclasses.results import Conversation
+from dataset_dataclasses.benchmark import Conversation
 
 
 class Evaluator(ABC):
     @abstractmethod
-    def evaluate(self, conversations: list[Conversation]) -> list[Conversation]:
+    def evaluate(self, conversations: list[Conversation]) -> None:
         pass

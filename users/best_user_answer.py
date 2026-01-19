@@ -1,5 +1,6 @@
+from typing import cast
 from pydantic import BaseModel
-from dataset_dataclasses.results import Conversation
+from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from models.model import Model
 from db_datasets.db_dataset import DBDataset
 from prompts.best_user_answer_prompt import get_selection_prompt, BestUserAnswerResponse, get_best_user_answer_result
@@ -26,10 +27,12 @@ class BestUserAnswer:
         pairwise_prompts: dict[int, list[tuple[int, int, str]]] = {}
         for i, gens in enumerate(answers):
             pairwise_prompts[i] = []
+            assert conversations[i].interactions[-1].relevance is not None, "Relevancy label must be set for the last interaction."
+            relevance_value = cast(RelevancyLabel, conversations[i].interactions[-1].relevance).value
             for j in range(len(gens)):
                 for k in range(len(gens)):
                     if j != k:
-                        prompt = get_selection_prompt(self.db, self.db_descriptions, conversations[i], gens[j], gens[k], conversations[i].user_knowledge_level)
+                        prompt = get_selection_prompt(self.db, self.db_descriptions, conversations[i], gens[j], gens[k], relevance_value)
                         pairwise_prompts[i].append((j, k, prompt))
 
         # Now flatten the prompts into a single list

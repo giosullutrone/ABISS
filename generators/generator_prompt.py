@@ -1,8 +1,8 @@
 from pydantic import BaseModel
-from prompts import model_field_descriptions
+from utils.prompt_utils import model_field_descriptions
 from db_datasets.db_dataset import DBDataset
 from dataset_dataclasses.question import QuestionStyle, QuestionDifficulty
-from prompts import STYLE_DESCRIPTIONS_WITH_QUESTION_EXAMPLES, DIFFICULTY_CRITERIA
+from utils.style_and_difficulty_utils import STYLE_DESCRIPTIONS_WITH_QUESTION_EXAMPLES, DIFFICULTY_CRITERIA
 
 
 def get_generation_prompt(

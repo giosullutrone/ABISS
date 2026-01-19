@@ -1,24 +1,21 @@
+from categories.category import Category
 from evaluators.evaluator import Evaluator
-from dataset_dataclasses.results import Conversation
-from dataset_dataclasses.system import SystemResponseQuestion, SystemResponseSQL
-from dataset_dataclasses.question import Question, QuestionUnanswerable
+from dataset_dataclasses.benchmark import Conversation
+from typing import cast
 
 
 class Recognition(Evaluator):
-    def evaluate(self, conversations: list[Conversation]) -> list[Conversation]:
+    def evaluate(self, conversations: list[Conversation]) -> None:
         """
-        Returns True if the system response correctly recognizes whether the question is answerable or unanswerable:
-        - For answerable questions, the system response should be a SystemResponseSQL.
-        - For unanswerable questions, the system response should be a SystemResponseQuestion.
+        Sets the recognition to True if the system correctly identified whether the question belongs to the same category group (i.e. same is_answerable and is_solvable).
         """
-        questions = [conversation.question for conversation in conversations]
-        system_responses = [conversation.interactions[-1].system_response for conversation in conversations]
-        recognitions: list[bool | None] = [None] * len(conversations)
+        question_categories = [conversation.question.category for conversation in conversations]
+        predicted_categories = [conversation.predicted_category for conversation in conversations]
 
-        for idx, (question, system_response) in enumerate(zip(questions, system_responses)):
-            recognitions[idx] = (isinstance(system_response, SystemResponseSQL) and isinstance(question, Question) or 
-                                 isinstance(system_response, SystemResponseQuestion) and isinstance(question, QuestionUnanswerable))
-        
-        for conversation, recognition in zip(conversations, recognitions):
-            conversation.interactions[-1].recognition = recognition
-        return conversations
+        assert all(pc is not None for pc in predicted_categories), "All conversations must have a predicted category for classification evaluation."
+        predicted_categories = cast(list[Category], predicted_categories)
+
+        results = [qc.is_answerable() == pc.is_answerable() and qc.is_solvable() == pc.is_solvable() for qc, pc in zip(question_categories, predicted_categories)]
+
+        for conversation, result in zip(conversations, results):
+            conversation.recognition = result
