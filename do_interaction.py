@@ -11,7 +11,6 @@ import json
 from models.model import Model
 from models.model_vllm import ModelVLLM
 from users.user import User
-from prompts import UserKnowledgeLevel
 from categories import get_all_categories, get_category_by_class_name
 import os
 
