@@ -1,4 +1,4 @@
-# A Taxonomy of Unanswerable Questions for Text-to-SQL Systems
+# ABISS: Evaluating Text-to-SQL Systems Through Interactive Ambiguity Resolution
 
 This repository contains the code and benchmarking framework for our VLDB 2026 paper on evaluating text-to-SQL systems with a comprehensive taxonomy of unanswerable and ambiguous questions.
 
