@@ -24,7 +24,7 @@ class LexicalVaguenessCategory(Category):
 
     @staticmethod
     def get_definition() -> str:
-        return "Lexical Vagueness arises when a question contains terms whose meaning lacks a precise or objective boundary, leading to indeterminate selection criteria during query generation. These vague terms require subjective interpretation to establish concrete thresholds or criteria. Such vagueness introduces variability that cannot be resolved solely from schema information, as it depends on the user's subjective understanding or context-specific conventions."
+        return "Lexical Vagueness arises when a question contains terms whose meaning lacks a precise or objective boundary, leading to indeterminate selection criteria during query generation. These vague terms require subjective interpretation to establish concrete thresholds or criteria. Such vagueness introduces variability that cannot be resolved solely from schema information, as it depends on the user's subjective understanding or context-specific conventions. The ambiguity is purely from the inherently vague terminology in the question itself (e.g., 'high', 'recent', 'many', 'popular')."
 
     @staticmethod
     def get_examples() -> list[str] | None:

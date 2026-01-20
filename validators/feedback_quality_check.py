@@ -1,13 +1,13 @@
 from db_datasets.db_dataset import DBDataset
 from validators.validator import Validator
-from dataset_dataclasses.question import Question, QuestionUnanswerable
+from dataset_dataclasses.question import Question
 from models.model import Model
-from prompts.feedback_quality_check_prompt import (
+from pydantic import BaseModel
+from validators.prompts.feedback_quality_check_prompt import (
     get_feedback_quality_check_prompt,
     FeedbackQualityCheckResponse,
     get_feedback_quality_check_result
 )
-from pydantic import BaseModel
 
 
 class FeedbackQualityCheck(Validator):

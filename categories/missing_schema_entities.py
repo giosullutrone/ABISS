@@ -25,7 +25,13 @@ class MissingSchemaEntitiesCategory(Category):
 
     @staticmethod
     def get_examples() -> list[str] | None:
-        return None
+        return [
+            "List the administrative staff in the engineering department.",
+            "Show employee salaries for the IT department.",
+            "Find the office phone numbers for all professors.",
+            "What is the research budget for each department?",
+            "Display the parking assignments for faculty members."
+        ]
     
     @staticmethod
     def is_answerable() -> bool:

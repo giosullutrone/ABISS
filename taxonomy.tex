@@ -1,0 +1,78 @@
+\section{Taxonomy}
+\subsection{Definitions}
+
+Building on the formalization from \textit{[1]}, we define \textit{ambiguous} and \emph{unanswerable} natural language questions in the context of text-to-SQL.
+
+Let \textit{D} be a database and \textit{S} the set of all \textit{non-equivalent valid} SQL queries that can be formulated on \textit{D}\footnote{Two queries are considered non-equivalent if there exists some database state on which they produce different results, following the criterion in [1].} and \textit{q} be a natural language question.
+
+Let \textit{K} be an external knowledge base, \(\textit{K} = \{k_1, k_2, \ldots, k_n\}\), where each \(k_i\) is a piece of evidence that might assist in interpreting \textit{q} and mapping it to a valid SQL query. For example, given the question "List the top five students' performance", the piece of evidence \(k_1\) could state: "A student's performance is their average grade", thereby resolving the meaning of "performance" to the SQL construct `AVG(student\_courses.grade)`.
+
+Using these definitions, we introduce the NL2SQL mapping function and our core formalizations.
+
+\textbf{Definition 1. Mapping Function} \\
+Given a database \textit{D} and external knowledge \textit{K}, we define a deterministic function \(f\) \footnote{As in [1], we leave the probabilistic definition to future work.} that maps a question \(q\) to a subset of \textit{S}, or to the empty set:
+\[
+f(q, D, K) \to S_q \subseteq S \cup \{\varnothing\}.
+\]
+The function \(f(q, D, K)\) returns the set of queries in \textit{S} that correctly answer \(q\) on \textit{D}, given the disambiguating information in \textit{K}. If no such query exists, \(f(q, D, K) = \varnothing\).
+
+\textbf{Definition 2. Ambiguity} \\
+A question \(q\) is \textit{ambiguous} with respect to \textit{D} and \textit{K} if \(f(q, D, K)\) yields two or more non-equivalent SQL queries. Formally, \(q\) is ambiguous if:
+\[
+\lvert f(q, D, K) \rvert \ge 2.
+\]
+
+\textbf{Definition 3. Unanswerability} \\
+A question \(q\) is \textit{unanswerable} with respect to \textit{D} and \textit{K} if there exists no query in \textit{S} that can fulfill the request. Formally, \(q\) is unanswerable if:
+\[
+f(q, D, K) = \varnothing.
+\]
+
+\subsection{Taxonomy}
+In this section, we explore our proposal for a taxonomy that focuses on the root cause of the \textit{ambiguity} and \textit{unanswerability} defined above. For each category, we bring some examples based on the 'University' database schema presented in Appendix \ref{schema}.
+
+\subsubsection{Structural Ambiguity}
+Structural Ambiguity occurs when the syntactic structure of a question permits multiple valid interpretations of the relationships among its components, resulting in distinct formal query mappings. Both scope and attachment ambiguities from \cite{Ambrosia} fall under this category.
+
+\textit{Scope Ambiguity:} Arises from unclear quantifiers (e.g., each, every, all). For example, "What courses does each department offer?" can be interpreted collectively, referring to all departments together, or distributively, treating each department independently. These interpretations yield structurally different SQL queries: one aggregative, the other iterative.
+
+\textit{Attachment Ambiguity:} Occurs from uncertainty in how a modifier attaches within the sentence. In "List the professors and the students in engineering," the phrase "in engineering" may modify only students or the entire conjunction professors and students, leading to distinct filtering conditions in the resulting query.
+
+\subsubsection{Semantic Mapping Ambiguity}
+Semantic Mapping Ambiguity occurs when a term or reference in the question can correspond to multiple schema elements, resulting in more than one plausible semantic grounding.
+
+\textit{Lexical Overlap:} Arises when two or more schema attributes share similar or identical forms. For example, in "List the emails of the students of the 'database' course," the expression "emails" could refer either to the students' personal email (\textit{students.personal\_email}) or to the institutional one (\textit{students.institutional\_email}). Each interpretation yields a distinct SQL mapping.
+
+\textit{Entity Ambiguity:} Occurs when multiple plausible entities could satisfy the same reference. For instance, in "List the enrollment date of the students of the 'database' course," the expression "enrollment date" could refer either to the students' university enrollment (\textit{students.enrollment\_date}) or to the enrollment in a specific course (\textit{student\_courses.enrollment\_date}). 
+
+\subsubsection{Lexical Vagueness}
+Lexical Vagueness arises when a question contains terms whose meaning lacks a precise or objective boundary, leading to indeterminate selection criteria during query generation.
+
+For instance, "List recent courses" is ambiguous with respect to the temporal threshold defining recent, as it may refer to the last semester, the last academic year, or another undefined interval. Such vagueness introduces variability that cannot be resolved solely from schema information.
+
+\subsubsection{Missing Schema Elements}
+A question is unanswerable due to Missing Schema Elements when the database schema lacks the tables, columns, or relationships required to express the information requested.
+
+\textit{Missing Entities or Attributes:} Occurs when key information is absent from the schema. For example, "List the administrative staff in the engineering department" cannot be translated into SQL because the schema contains no table or column referring to staff.
+
+\textit{Missing Relationship:} Occurs when no linkage exists between relevant entities. For instance, "List the professors for the course 'database'" cannot be answered even though the schema includes both teachers and courses, since no relationship links the two tables to represent course assignments.
+
+\subsubsection{Missing External Knowledge}
+A question is unanswerable due to Missing External Knowledge when its interpretation depends on objective, domain-specific facts or policies not present in the database or knowledge base \textit{K}.
+
+For instance, "List all the grades of the students for the course 'database' using alphabetic notation (A-F)" requires domain knowledge specifying the grade mapping (e.g., 'A+' → 31, 'A' → 30, etc.). Without this information, no valid SQL query can be formulated.
+
+\subsubsection{Missing User Knowledge}
+A question is unanswerable due to Missing User Knowledge when its interpretation depends on objective but user-specific facts absent from the database or knowledge base \textit{K}.
+
+For example, "List the students in my department" cannot be answered without knowledge of the user's department (e.g., User’s department = 'engineering').
+
+\subsubsection{Conflicting Knowledge}
+A question is ambiguous due to Conflicting Knowledge if the knowledge base \textit{K} contains multiple, non-equivalent pieces of evidence for interpreting the same concept in the question.
+
+For instance, consider the case where two evidences—"A student's performance is their average grade" and "A student's performance is the average grade weighted by the course credits"—are present in \textit{K}. Given the request "List the top five students' performance," the ambiguity arises not from the question itself but from the inconsistency within \textit{K}.
+
+\subsubsection{Improper Question}
+A question is Improper when it is unrelated to the domain of either the database \textit{D} or the knowledge base \textit{K}.
+
+This includes chit-chat (e.g., "Hello!"), questions requiring external reasoning not grounded in the database (e.g., "What is the meaning of life?"), or requests that are not database queries (e.g., "Update my mailing address").

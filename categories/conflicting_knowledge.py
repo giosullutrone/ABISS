@@ -26,7 +26,7 @@ class ConflictingKnowledgeCategory(Category):
 
     @staticmethod
     def get_definition() -> str:
-        return "A question is ambiguous due to Conflicting Knowledge if the knowledge base contains multiple, non-equivalent pieces of evidence for interpreting the same concept in the question. The ambiguity arises not from the natural language question itself, but from inconsistency within the knowledge base about how certain terms, calculations, or concepts should be defined. Different pieces of evidence lead to structurally different SQL queries, and without clarification about which evidence to use, the question cannot be uniquely resolved."
+        return "A question is ambiguous due to Conflicting Knowledge when a hypothetical retrieval system returns multiple, mutually exclusive policies or evidence definitions for the same concept. The ambiguity does NOT arise from the question wording itself being vague, but from having multiple documented, conflicting interpretations retrieved from the knowledge base. Each piece of evidence provides a valid but non-equivalent definition, leading to structurally different SQL queries. The user must specify which policy/evidence to follow."
 
     @staticmethod
     def get_examples() -> list[str] | None:

@@ -111,13 +111,11 @@ class ModelVLLM(Model):
             # We copy the original conversation prompt since it is a list which is mutable
             conversation_to_regenerate = prompts[prompt_idx].copy()
             
-            # Remove <think> tags if present without the closing tag </think> to avoid chat template parsing issues
+            # Remove <think> tags if present
             response_text = responses[idx]
             
-            # Check if there's an unclosed <think> tag and remove it
-            if "<think>" in response_text and not "</think>" in response_text:
-                # Remove the <think> tag but keep all the content
-                response_text = response_text.replace("<think>", "")
+            response_text = response_text.replace("<think>", "")
+            response_text = response_text.replace("</think>", "")
             
             # Add continuation prompt to guide the model
             additional_prompt = (
