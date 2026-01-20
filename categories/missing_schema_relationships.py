@@ -25,13 +25,7 @@ class MissingSchemaRelationshipsCategory(Category):
 
     @staticmethod
     def get_examples() -> list[str] | None:
-        return [
-            "List the professors for the course 'database'.",
-            "Show which students are enrolled in courses taught by Professor Smith.",
-            "Find all courses that have prerequisites.",
-            "Display departments and their associated research projects.",
-            "What textbooks are required for each course?"
-        ]
+        return None
 
     @staticmethod
     def is_answerable() -> bool:
