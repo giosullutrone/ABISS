@@ -82,15 +82,23 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
     try:
         # Try to parse and validate the JSON without repairing
         data = json.loads(json_str)
-        normalized_data = normalize_data_keys(data, constraint)
-        return constraint.model_validate(normalized_data)
+        # Only normalize if data is a dict, not a list or other type
+        if isinstance(data, dict):
+            normalized_data = normalize_data_keys(data, constraint)
+            return constraint.model_validate(normalized_data)
+        else:
+            return None
     except:
         try:
             # If first attempt fails, try to repair the JSON
             repaired = repair_json(json_str)
             data = json.loads(repaired)
-            normalized_data = normalize_data_keys(data, constraint)
-            return constraint.model_validate(normalized_data)
+            # Only normalize if data is a dict, not a list or other type
+            if isinstance(data, dict):
+                normalized_data = normalize_data_keys(data, constraint)
+                return constraint.model_validate(normalized_data)
+            else:
+                return None
         except:
             print(f"Failed to repair/validate JSON")
             traceback.print_exc()

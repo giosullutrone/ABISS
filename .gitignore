@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 *.job
 results/
+*.tex
+*exp.py
 
 # C extensions
 *.so

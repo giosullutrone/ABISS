@@ -31,7 +31,7 @@ class CheckUnsolvable(Validator):
         valids: list[bool] = [True for _ in questions]
 
         # Generate SQLs for each question using all models
-        sqls: list[list[str]] = [self.db.generate_sqls(model, questions) for model in self.models]
+        sqls: list[list[str | None]] = [self.db.generate_sqls_unsafe(model, questions) for model in self.models]
 
         # Create all question copies with generated SQLs at once
         all_questions_with_generated_sql: list[Question] = []
@@ -39,10 +39,12 @@ class CheckUnsolvable(Validator):
         
         for i, question in enumerate(questions):
             for model_sqls in sqls:
-                question_copy = deepcopy(question)
-                question_copy.sql = model_sqls[i]
-                all_questions_with_generated_sql.append(question_copy)
-                question_mapping.append(i)
+                generated_sql = model_sqls[i]
+                if generated_sql is not None:  # Only validate questions with generated SQL
+                    question_copy = deepcopy(question)
+                    question_copy.sql = generated_sql
+                    all_questions_with_generated_sql.append(question_copy)
+                    question_mapping.append(i)
         
         if not all_questions_with_generated_sql:
             # No SQL was generated for any question, all remain valid (confirmed unsolvable)

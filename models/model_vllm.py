@@ -70,10 +70,17 @@ class ModelVLLM(Model):
         converted_prompts = self.convert_prompt_to_conversation_if_needed(prompts)
         converted_prompts_reordered, original_indices, _constraints_reordered = reorder_by_prefix_similarity(converted_prompts, constraints)
         constraints_reordered = _constraints_reordered[0]
-        validated_responses_reordered = self._generate_batch_with_constraints(converted_prompts_reordered, constraints_reordered)
+        validated_responses_reordered = self._generate_batch_with_constraints(converted_prompts_reordered, constraints_reordered, raise_exceptions=True)
         return restore_original_order(validated_responses_reordered, original_indices)
 
-    def _generate_batch_with_constraints(self, prompts: list[list[dict[str, str]]], constraints: list[type[BaseModel]]) -> list[BaseModel]:
+    def generate_batch_with_constraints_unsafe(self, prompts: list[str] | list[list[dict[str, str]]], constraints: list[type[BaseModel]]) -> list[BaseModel | None]:
+        converted_prompts = self.convert_prompt_to_conversation_if_needed(prompts)
+        converted_prompts_reordered, original_indices, _constraints_reordered = reorder_by_prefix_similarity(converted_prompts, constraints)
+        constraints_reordered = _constraints_reordered[0]
+        validated_responses_reordered = self._generate_batch_with_constraints(converted_prompts_reordered, constraints_reordered, raise_exceptions=False)
+        return restore_original_order(validated_responses_reordered, original_indices)
+
+    def _generate_batch_with_constraints(self, prompts: list[list[dict[str, str]]], constraints: list[type[BaseModel]], raise_exceptions: bool) -> list[BaseModel | None]:
         """
         Generate responses for a batch of prompts while enforcing constraints defined by the input Pydantic models.
         Returns n * len(prompts) validated responses (all n responses for each prompt).
@@ -96,7 +103,7 @@ class ModelVLLM(Model):
             validated_responses.append(validated_response)
 
         if all(v is not None for v in validated_responses):
-            return cast(list[BaseModel], validated_responses)
+            return validated_responses
 
         # If there are any None values, Re-Generate those specific responses with StructuredOutputsParams
         conversations_to_regenerate: dict[int, tuple[list[dict[str, str]], type[BaseModel]]] = {}
@@ -153,12 +160,12 @@ class ModelVLLM(Model):
             
             for idx, regenerated_response in zip(indices, regenerated_responses):
                 validated_response = extract_last_json_object(regenerated_response, constraint)
-                if validated_response is None:
+                if validated_response is None and raise_exceptions:
                     raise ValueError(f"Failed to validate regenerated response at index {idx}: {regenerated_response[:100]}.")
                 validated_responses[idx] = validated_response
 
         # At this point, all responses are validated
-        return cast(list[BaseModel], validated_responses)
+        return validated_responses
 
     def close(self):
         del self.model

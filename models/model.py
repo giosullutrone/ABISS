@@ -31,6 +31,10 @@ class Model(ABC):
         raise NotImplementedError("This method should be implemented in a subclass.")
 
     @abstractmethod
+    def generate_batch_with_constraints_unsafe(self, prompts: list[str] | list[list[dict[str, str]]], constraints: list[type[BaseModel]]) -> list[BaseModel | None]:
+        raise NotImplementedError("This method should be implemented in a subclass.")
+
+    @abstractmethod
     def close(self):
         raise NotImplementedError("This method should be implemented in a subclass.")
 

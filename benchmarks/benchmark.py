@@ -22,8 +22,10 @@ class Benchmark:
     3. The user responds based on relevancy and knowledge level
     
     Each question is tested with different combinations of:
-    - User knowledge levels (FULL/NL/NONE)
-    - Category usage (GROUND_TRUTH/PREDICTED/NO_CATEGORY)
+    - User knowledge levels (FULL/NL/NONE) - customizable via knowledge_levels parameter
+    - Category usage (GROUND_TRUTH/PREDICTED/NO_CATEGORY) - customizable via category_uses parameter
+    
+    If knowledge_levels or category_uses are not specified, all enum values will be used by default.
     
     After running the benchmark, use evaluators to assess performance:
     - Recognition: Check if system identified answerable vs unanswerable correctly
@@ -37,11 +39,15 @@ class Benchmark:
                  db_dataset: DBDataset, 
                  system: System, 
                  user: User, 
-                 max_steps: int) -> None:
+                 max_steps: int,
+                 knowledge_levels: list[UserKnowledgeLevel],
+                 category_uses: list[CategoryUse]) -> None:
         self.db_dataset: DBDataset = db_dataset
         self.system: System = system
         self.user: User = user
         self.max_steps: int = max_steps
+        self.knowledge_levels: list[UserKnowledgeLevel] = knowledge_levels
+        self.category_uses: list[CategoryUse] = category_uses
         
         # Initialize evaluators automatically
         self.evaluators: list[Evaluator] = [
@@ -79,9 +85,9 @@ class Benchmark:
         conversations: list[Conversation] = []
         question_conversation_mapping: dict[int, list[int]] = {x: [] for x in range(len(questions))}
         for idx, question in enumerate(questions):
-            conv_idx: int = idx * len(UserKnowledgeLevel) * len(CategoryUse)
-            for knowledge_level in UserKnowledgeLevel:
-                for category_use in CategoryUse:
+            conv_idx: int = idx * len(self.knowledge_levels) * len(self.category_uses)
+            for knowledge_level in self.knowledge_levels:
+                for category_use in self.category_uses:
                     conversations.append(Conversation(
                         question=question,
                         interactions=[],
