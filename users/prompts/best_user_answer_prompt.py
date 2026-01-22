@@ -1,130 +1,229 @@
-from dataset_dataclasses.benchmark import Conversation
+from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from dataset_dataclasses.question import QuestionUnanswerable
 from db_datasets.db_dataset import DBDataset
-from utils.prompt_utils import get_conversation_history_prompt
-from utils.prompt_utils import get_db_knowledge_level_prompt
-from dataset_dataclasses.benchmark import UserKnowledgeLevel
+from utils.prompt_utils import get_conversation_history_prompt, get_db_knowledge_level_prompt
 from utils.style_and_difficulty_utils import STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES
 from pydantic import BaseModel
-from typing import Annotated
+from typing import Annotated, Literal
 from pydantic import Field
 from utils.prompt_utils import model_field_descriptions
-from typing import Literal
 
 
-class BestUserAnswerResponse(BaseModel):
+# Response models for each relevancy type
+class BestUserAnswerRelevantResponse(BaseModel):
     answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Answer A is better, 'B' if Answer B is better. Put only 'A' or 'B'.")]
 
 
-def get_best_user_answer_result(response: BaseModel) -> int:
+class BestUserAnswerTechnicalResponse(BaseModel):
+    answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Answer A is better, 'B' if Answer B is better. Put only 'A' or 'B'.")]
+
+
+class BestUserAnswerIrrelevantResponse(BaseModel):
+    answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if Answer A is better, 'B' if Answer B is better. Put only 'A' or 'B'.")]
+
+
+# Result extractors
+def get_best_user_answer_relevant_result(response: BaseModel) -> int:
     """Parses the model response and returns '0' or '1' based on whether Answer A is better or B."""
-    answer = BestUserAnswerResponse.model_validate(response).answer.strip().upper()
+    answer = BestUserAnswerRelevantResponse.model_validate(response).answer.strip().upper()
     if "A" in answer:
         return 0
     elif "B" in answer:
         return 1
-    raise ValueError("Invalid answer in BestUserAnswerResponse: must contain 'A' or 'B'.")
+    raise ValueError("Invalid answer in BestUserAnswerRelevantResponse: must contain 'A' or 'B'.")
 
 
-def get_selection_prompt(db: DBDataset, 
-                         db_descriptions: dict[str, str] | None,
-                         conversation: Conversation, 
-                         generation_a: str, 
-                         generation_b: str, 
-                         relevancy_label: str) -> str:
-    prompt = "You are an expert evaluator for user answers in text-to-SQL clarification scenarios. " \
-             "Your task is to select the best user answer that helps disambiguate an ambiguous question.\n\n"
+def get_best_user_answer_technical_result(response: BaseModel) -> int:
+    """Parses the model response and returns '0' or '1' based on whether Answer A is better or B."""
+    answer = BestUserAnswerTechnicalResponse.model_validate(response).answer.strip().upper()
+    if "A" in answer:
+        return 0
+    elif "B" in answer:
+        return 1
+    raise ValueError("Invalid answer in BestUserAnswerTechnicalResponse: must contain 'A' or 'B'.")
+
+
+def get_best_user_answer_irrelevant_result(response: BaseModel) -> int:
+    """Parses the model response and returns '0' or '1' based on whether Answer A is better or B."""
+    answer = BestUserAnswerIrrelevantResponse.model_validate(response).answer.strip().upper()
+    if "A" in answer:
+        return 0
+    elif "B" in answer:
+        return 1
+    raise ValueError("Invalid answer in BestUserAnswerIrrelevantResponse: must contain 'A' or 'B'.")
+
+
+def _get_best_user_answer_prompt_common(db: DBDataset, 
+                                        db_descriptions: dict[str, str] | None,
+                                        conversation: Conversation, 
+                                        generation_a: str, 
+                                        generation_b: str,
+                                        relevancy_type: RelevancyLabel) -> str:
+    """Shared prompt components for all best user answer evaluation."""
+    prompt = f"You are an expert evaluator for user answers to {relevancy_type.value} clarification questions in text-to-SQL scenarios.\n\n"
     
     prompt += "## Context\n"
     user_knowledge_level = conversation.user_knowledge_level
     prompt += get_db_knowledge_level_prompt(db, user_knowledge_level, db_descriptions, conversation)
     prompt += get_conversation_history_prompt(conversation)
     
-    # Determine question type
     question = conversation.question
-    is_answerable = question.category.is_answerable()
-    is_solvable = question.category.is_solvable() if isinstance(question, QuestionUnanswerable) else True
-    
-    # Show hidden knowledge only for solvable questions
-    if isinstance(question, QuestionUnanswerable) and question.hidden_knowledge and is_solvable:
-        prompt += f"**Hidden Knowledge (Disambiguating Information):** {question.hidden_knowledge}\n"
-    
-    # Add ground truth SQL for Technical questions
-    if relevancy_label == "Technical" and question.sql:
-        prompt += f"**Ground Truth SQL (for Technical questions):** {question.sql}\n"
-    
-    # Indicate question type
-    if is_answerable:
-        prompt += f"**Question Type:** Answerable (no disambiguation needed)\n"
-    elif is_solvable:
-        prompt += f"**Question Type:** Unanswerable but Solvable (requires disambiguation)\n"
-    else:
-        prompt += f"**Question Type:** Unsolvable (cannot be answered - missing external knowledge, improper question, or missing schema elements)\n"
-    
-    prompt += f"**Question Relevancy:** {relevancy_label}\n\n"
-
     question_style = question.question_style
     style_description = STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES[question_style]
-    prompt += f"**Expected Answer Style:**\n{style_description}\n\n"
+    prompt += f"**Expected Answer Style:**\n{style_description}\n"
+    
+    return prompt
+
+
+def get_best_user_answer_relevant_prompt(db: DBDataset, 
+                                         db_descriptions: dict[str, str] | None,
+                                         conversation: Conversation, 
+                                         generation_a: str, 
+                                         generation_b: str) -> str:
+    """Evaluate pairs of answers to RELEVANT clarification questions.
+    Note: Only solvable questions can be labeled RELEVANT (answerable questions can only be TECHNICAL or IRRELEVANT).
+    """
+    prompt = _get_best_user_answer_prompt_common(db, db_descriptions, conversation, generation_a, generation_b, RelevancyLabel.RELEVANT)
+    
+    question = conversation.question
+    
+    # Only solvable questions can reach here - answerable questions can't be RELEVANT
+    prompt += f"\n**Question Type:** Solvable - requires disambiguation\n"
+    if isinstance(question, QuestionUnanswerable) and question.hidden_knowledge:
+        prompt += f"**Hidden Knowledge (Disambiguating Intent):** {question.hidden_knowledge}\n"
+    
+    prompt += "\n## Candidate Answers\n"
+    prompt += f"**Answer A:**\n{generation_a}\n\n"
+    prompt += f"**Answer B:**\n{generation_b}\n\n"
+    
+    prompt += "## Evaluation Task\n"
+    prompt += "Compare the two answers for responding to a RELEVANT clarification question:\n\n"
+    
+    prompt += "**Evaluation Guidelines:**\n"
+    prompt += "- Answers should use the provided hidden knowledge to disambiguate\n"
+    prompt += "- Select the answer that better clarifies the user's intent\n"
+    prompt += "- Prefer answers that directly address the ambiguity\n"
+    prompt += "- The answer should help the system understand which interpretation is correct\n\n"
+    
+    prompt += "**Evaluation Criteria:**\n"
+    prompt += "- **Clarity:** How well does the answer resolve the ambiguity?\n"
+    prompt += "- **Use of Information:** Effective use of hidden knowledge\n"
+    prompt += "- **Naturalness:** Sounds like a real user communicating their intent\n"
+    prompt += "- **Style Appropriateness:** Aligns with expected answer style\n\n"
+    
+    prompt += "## Response Format\n"
+    prompt += "Provide concise analysis (approximately 256 characters) comparing the answers based on how well they use hidden knowledge to disambiguate.\n\n"
+    prompt += "Then provide your final selection as a JSON object with:\n"
+    prompt += model_field_descriptions(BestUserAnswerRelevantResponse) + "\n\n"
+    prompt += "In case of a tie, select Answer A."
+    
+    return prompt
+
+
+def get_best_user_answer_technical_prompt(db: DBDataset, 
+                                          db_descriptions: dict[str, str] | None,
+                                          conversation: Conversation, 
+                                          generation_a: str, 
+                                          generation_b: str) -> str:
+    """Evaluate pairs of answers to TECHNICAL clarification questions."""
+    prompt = _get_best_user_answer_prompt_common(db, db_descriptions, conversation, generation_a, generation_b, RelevancyLabel.TECHNICAL)
+    
+    question = conversation.question
+    
+    if question.sql:
+        prompt += f"\n**User's Output Preferences (encoded in SQL):** {question.sql}\n"
+        prompt += f"**Note:** Technical preferences about ordering, limits, formatting extractable from this SQL.\n"
+    else:
+        prompt += f"\n**Note:** No specific technical preferences defined - user may express uncertainty.\n"
+    
+    prompt += "\n## Candidate Answers\n"
+    prompt += f"**Answer A:**\n{generation_a}\n\n"
+    prompt += f"**Answer B:**\n{generation_b}\n\n"
+    
+    prompt += "## Evaluation Task\n"
+    prompt += "Compare the two answers for responding to a TECHNICAL clarification question:\n\n"
+    
+    prompt += "**Technical Questions Ask About:**\n"
+    prompt += "- Ordering: Sort order, which field to order by (ASC/DESC)\n"
+    prompt += "- Limits: How many results, top N\n"
+    prompt += "- Formatting: Output format requirements\n"
+    prompt += "- Aggregation: How to compute averages, sums, counts\n"
+    prompt += "- Filtering: Specific threshold or condition details\n\n"
+    
+    if question.sql:
+        prompt += "**Evaluation for Questions with Defined Preferences:**\n"
+        prompt += "- Answers should extract the relevant preference from the SQL\n"
+        prompt += "- Prefer answers that accurately convey the preference naturally\n"
+        prompt += "- Answers should sound like a user stating what they want (not that they 'know SQL')\n"
+        prompt += "- Do NOT prefer answers that add information not in the SQL\n\n"
+    else:
+        prompt += "**Evaluation for Questions without Defined Preferences:**\n"
+        prompt += "- Answers should express uncertainty appropriately\n"
+        prompt += "- Prefer natural uncertainty: 'I'm not sure', 'Either way is fine'\n"
+        prompt += "- Or reasonable defaults if the user would have a preference\n\n"
+    
+    prompt += "**Evaluation Criteria:**\n"
+    prompt += "- **Accuracy:** Correctly extracts preference from SQL (if available)\n"
+    prompt += "- **Naturalness:** Sounds like a user stating preferences, not SQL code\n"
+    prompt += "- **Appropriateness:** Uncertain when preferences undefined, specific when defined\n"
+    prompt += "- **Information Boundary:** Doesn't add information not present in SQL\n"
+    prompt += "- **Style Appropriateness:** Aligns with expected answer style\n\n"
+    
+    prompt += "## Response Format\n"
+    prompt += "Provide concise analysis (approximately 256 characters) comparing how well each answer conveys technical preferences from the SQL or expresses appropriate uncertainty.\n\n"
+    prompt += "Then provide your final selection as a JSON object with:\n"
+    prompt += model_field_descriptions(BestUserAnswerTechnicalResponse) + "\n\n"
+    prompt += "In case of a tie, select Answer A."
+    
+    return prompt
+
+
+def get_best_user_answer_irrelevant_prompt(db: DBDataset, 
+                                           db_descriptions: dict[str, str] | None,
+                                           conversation: Conversation, 
+                                           generation_a: str, 
+                                           generation_b: str) -> str:
+    """Evaluate pairs of responses to IRRELEVANT clarification questions."""
+    prompt = _get_best_user_answer_prompt_common(db, db_descriptions, conversation, generation_a, generation_b, RelevancyLabel.IRRELEVANT)
+    
+    prompt += "\n**Note:** For irrelevant questions, refusal takes priority over style - clarity is key.\n\n"
     
     prompt += "## Candidate Answers\n"
     prompt += f"**Answer A:**\n{generation_a}\n\n"
     prompt += f"**Answer B:**\n{generation_b}\n\n"
     
     prompt += "## Evaluation Task\n"
-    prompt += "Compare the two candidate answers based on the question type and relevancy classification:\n\n"
+    prompt += "Compare the two responses to an IRRELEVANT clarification question.\n\n"
     
-    prompt += "**For Answerable or Unanswerable-Solvable Questions:**\n\n"
+    prompt += "**CRITICAL REQUIREMENT:**\n"
+    prompt += "Both answers MUST refuse to answer the irrelevant question.\n\n"
     
-    prompt += "- **Relevant Questions:**\n"
-    prompt += "  - Both answers should use hidden knowledge to disambiguate\n"
-    prompt += "  - Select the answer that better clarifies the ambiguity\n\n"
+    prompt += "**Decision Rules:**\n"
+    prompt += "1. If one answer refuses and the other doesn't → The refusing answer is AUTOMATICALLY better\n"
+    prompt += "2. If both refuse → Select the clearer, more natural refusal\n"
+    prompt += "3. If neither refuses → Both fail, but select Answer A\n\n"
     
-    prompt += "- **Technical Questions:**\n"
-    prompt += "  - Both answers should only use information from the ground truth SQL\n"
-    prompt += "  - Select the answer that better addresses the technical aspect\n\n"
+    prompt += "**Good Refusal Examples:**\n"
+    prompt += "- 'I can't answer that'\n"
+    prompt += "- 'That's not relevant to my question'\n"
+    prompt += "- 'I'm not sure how that helps'\n"
+    prompt += "- 'That's not what I'm asking about'\n\n"
     
-    prompt += "- **Irrelevant Questions:**\n"
-    prompt += "  - CRITICAL: Both answers MUST refuse to answer (e.g., \"I can't answer that\")\n"
-    prompt += "  - If one answer refuses and the other doesn't, the refusing answer is AUTOMATICALLY better\n"
-    prompt += "  - If both refuse, or both fail to refuse, choose Answer A\n\n"
+    prompt += "**Bad Responses (Not Refusals):**\n"
+    prompt += "- Attempting to answer the irrelevant question\n"
+    prompt += "- Providing information unrelated to the original query\n"
+    prompt += "- Engaging with the irrelevant topic\n\n"
     
-    prompt += "**For Unsolvable Questions:**\n\n"
-    
-    prompt += "- **Relevant Questions:**\n"
-    prompt += "  - Answers should provide natural clarifications without revealing why the question is unsolvable\n"
-    prompt += "  - Select the answer that sounds more natural and helpful while maintaining the unsolvability\n"
-    prompt += "  - Do NOT prefer answers that explicitly state \"this is unsolvable\"\n\n"
-    
-    prompt += "- **Technical Questions:**\n"
-    prompt += "  - Both answers should only use information from the ground truth SQL (if available)\n"
-    prompt += "  - Select the answer that better addresses the technical aspect\n\n"
-    
-    prompt += "- **Irrelevant Questions:**\n"
-    prompt += "  - CRITICAL: Both answers MUST refuse to answer\n"
-    prompt += "  - If one answer refuses and the other doesn't, the refusing answer is AUTOMATICALLY better\n"
-    prompt += "  - If both refuse, or both fail to refuse, choose Answer A\n\n"
-    
-    prompt += "**General Evaluation Criteria:**\n"
-    prompt += "- **Relevance:** Appropriate response based on question type and relevancy classification\n"
-    prompt += "- **Correctness:** For Irrelevant questions, refusing is mandatory; for Unsolvable questions, don't reveal unsolvability\n"
-    prompt += "- **Knowledge Integration:** For solvable questions, effective use of hidden knowledge\n"
-    prompt += "- **Naturalness:** For Unsolvable questions, answers should sound natural without revealing the problem\n"
-    prompt += "- **Clarity:** Helpfulness in providing appropriate responses\n"
-    prompt += "- **Style Appropriateness:** Alignment with the user's knowledge level and expected answer style\n\n"
+    prompt += "**Evaluation Criteria (when both refuse):**\n"
+    prompt += "- **Clarity:** How clearly does the refusal indicate it's not answering?\n"
+    prompt += "- **Politeness:** Professional but firm\n"
+    prompt += "- **Relevance Signal:** Indicates the question isn't relevant\n"
+    prompt += "- **Brevity:** Concise and direct\n\n"
     
     prompt += "## Response Format\n"
-    prompt += "Provide a step-by-step analysis comparing the two answers. " \
-              "Your reasoning should be concise but thorough (approximately 512 characters), addressing: " \
-              "(1) question type (answerable/solvable/unsolvable) and how it affects evaluation, " \
-              "(2) whether answers are appropriate for the relevancy classification, " \
-              "(3) for Irrelevant: whether answers properly refuse (mandatory), " \
-              "(4) for Unsolvable: whether answers remain natural without revealing unsolvability, " \
-              "(5) correctness, clarity, and style appropriateness.\n\n"
+    prompt += "Provide concise analysis (approximately 128 characters) focused on whether each answer properly refuses and which refusal is clearer.\n\n"
     prompt += "Then provide your final selection as a JSON object with:\n"
-    prompt += model_field_descriptions(BestUserAnswerResponse) + "\n\n"
-    prompt += "**CRITICAL:** For Irrelevant questions, an answer that refuses is always better. " \
-              "For Unsolvable questions, don't prefer answers that reveal unsolvability. " \
-              "In case of a tie, select Answer A."
+    prompt += model_field_descriptions(BestUserAnswerIrrelevantResponse) + "\n\n"
+    prompt += "**REMINDER:** If one refuses and the other doesn't, the refusal is automatically better. In case of a tie, select Answer A."
     
     return prompt

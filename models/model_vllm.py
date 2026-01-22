@@ -9,7 +9,6 @@ from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 from models import extract_last_json_object
 from pydantic import BaseModel
 from utils.prompt_utils import model_field_descriptions
-from models import reorder_by_prefix_similarity, restore_original_order
 
 logger = logging.getLogger(__name__)
 
@@ -62,24 +61,20 @@ class ModelVLLM(Model):
 
     def generate_batch(self, prompts: list[str] | list[list[dict[str, str]]]) -> list[str]:
         converted_prompts = self.convert_prompt_to_conversation_if_needed(prompts)
-        converted_prompts_reordered, original_indices, _ = reorder_by_prefix_similarity(converted_prompts)
-        responses_reordered = self._generate_batch(converted_prompts_reordered, self.sampling_params)
-        return restore_original_order(responses_reordered, original_indices)
+        responses = self._generate_batch(converted_prompts, self.sampling_params)
+        return responses
 
     def generate_batch_with_constraints(self, prompts: list[str] | list[list[dict[str, str]]], constraints: list[type[BaseModel]]) -> list[BaseModel]:
         converted_prompts = self.convert_prompt_to_conversation_if_needed(prompts)
-        converted_prompts_reordered, original_indices, _constraints_reordered = reorder_by_prefix_similarity(converted_prompts, constraints)
-        constraints_reordered = _constraints_reordered[0]
-        validated_responses_reordered = self._generate_batch_with_constraints(converted_prompts_reordered, constraints_reordered, raise_exceptions=True)
-        return restore_original_order(validated_responses_reordered, original_indices)
+        responses = self._generate_batch_with_constraints(converted_prompts, constraints, raise_exceptions=True)
+        # We can cast here since all responses are validated and exceptions are raised otherwise
+        return cast(list[BaseModel], responses)
 
     def generate_batch_with_constraints_unsafe(self, prompts: list[str] | list[list[dict[str, str]]], constraints: list[type[BaseModel]]) -> list[BaseModel | None]:
         converted_prompts = self.convert_prompt_to_conversation_if_needed(prompts)
-        converted_prompts_reordered, original_indices, _constraints_reordered = reorder_by_prefix_similarity(converted_prompts, constraints)
-        constraints_reordered = _constraints_reordered[0]
-        validated_responses_reordered = self._generate_batch_with_constraints(converted_prompts_reordered, constraints_reordered, raise_exceptions=False)
-        return restore_original_order(validated_responses_reordered, original_indices)
-
+        validated_responses = self._generate_batch_with_constraints(converted_prompts, constraints, raise_exceptions=False)
+        return validated_responses
+    
     def _generate_batch_with_constraints(self, prompts: list[list[dict[str, str]]], constraints: list[type[BaseModel]], raise_exceptions: bool) -> list[BaseModel | None]:
         """
         Generate responses for a batch of prompts while enforcing constraints defined by the input Pydantic models.

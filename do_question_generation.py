@@ -12,11 +12,13 @@ from models.model import Model
 import os
 
 
-def get_categories_styles_difficulties(
+def get_categories_styles_difficulties_dbids(
     category_names: list[str] | None,
     style_names: list[str] | None,
-    difficulty_names: list[str] | None
-) -> tuple[list[Category], list[QuestionStyle], list[QuestionDifficulty]]:
+    difficulty_names: list[str] | None,
+    db_ids_arg: list[str] | None,
+    db_dataset: DBDataset
+) -> tuple[list[Category], list[QuestionStyle], list[QuestionDifficulty], list[str]]:
     # Normally we would use all categories
     categories = get_all_categories()
 
@@ -57,7 +59,19 @@ def get_categories_styles_difficulties(
                 difficulties.append(difficulty)
             except ValueError:
                 raise ValueError(f"Difficulty '{diff_name}' not found. Valid difficulties: {[d.value for d in QuestionDifficulty]}")
-    return categories, styles, difficulties
+    
+    # Normally we would use all db_ids
+    db_ids = db_dataset.get_db_ids()
+
+    # If the user specified db_ids, use only those
+    if db_ids_arg is not None:
+        # Validate that all specified db_ids exist
+        available_db_ids = set(db_dataset.get_db_ids())
+        for db_id in db_ids_arg:
+            if db_id not in available_db_ids:
+                raise ValueError(f"Database ID '{db_id}' not found in dataset. Available IDs: {sorted(available_db_ids)}")
+        db_ids = db_ids_arg
+    return categories, styles, difficulties, db_ids
 
 
 if __name__ == "__main__":
@@ -74,6 +88,7 @@ if __name__ == "__main__":
     parser.add_argument("--limit_categories", action="store_true", help="Limit the categories to use as validation to the ones specified in 'categories'")
     parser.add_argument("--styles", type=str, nargs='+', required=False, help="List of question styles to generate (formal, colloquial, imperative, interrogative, descriptive, concise)", default=None)
     parser.add_argument("--difficulties", type=str, nargs='+', required=False, help="List of question difficulties to generate (simple, moderate, complex, highly_complex)", default=None)
+    parser.add_argument("--db_ids", type=str, nargs='+', required=False, help="List of database IDs to use for generation (if not specified, all database IDs will be used)", default=None)
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
@@ -95,6 +110,7 @@ if __name__ == "__main__":
     limit_categories: bool = args.limit_categories
     style_names: list[str] | None = args.styles
     difficulty_names: list[str] | None = args.difficulties
+    db_ids_arg: list[str] | None = args.db_ids
 
     db_dataset = DBDataset(db_root_path=db_root_path, db_name=db_name)
 
@@ -132,10 +148,12 @@ if __name__ == "__main__":
                                },
                                max_batch_with_text_size=100000) for model in model_names]
 
-    categories, styles, difficulties = get_categories_styles_difficulties(
+    categories, styles, difficulties, db_ids = get_categories_styles_difficulties_dbids(
         category_names,
         style_names,
-        difficulty_names
+        difficulty_names,
+        db_ids_arg,
+        db_dataset
     )
 
     generator = Generator(
@@ -152,12 +170,11 @@ if __name__ == "__main__":
         generator=generator,
         categories=categories,
         styles=styles,
-        difficulties=difficulties
+        difficulties=difficulties,
+        db_ids=db_ids
     )
 
-    questions = chain.generate(
-        db=db_dataset
-    )
+    questions = chain.generate()
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, 'w') as f:
