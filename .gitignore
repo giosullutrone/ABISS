@@ -3,9 +3,11 @@ __pycache__/
 *.py[codz]
 *$py.class
 *.job
-results/
+results
 *.tex
 *exp.py
+./*.json
+
 
 # C extensions
 *.so

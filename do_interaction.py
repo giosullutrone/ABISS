@@ -1,4 +1,5 @@
 import argparse
+from copy import deepcopy
 import logging
 from typing import Type
 from dataset_dataclasses.question import Question, QuestionUnanswerable
@@ -116,13 +117,13 @@ if __name__ == "__main__":
 
     models_validator: list[Model] = [ModelVLLM(model_name=model,
                                sampling_kwargs={
-                                   "max_tokens": 2048,
+                                   "max_tokens": 1024,
                                    "temperature": 0.0,
                                    "seed": 42,
                                },
                                model_kwargs={
-                                   "max_model_len": 32000, 
-                                   "max_num_batched_tokens": 32000,
+                                   "max_model_len": 16000, 
+                                   "max_num_batched_tokens": 16000,
                                    "enable_prefix_caching": True, 
                                    "enforce_eager": True,
                                    "tensor_parallel_size": tensor_parallel_size,
@@ -155,9 +156,9 @@ if __name__ == "__main__":
     questions: list[Question] = []
     for d in raw_questions:
         try:
-            question = QuestionUnanswerable.from_dict(d)
+            question = QuestionUnanswerable.from_dict(deepcopy(d))
         except:
-            question = Question(**d)
+            question = Question.from_dict(deepcopy(d))
         questions.append(question)
 
     results = runner.run(questions=questions)

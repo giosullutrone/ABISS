@@ -1,7 +1,8 @@
 from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from dataset_dataclasses.question import QuestionUnanswerable
 from db_datasets.db_dataset import DBDataset
-from utils.prompt_utils import get_conversation_history_prompt, get_db_knowledge_level_prompt
+from utils.prompt_utils import get_conversation_history_prompt
+from utils.knowledge_level_utils import KNOWLEDGE_LEVEL_INFO
 from utils.style_and_difficulty_utils import STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES
 from pydantic import BaseModel
 from typing import Annotated, Literal
@@ -54,7 +55,6 @@ def get_best_user_answer_irrelevant_result(response: BaseModel) -> int:
 
 
 def _get_best_user_answer_prompt_common(db: DBDataset, 
-                                        db_descriptions: dict[str, str] | None,
                                         conversation: Conversation, 
                                         generation_a: str, 
                                         generation_b: str,
@@ -64,7 +64,7 @@ def _get_best_user_answer_prompt_common(db: DBDataset,
     
     prompt += "## Context\n"
     user_knowledge_level = conversation.user_knowledge_level
-    prompt += get_db_knowledge_level_prompt(db, user_knowledge_level, db_descriptions, conversation)
+    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['description']
     prompt += get_conversation_history_prompt(conversation)
     
     question = conversation.question
@@ -76,14 +76,13 @@ def _get_best_user_answer_prompt_common(db: DBDataset,
 
 
 def get_best_user_answer_relevant_prompt(db: DBDataset, 
-                                         db_descriptions: dict[str, str] | None,
                                          conversation: Conversation, 
                                          generation_a: str, 
                                          generation_b: str) -> str:
     """Evaluate pairs of answers to RELEVANT clarification questions.
     Note: Only solvable questions can be labeled RELEVANT (answerable questions can only be TECHNICAL or IRRELEVANT).
     """
-    prompt = _get_best_user_answer_prompt_common(db, db_descriptions, conversation, generation_a, generation_b, RelevancyLabel.RELEVANT)
+    prompt = _get_best_user_answer_prompt_common(db, conversation, generation_a, generation_b, RelevancyLabel.RELEVANT)
     
     question = conversation.question
     
@@ -108,8 +107,9 @@ def get_best_user_answer_relevant_prompt(db: DBDataset,
     prompt += "**Evaluation Criteria:**\n"
     prompt += "- **Clarity:** How well does the answer resolve the ambiguity?\n"
     prompt += "- **Use of Information:** Effective use of hidden knowledge\n"
+    prompt += "- **Knowledge Level Appropriateness:** Uses language matching user's schema knowledge (technical/domain/intuitive)\n"
     prompt += "- **Naturalness:** Sounds like a real user communicating their intent\n"
-    prompt += "- **Style Appropriateness:** Aligns with expected answer style\n\n"
+    prompt += "- **Style Consistency:** Maintains the style, register, formality, and vocabulary of the original question\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide concise analysis (approximately 256 characters) comparing the answers based on how well they use hidden knowledge to disambiguate.\n\n"
@@ -121,12 +121,11 @@ def get_best_user_answer_relevant_prompt(db: DBDataset,
 
 
 def get_best_user_answer_technical_prompt(db: DBDataset, 
-                                          db_descriptions: dict[str, str] | None,
                                           conversation: Conversation, 
                                           generation_a: str, 
                                           generation_b: str) -> str:
     """Evaluate pairs of answers to TECHNICAL clarification questions."""
-    prompt = _get_best_user_answer_prompt_common(db, db_descriptions, conversation, generation_a, generation_b, RelevancyLabel.TECHNICAL)
+    prompt = _get_best_user_answer_prompt_common(db, conversation, generation_a, generation_b, RelevancyLabel.TECHNICAL)
     
     question = conversation.question
     
@@ -164,10 +163,11 @@ def get_best_user_answer_technical_prompt(db: DBDataset,
     
     prompt += "**Evaluation Criteria:**\n"
     prompt += "- **Accuracy:** Correctly extracts preference from SQL (if available)\n"
+    prompt += "- **Knowledge Level Appropriateness:** Uses language matching user's schema knowledge (technical/natural/vague)\n"
     prompt += "- **Naturalness:** Sounds like a user stating preferences, not SQL code\n"
     prompt += "- **Appropriateness:** Uncertain when preferences undefined, specific when defined\n"
     prompt += "- **Information Boundary:** Doesn't add information not present in SQL\n"
-    prompt += "- **Style Appropriateness:** Aligns with expected answer style\n\n"
+    prompt += "- **Style Consistency:** Maintains the style, register, formality, and vocabulary of the original question\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide concise analysis (approximately 256 characters) comparing how well each answer conveys technical preferences from the SQL or expresses appropriate uncertainty.\n\n"
@@ -179,12 +179,11 @@ def get_best_user_answer_technical_prompt(db: DBDataset,
 
 
 def get_best_user_answer_irrelevant_prompt(db: DBDataset, 
-                                           db_descriptions: dict[str, str] | None,
                                            conversation: Conversation, 
                                            generation_a: str, 
                                            generation_b: str) -> str:
     """Evaluate pairs of responses to IRRELEVANT clarification questions."""
-    prompt = _get_best_user_answer_prompt_common(db, db_descriptions, conversation, generation_a, generation_b, RelevancyLabel.IRRELEVANT)
+    prompt = _get_best_user_answer_prompt_common(db, conversation, generation_a, generation_b, RelevancyLabel.IRRELEVANT)
     
     prompt += "\n**Note:** For irrelevant questions, refusal takes priority over style - clarity is key.\n\n"
     
@@ -217,8 +216,9 @@ def get_best_user_answer_irrelevant_prompt(db: DBDataset,
     prompt += "**Evaluation Criteria (when both refuse):**\n"
     prompt += "- **Clarity:** How clearly does the refusal indicate it's not answering?\n"
     prompt += "- **Politeness:** Professional but firm\n"
-    prompt += "- **Relevance Signal:** Indicates the question isn't relevant\n"
-    prompt += "- **Brevity:** Concise and direct\n\n"
+    prompt += "- **Relevance Signal:** Clearly indicates the question isn't relevant\n"
+    prompt += "- **Brevity:** Concise and direct\n"
+    prompt += "- **Style Consistency:** When possible, maintains the original question's register (but refusal clarity is more important)\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide concise analysis (approximately 128 characters) focused on whether each answer properly refuses and which refusal is clearer.\n\n"

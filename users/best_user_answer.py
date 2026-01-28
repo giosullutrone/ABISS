@@ -15,10 +15,9 @@ class BestUserAnswer:
     Interaction that selects the best user answer generated among multiple candidates based on a 1vs1 comparison performed by a list of models on all candidates.
     """
 
-    def __init__(self, db: DBDataset, models: list[Model], db_descriptions: dict[str, str]) -> None:
+    def __init__(self, db: DBDataset, models: list[Model]) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models
-        self.db_descriptions: dict[str, str] = db_descriptions
 
     def select_best_user_answers(self, conversations: list[Conversation], answers: list[list[str]]) -> list[str]:
         """
@@ -38,15 +37,15 @@ class BestUserAnswer:
                 for k in range(len(gens)):
                     if j != k:
                         if relevance == RelevancyLabel.RELEVANT:
-                            prompt = get_best_user_answer_relevant_prompt(self.db, self.db_descriptions, conversations[i], gens[j], gens[k])
+                            prompt = get_best_user_answer_relevant_prompt(self.db, conversations[i], gens[j], gens[k])
                             model_class = BestUserAnswerRelevantResponse
                             extractor = get_best_user_answer_relevant_result
                         elif relevance == RelevancyLabel.TECHNICAL:
-                            prompt = get_best_user_answer_technical_prompt(self.db, self.db_descriptions, conversations[i], gens[j], gens[k])
+                            prompt = get_best_user_answer_technical_prompt(self.db, conversations[i], gens[j], gens[k])
                             model_class = BestUserAnswerTechnicalResponse
                             extractor = get_best_user_answer_technical_result
                         else:  # IRRELEVANT
-                            prompt = get_best_user_answer_irrelevant_prompt(self.db, self.db_descriptions, conversations[i], gens[j], gens[k])
+                            prompt = get_best_user_answer_irrelevant_prompt(self.db, conversations[i], gens[j], gens[k])
                             model_class = BestUserAnswerIrrelevantResponse
                             extractor = get_best_user_answer_irrelevant_result
                         

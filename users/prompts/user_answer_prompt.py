@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from typing import Annotated
 from pydantic import Field
 from utils.prompt_utils import model_field_descriptions, get_conversation_history_prompt
-from utils.prompt_utils import get_db_knowledge_level_prompt
 from utils.style_and_difficulty_utils import STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES
+from utils.knowledge_level_utils import KNOWLEDGE_LEVEL_INFO
 
 
 # Response models for each relevancy type
@@ -37,7 +37,6 @@ def get_user_answer_irrelevant_result(response: BaseModel) -> str:
 
 def _get_user_answer_prompt_common(db: DBDataset, 
                                    conversation: Conversation, 
-                                   db_descriptions: dict[str, str] | None,
                                    relevancy_type: RelevancyLabel) -> str:
     """Shared prompt components for all user answer generation."""
     question = conversation.question
@@ -55,9 +54,9 @@ def _get_user_answer_prompt_common(db: DBDataset,
 
     prompt += "## Context\n"
     user_knowledge_level = conversation.user_knowledge_level
-    prompt += get_db_knowledge_level_prompt(db, user_knowledge_level, db_descriptions, conversation)
+    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['description']
 
-    prompt += f"**Original Question:** {question.question}\n"
+    prompt += f"\n**Original Question:** {question.question}\n"
     if question.evidence:
         prompt += f"**Additional Context:** {question.evidence}\n"
     
@@ -65,12 +64,11 @@ def _get_user_answer_prompt_common(db: DBDataset,
 
 
 def get_user_answer_relevant_prompt(db: DBDataset, 
-                                    conversation: Conversation, 
-                                    db_descriptions: dict[str, str] | None) -> str:
+                                    conversation: Conversation) -> str:
     """Generate a prompt for answering RELEVANT clarification questions.
     Note: Only solvable questions can be labeled RELEVANT (answerable questions can only be TECHNICAL or IRRELEVANT).
     """
-    prompt = _get_user_answer_prompt_common(db, conversation, db_descriptions, RelevancyLabel.RELEVANT)
+    prompt = _get_user_answer_prompt_common(db, conversation, RelevancyLabel.RELEVANT)
     
     question = conversation.question
     
@@ -85,13 +83,21 @@ def get_user_answer_relevant_prompt(db: DBDataset,
     prompt += "## Task\n"
     prompt += "Answer the clarification question using your hidden knowledge to disambiguate and resolve the semantic ambiguity.\n\n"
     prompt += "**Guidelines:**\n"
+    
+    user_knowledge_level = conversation.user_knowledge_level
+    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['relevant_guidelines'] + "\n"
+    
     prompt += "- Use the provided hidden knowledge to clarify your intent\n"
     prompt += "- Be direct and clear about which interpretation you mean\n"
-    prompt += "- Help the system understand the specific meaning you intended\n\n"
+    prompt += "- Help the system understand the specific meaning you intended\n"
+    prompt += "- CRITICALLY: Match the style and register of your original question\n\n"
     
     question_style = question.question_style
     style_description = STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES[question_style]
-    prompt += f"**Answer Style:**\n{style_description}\n\n"
+    prompt += f"**Expected Answer Style (Match Your Original Question):**\n{style_description}\n"
+    prompt += "Your answer should feel like a natural continuation of your original question - maintain consistency in formality, vocabulary, and tone.\n\n"
+    
+    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['style_fusion'] + "\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide brief reasoning (approximately 256 characters) about how to use the hidden knowledge to answer the clarification question.\n\n"
@@ -102,10 +108,9 @@ def get_user_answer_relevant_prompt(db: DBDataset,
 
 
 def get_user_answer_technical_prompt(db: DBDataset, 
-                                     conversation: Conversation, 
-                                     db_descriptions: dict[str, str] | None) -> str:
+                                     conversation: Conversation) -> str:
     """Generate a prompt for answering TECHNICAL clarification questions."""
-    prompt = _get_user_answer_prompt_common(db, conversation, db_descriptions, RelevancyLabel.TECHNICAL)
+    prompt = _get_user_answer_prompt_common(db, conversation, RelevancyLabel.TECHNICAL)
     
     question = conversation.question
     
@@ -130,18 +135,25 @@ def get_user_answer_technical_prompt(db: DBDataset,
     prompt += "- **Filtering:** Specific threshold or condition details?\n\n"
     
     prompt += "**Guidelines:**\n"
+    
+    user_knowledge_level = conversation.user_knowledge_level
     if question.sql:
         prompt += "- Extract the relevant preference from your SQL\n"
-        prompt += "- Answer naturally as if you know what you want (not that you 'know SQL')\n"
-        prompt += "- Examples: 'Show newest first', 'Give me the top 10', 'Order alphabetically'\n"
+        prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['technical_guidelines'] + "\n"
     else:
         prompt += "- Express uncertainty: 'I'm not sure', 'Either way is fine', 'Whatever is standard'\n"
         prompt += "- Provide reasonable defaults if you have a preference\n"
-    prompt += "- Do NOT make up information not present in your preferences\n\n"
+    
+    prompt += "- Do NOT make up information not present in your preferences\n"
+    prompt += "- CRITICALLY: Match the style and register of your original question\n\n"
     
     question_style = question.question_style
     style_description = STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES[question_style]
-    prompt += f"**Answer Style:**\n{style_description}\n\n"
+    prompt += f"**Expected Answer Style (Match Your Original Question):**\n{style_description}\n"
+    prompt += "Your answer should feel like a natural continuation of your original question - maintain consistency in formality, vocabulary, and tone.\n\n"
+    
+    prompt += "**IMPORTANT - Fusing Knowledge Level with Style:**\n"
+    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['technical_style_fusion'] + "\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide brief reasoning (approximately 256 characters) about what technical preference to extract or that you're uncertain.\n\n"
@@ -152,10 +164,9 @@ def get_user_answer_technical_prompt(db: DBDataset,
 
 
 def get_user_answer_irrelevant_prompt(db: DBDataset, 
-                                      conversation: Conversation, 
-                                      db_descriptions: dict[str, str] | None) -> str:
+                                      conversation: Conversation) -> str:
     """Generate a prompt for responding to IRRELEVANT clarification questions."""
-    prompt = _get_user_answer_prompt_common(db, conversation, db_descriptions, RelevancyLabel.IRRELEVANT)
+    prompt = _get_user_answer_prompt_common(db, conversation, RelevancyLabel.IRRELEVANT)
     
     question = conversation.question
     
@@ -179,12 +190,13 @@ def get_user_answer_irrelevant_prompt(db: DBDataset,
     prompt += "  - 'I can't answer that'\n"
     prompt += "  - 'That's not relevant to my question'\n"
     prompt += "  - 'I'm not sure how that helps'\n"
-    prompt += "  - 'That's not what I'm asking about'\n\n"
+    prompt += "  - 'That's not what I'm asking about'\n"
+    prompt += "- CRITICALLY: While refusing, try to match the style and register of your original question\n\n"
     
     question_style = question.question_style
     style_description = STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES[question_style]
-    prompt += f"**Answer Style:**\n{style_description}\n"
-    prompt += "However, for irrelevant questions, refusal takes priority over style - be clear and direct.\n\n"
+    prompt += f"**Expected Answer Style (adapted for refusal):**\n{style_description}\n"
+    prompt += "However, for irrelevant questions, clarity of refusal takes priority over strict style matching.\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide brief reasoning (approximately 128 characters) about why you're refusing.\n\n"

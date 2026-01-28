@@ -11,9 +11,9 @@ class RelevancyLabel(str, Enum):
     IRRELEVANT = "Irrelevant"
 
 class UserKnowledgeLevel(Enum):
-    FULL = "full"
-    NL = "nl"
-    NONE = "none"
+    EXPERT = "expert"
+    DOMAIN = "domain"
+    CASUAL = "casual"
 
 class CategoryUse(Enum):
     GROUND_TRUTH = "ground_truth"

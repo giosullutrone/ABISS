@@ -1,7 +1,6 @@
 from models.model import Model
 from users.question_relevancy import QuestionRelevancy
 from users.user_answer import UserAnswer
-from users.schema_to_nl import SchemaToNL
 from db_datasets.db_dataset import DBDataset
 from dataset_dataclasses.benchmark import Conversation
 
@@ -19,13 +18,7 @@ class User:
         self.db_ids: list[str] = db_ids
 
         self.question_relevancy_interaction = QuestionRelevancy(self.db, self.models)
-
-        self.schema_to_nl_interaction = SchemaToNL(self.db, self.models)
-        db_descriptions: dict[str, str] | None = None
-
-        db_descriptions = self.schema_to_nl_interaction.generate_descriptions(db_ids)
-
-        self.user_answer_interaction = UserAnswer(self.db, self.models, db_descriptions)
+        self.user_answer_interaction = UserAnswer(self.db, self.models)
     
     def get_relevancy(self, conversations: list[Conversation]) -> None:       
         self.question_relevancy_interaction.get_relevancy(conversations)

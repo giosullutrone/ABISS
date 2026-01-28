@@ -9,6 +9,7 @@ from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 from models import extract_last_json_object
 from pydantic import BaseModel
 from utils.prompt_utils import model_field_descriptions
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +21,15 @@ class ModelVLLM(Model):
                  system_prompt: str | None = None,
                  sampling_kwargs: dict | None = None,
                  model_kwargs: dict | None = None,
-                 max_batch_with_text_size: int = 10000):
+                 max_batch_with_text_size: int = 10000,
+                 max_retries: int = 3):
         super().__init__(model_name, 
                          lora_name, 
                          system_prompt, 
                          sampling_kwargs, 
                          model_kwargs,
                          max_batch_with_text_size)
+        self.max_retries = max_retries
 
     def init(self):
         # Prepare LoRA request if lora_name is provided
@@ -100,69 +103,81 @@ class ModelVLLM(Model):
         if all(v is not None for v in validated_responses):
             return validated_responses
 
-        # If there are any None values, Re-Generate those specific responses with StructuredOutputsParams
-        conversations_to_regenerate: dict[int, tuple[list[dict[str, str]], type[BaseModel]]] = {}
-        for idx, validated_response in enumerate(validated_responses):
-            if validated_response is not None:
-                continue
+        # Loop until all responses are validated or max retries reached
+        retry_count = 0
+        
+        while retry_count < self.max_retries and not all(v is not None for v in validated_responses):
+            retry_count += 1
+            logger.info(f"Regeneration attempt {retry_count}/{self.max_retries}...")
             
-            prompt_idx = idx // n
-            constraint = constraints[prompt_idx]
-            logger.info(f"Response at index {idx} (prompt {prompt_idx}, variant {idx % n}) was invalid: '{responses[idx]}...'. Regenerating...")
+            # If there are any None values, Re-Generate those specific responses with StructuredOutputsParams
+            conversations_to_regenerate: dict[int, tuple[list[dict[str, str]], type[BaseModel]]] = {}
+            for idx, validated_response in enumerate(validated_responses):
+                if validated_response is not None:
+                    continue
+                
+                prompt_idx = idx // n
+                constraint = constraints[prompt_idx]
+                logger.info(f"Response at index {idx} (prompt {prompt_idx}, variant {idx % n}) was invalid: '{responses[idx][:100]}...'. Regenerating...")
 
-            # We copy the original conversation prompt since it is a list which is mutable
-            conversation_to_regenerate = prompts[prompt_idx].copy()
-            
-            # Remove <think> tags if present
-            response_text = responses[idx]
-            
-            response_text = response_text.replace("<think>", "")
-            response_text = response_text.replace("</think>", "")
-            
-            # Add continuation prompt to guide the model
-            additional_prompt = (
-                "\n\nLet me complete this JSON response properly. "
-                f"The complete JSON object must follow this schema:\n{model_field_descriptions(constraint)}\n\n"
-                "Here is the complete, valid JSON:\n"
-            )
-            
-            # We have to add the assistance message with the previous incomplete response
-            conversation_to_regenerate.append({"role": "assistant", "content": response_text + additional_prompt})
-            conversations_to_regenerate[idx] = (conversation_to_regenerate, constraint)
+                # We copy the original conversation prompt since it is a list which is mutable
+                conversation_to_regenerate = prompts[prompt_idx].copy()
+                
+                # Remove <think> tags if present
+                response_text = responses[idx]
+                
+                response_text = response_text.replace("<think>", "")
+                response_text = response_text.replace("</think>", "")
+                
+                # Add continuation prompt to guide the model
+                additional_prompt = (
+                    "\n\nNow I'm ready. Let me complete this JSON response properly. "
+                    f"The complete JSON object must follow this schema:\n{model_field_descriptions(constraint)}\n\n"
+                    "Here is the complete, valid JSON:\n\n"
+                )
+                
+                # We have to add the assistance message with the previous incomplete response
+                conversation_to_regenerate.append({"role": "assistant", "content": response_text + additional_prompt})
+                conversations_to_regenerate[idx] = (conversation_to_regenerate, constraint)
 
-        # Group conversations by constraint type for batched regeneration
-        constraint_groups: dict[type[BaseModel], list[tuple[int, list[dict[str, str]]]]] = {}
-        for idx, (conversation, constraint) in conversations_to_regenerate.items():
-            if constraint not in constraint_groups:
-                constraint_groups[constraint] = []
-            constraint_groups[constraint].append((idx, conversation))
+            # Group conversations by constraint type for batched regeneration
+            constraint_groups: dict[type[BaseModel], list[tuple[int, list[dict[str, str]]]]] = {}
+            for idx, (conversation, constraint) in conversations_to_regenerate.items():
+                if constraint not in constraint_groups:
+                    constraint_groups[constraint] = []
+                constraint_groups[constraint].append((idx, conversation))
 
-        # Process each constraint group in batch
-        for constraint, idx_conversation_pairs in tqdm(constraint_groups.items(), desc="Regenerating invalid responses by constraint"):
-            indices = [idx for idx, _ in idx_conversation_pairs]
-            conversations = [conversation for _, conversation in idx_conversation_pairs]
-            
-            # Create new SamplingParams with StructuredOutputsParams for the constraint
-            structured_sampling_params = SamplingParams(
-                **{**(self.sampling_kwargs if self.sampling_kwargs is not None else {}), **{"n": 1}},
-                structured_outputs=StructuredOutputsParams(
-                    json=constraint.model_json_schema(),
-                    disable_any_whitespace=True
-                ),
-            )
-            
-            regenerated_responses = self._generate_batch(conversations, structured_sampling_params, continue_final_message=True, use_tqdm=False)
-            
-            for idx, regenerated_response in zip(indices, regenerated_responses):
-                validated_response = extract_last_json_object(regenerated_response, constraint)
-                if validated_response is None and raise_exceptions:
-                    raise ValueError(f"Failed to validate regenerated response at index {idx}: {regenerated_response[:100]}.")
-                validated_responses[idx] = validated_response
+            # Process each constraint group in batch
+            for constraint, idx_conversation_pairs in tqdm(constraint_groups.items(), desc=f"Regenerating invalid responses (attempt {retry_count}/{self.max_retries})"):
+                indices = [idx for idx, _ in idx_conversation_pairs]
+                conversations = [conversation for _, conversation in idx_conversation_pairs]
+                
+                # Create new SamplingParams with StructuredOutputsParams for the constraint
+                structured_sampling_params = SamplingParams(
+                    **{**(self.sampling_kwargs if self.sampling_kwargs is not None else {}), 
+                       **{"n": 1, "max_tokens": self.sampling_kwargs.get("max_tokens", 2048) + (256 * (retry_count + 1)) if self.sampling_kwargs else 2048 + (256 * (retry_count + 1))}},
+                    structured_outputs=StructuredOutputsParams(
+                        json=constraint.model_json_schema(),
+                        disable_any_whitespace=True
+                    ),
+                )
+                
+                regenerated_responses = self._generate_batch(conversations, structured_sampling_params, continue_final_message=True, use_tqdm=False)
+                
+                for idx, regenerated_response in zip(indices, regenerated_responses):
+                    validated_response = extract_last_json_object(regenerated_response, constraint)
+                    validated_responses[idx] = validated_response
 
-        # At this point, all responses are validated
+        # Check if all responses are validated after all retries
+        if raise_exceptions and not all(v is not None for v in validated_responses):
+            failed_indices = [idx for idx, v in enumerate(validated_responses) if v is None]
+            raise ValueError(f"Failed to validate responses at indices {failed_indices} after {self.max_retries} retries.")
+        
+        # At this point, all responses are validated (or raise_exceptions is False)
         return validated_responses
 
     def close(self):
         del self.model
         del self.lora_request
         del self.sampling_params
+        torch.cuda.empty_cache()

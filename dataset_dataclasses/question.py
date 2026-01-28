@@ -50,6 +50,23 @@ class Question:
     def to_dict(self) -> dict:
         return generic_to_dict(self)
     
+    @classmethod
+    def from_dict(cls, d: dict) -> "Question":
+        category_dict = d.pop("category")
+        category = get_category_by_name_and_subname(category_dict["name"], category_dict.get("subname"))
+
+        assert category is not None, f"Unknown category: {category_dict}"
+
+        return cls(
+            db_id=d["db_id"],
+            question=d["question"],
+            evidence=d.get("evidence"),
+            sql=d.get("sql"),
+            category=category,
+            question_style=QuestionStyle(d["question_style"]),
+            question_difficulty=QuestionDifficulty(d["question_difficulty"]),
+        )
+
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Question):
             return False
