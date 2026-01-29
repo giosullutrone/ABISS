@@ -53,30 +53,62 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
         
         return normalized_data
     
-    # We search from the end of the string to find the last '}'
+    # Find the last '}' and then locate the matching opening '{'
+    # while ignoring any braces that occur inside JSON string literals.
     end_idx = text.rfind('}')
     if end_idx == -1:
         return None
 
-    # Stack-based approach to find the matching opening brace '{'
-    brace_count = 0
     start_idx = -1
-    
-    for i in range(end_idx, -1, -1):
-        if text[i] == '}':
-            brace_count += 1
-        elif text[i] == '{':
-            brace_count -= 1
-            
-        # When count hits 0, we've found the outermost matching brace
-        if brace_count == 0:
+
+    # Try each '{' before end_idx and attempt a forward, string-aware match
+    for i in range(0, end_idx + 1):
+        if text[i] != '{':
+            continue
+
+        brace_count = 0
+        in_string = False
+        escape = False
+        matched = False
+
+        j = i
+        while j <= end_idx:
+            ch = text[j]
+
+            if escape:
+                escape = False
+                j += 1
+                continue
+
+            if ch == '\\' and in_string:
+                escape = True
+                j += 1
+                continue
+
+            if ch == '"':
+                in_string = not in_string
+                j += 1
+                continue
+
+            if not in_string:
+                if ch == '{':
+                    brace_count += 1
+                elif ch == '}':
+                    brace_count -= 1
+                    if brace_count == 0 and j == end_idx:
+                        matched = True
+                        break
+
+            j += 1
+
+        if matched:
             start_idx = i
             break
 
     if start_idx == -1:
         return None
 
-    json_str = text[start_idx : end_idx + 1]
+    json_str = text[start_idx:end_idx + 1]
     json_str = clean_json_string(json_str)
 
     try:

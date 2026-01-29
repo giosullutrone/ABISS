@@ -21,15 +21,13 @@ class ModelVLLM(Model):
                  system_prompt: str | None = None,
                  sampling_kwargs: dict | None = None,
                  model_kwargs: dict | None = None,
-                 max_batch_with_text_size: int = 10000,
-                 max_retries: int = 3):
+                 max_batch_with_text_size: int = 10000):
         super().__init__(model_name, 
                          lora_name, 
                          system_prompt, 
                          sampling_kwargs, 
                          model_kwargs,
                          max_batch_with_text_size)
-        self.max_retries = max_retries
 
     def init(self):
         # Prepare LoRA request if lora_name is provided
@@ -121,10 +119,11 @@ class ModelVLLM(Model):
 
         # Loop until all responses are validated or max retries reached
         retry_count = 0
+        max_retries = 2 # The first retry uses normal regeneration with longer max tokens, the second uses StructuredOutputsParams
         
-        while retry_count < self.max_retries and not all(v is not None for v in validated_responses):
+        while retry_count < max_retries and not all(v is not None for v in validated_responses):
             retry_count += 1
-            logger.info(f"Regeneration attempt {retry_count}/{self.max_retries}...")
+            logger.info(f"Regeneration attempt {retry_count}/{max_retries}...")
             
             # If there are any None values, Re-Generate those specific responses with StructuredOutputsParams
             conversations_to_regenerate: dict[int, tuple[list[dict[str, str]], type[BaseModel]]] = {}
@@ -134,7 +133,7 @@ class ModelVLLM(Model):
                 
                 prompt_idx = idx // n
                 constraint = constraints[prompt_idx]
-                logger.info(f"Response at index {idx} (prompt {prompt_idx}, variant {idx % n}) was invalid: '{responses[idx][:100]}...'. Regenerating...")
+                logger.info(f"Response at index {idx} (prompt {prompt_idx}, variant {idx % n}) was invalid: '{responses[idx]}...'. Regenerating...")
 
                 # We copy the original conversation prompt since it is a list which is mutable
                 conversation_to_regenerate = prompts[prompt_idx].copy()
@@ -160,18 +159,18 @@ class ModelVLLM(Model):
                 constraint_groups[constraint].append((idx, conversation))
 
             # Process each constraint group in batch
-            for constraint, idx_conversation_pairs in tqdm(constraint_groups.items(), desc=f"Regenerating invalid responses (attempt {retry_count}/{self.max_retries})"):
+            for constraint, idx_conversation_pairs in tqdm(constraint_groups.items(), desc=f"Regenerating invalid responses (attempt {retry_count}/{max_retries})"):
                 indices = [idx for idx, _ in idx_conversation_pairs]
                 conversations = [conversation for _, conversation in idx_conversation_pairs]
                 
                 # Create new SamplingParams with StructuredOutputsParams for the constraint
                 structured_sampling_params = SamplingParams(
                     **{**(self.sampling_kwargs if self.sampling_kwargs is not None else {}), 
-                       **{"n": 1, "max_tokens": self.sampling_kwargs.get("max_tokens", 2048) + (256 * (retry_count + 1)) if self.sampling_kwargs else 2048 + (256 * (retry_count + 1))}},
+                       **{"n": 1, "max_tokens": self.sampling_kwargs.get("max_tokens", 2048) + (512 * (retry_count)) if self.sampling_kwargs else 2048 + (512 * (retry_count))}},
                     structured_outputs=StructuredOutputsParams(
                         json=constraint.model_json_schema(),
                         disable_any_whitespace=True
-                    ),
+                    ) if retry_count == 2 else None  # Only use StructuredOutputsParams on the second retry
                 )
                 
                 regenerated_responses = self._generate_batch(conversations, structured_sampling_params, continue_final_message=True, use_tqdm=False)
@@ -183,7 +182,7 @@ class ModelVLLM(Model):
         # Check if all responses are validated after all retries
         if raise_exceptions and not all(v is not None for v in validated_responses):
             failed_indices = [idx for idx, v in enumerate(validated_responses) if v is None]
-            raise ValueError(f"Failed to validate responses at indices {failed_indices} after {self.max_retries} retries.")
+            raise ValueError(f"Failed to validate responses at indices {failed_indices} after {max_retries} retries.")
         
         # At this point, all responses are validated (or raise_exceptions is False)
         return validated_responses
