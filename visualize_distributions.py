@@ -41,7 +41,7 @@ def create_pie_chart(data: dict, title: str, output_path: str):
     # Calculate percentages to check if any are below 0.5%
     total = sum(sizes)
     percentages = [(size / total) * 100 for size in sizes]
-    use_legend = any(p < 0.5 for p in percentages)
+    use_legend = any(p < 1.0 for p in percentages)
     
     # Create pie chart with seaborn colors
     colors = sns.color_palette("husl", len(labels))
@@ -55,7 +55,7 @@ def create_pie_chart(data: dict, title: str, output_path: str):
         )
         
         # Create labels with percentages for legend
-        labels_with_percentages = [f"{label} ({pct:.1f}%)" for label, pct in zip(labels, percentages)]
+        labels_with_percentages = [f"{label} (n={size}, {pct:.1f}%)" for label, size, pct in zip(labels, sizes, percentages)]
         
         # Add legend
         ax.legend(

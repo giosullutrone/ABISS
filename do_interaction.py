@@ -29,6 +29,7 @@ if __name__ == "__main__":
     parser.add_argument("--categories", type=str, nargs='+', required=False, help="List of category names to generate (if not specified, all categories will be used). Note: Use the same categories used to generate the dataset", default=None)
     parser.add_argument("--knowledge_levels", type=str, nargs='+', required=False, help="List of user knowledge levels to test (full, nl, none). If not specified, all levels will be used", default=None)
     parser.add_argument("--category_uses", type=str, nargs='+', required=False, help="List of category uses to test (ground_truth, predicted, no_category). If not specified, all uses will be used", default=None)
+    parser.add_argument("--db_ids", type=str, nargs='+', required=False, help="List of database IDs to use for interaction (if not specified, all database IDs will be used)", default=None)
     parser.add_argument("--max_steps", type=int, required=False, help="Maximum number of interaction steps", default=5)
     parser.add_argument("--tensor_parallel_size", type=int, required=False, help="Tensor parallel size for VLLM models", default=1)
     parser.add_argument("--output_path", type=str, required=False, help="Path to save the results", default="results.json")
@@ -48,6 +49,7 @@ if __name__ == "__main__":
     category_names: list[str] | None = args.categories
     knowledge_level_names: list[str] | None = args.knowledge_levels
     category_use_names: list[str] | None = args.category_uses
+    db_ids_arg: list[str] | None = args.db_ids
     max_steps: int = args.max_steps
     tensor_parallel_size: int = args.tensor_parallel_size
     output_path: str = args.output_path
@@ -133,12 +135,24 @@ if __name__ == "__main__":
 
     db_dataset = DBDataset(db_root_path=db_root_path, db_name=db_name)
 
+    # Normally we would use all db_ids
+    db_ids = db_dataset.get_db_ids()
+
+    # If the user specified db_ids, use only those
+    if db_ids_arg is not None:
+        # Validate that all specified db_ids exist
+        available_db_ids = set(db_dataset.get_db_ids())
+        for db_id in db_ids_arg:
+            if db_id not in available_db_ids:
+                raise ValueError(f"Database ID '{db_id}' not found in dataset. Available IDs: {sorted(available_db_ids)}")
+        db_ids = db_ids_arg
+
     system_instance = system_class("LLM", model=model_system, db=db_dataset, categories=categories, max_steps=max_steps)
 
     user_instance = User("test", 
                          db_dataset, 
                          models_validator, 
-                         db_dataset.get_db_ids())
+                         db_ids)
 
     runner = Benchmark(
         db_dataset=db_dataset,
@@ -160,6 +174,10 @@ if __name__ == "__main__":
         except:
             question = Question.from_dict(deepcopy(d))
         questions.append(question)
+    
+    # Filter questions by db_id if specified
+    if db_ids_arg is not None:
+        questions = [q for q in questions if q.db_id in db_ids]
 
     results = runner.run(questions=questions)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

@@ -78,7 +78,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run dataset question generation")
     parser.add_argument("--db_name", type=str, required=False, help="Name of the database to use")
     parser.add_argument("--db_root_path", type=str, required=True, help="Path to the database root")
-    parser.add_argument("--question_path", type=str, required=True, help="Path to the questions file")
     parser.add_argument("--model_names", type=str, nargs='+', required=False, help="List of model names to use")
     parser.add_argument("--n_samples", type=int, required=False, help="Number of samples to generate per category per model", default=1)
     parser.add_argument("--tensor_parallel_size", type=int, required=False, help="Tensor parallel size for VLLM models", default=1)
@@ -100,7 +99,6 @@ if __name__ == "__main__":
 
     db_name: str = args.db_name
     db_root_path: str = args.db_root_path
-    question_path: str = args.question_path
     model_names: list[str] = args.model_names
     n_samples: int = args.n_samples
     tensor_parallel_size: int = args.tensor_parallel_size
@@ -139,8 +137,8 @@ if __name__ == "__main__":
                                    "seed": 42,
                                },
                                model_kwargs={
-                                   "max_model_len": 18000, 
-                                   "max_num_batched_tokens": 18000,
+                                   "max_model_len": 24000, 
+                                   "max_num_batched_tokens": 24000,
                                    "enable_prefix_caching": True, 
                                    "enforce_eager": True,
                                    "tensor_parallel_size": tensor_parallel_size,

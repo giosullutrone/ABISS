@@ -46,6 +46,21 @@ class ModelVLLM(Model):
         # Prepare sampling parameters
         self.sampling_params = SamplingParams(**self.sampling_kwargs) if self.sampling_kwargs is not None else None
     
+    def get_token_lengths(self, prompts: list[list[dict[str, str]]]) -> list[int]:
+        tokenizer = self.model.get_tokenizer()
+        
+        # Convert to conversation format if needed
+        conversations = self.convert_prompt_to_conversation_if_needed(prompts)
+        
+        # Apply chat template to get the actual text that would be tokenized
+        formatted_prompts = [tokenizer.apply_chat_template(
+            conversation, # type: ignore
+            tokenize=True, 
+            add_generation_prompt=True
+        ) for conversation in conversations]
+        
+        return [len(formatted_prompt) for formatted_prompt in formatted_prompts]
+    
     def _generate_batch(self, prompts: list[list[dict[str, str]]], sampling_params: SamplingParams | None, continue_final_message: bool=False, use_tqdm: bool=True) -> list[str]:
         responses: list[str] = []
         for i in range(0, len(prompts), self.max_batch_with_text_size):
@@ -56,7 +71,8 @@ class ModelVLLM(Model):
                 lora_request=self.lora_request,
                 continue_final_message=continue_final_message,
                 add_generation_prompt=not continue_final_message,
-                use_tqdm=use_tqdm
+                use_tqdm=use_tqdm,
+                chat_template_kwargs={"enable_thinking": False}
             )
             for batch_response in batch_responses:
                 responses.extend([x.text for x in batch_response.outputs])
@@ -123,15 +139,11 @@ class ModelVLLM(Model):
                 # We copy the original conversation prompt since it is a list which is mutable
                 conversation_to_regenerate = prompts[prompt_idx].copy()
                 
-                # Remove <think> tags if present
                 response_text = responses[idx]
-                
-                response_text = response_text.replace("<think>", "")
-                response_text = response_text.replace("</think>", "")
                 
                 # Add continuation prompt to guide the model
                 additional_prompt = (
-                    "\n\nNow I'm ready. Let me complete this JSON response properly. "
+                    "\n\nNow I'm ready. Let me complete this JSON response properly. I won't produce any text outside the JSON object. I won't use ```json```.\n\n"
                     f"The complete JSON object must follow this schema:\n{model_field_descriptions(constraint)}\n\n"
                     "Here is the complete, valid JSON:\n\n"
                 )
