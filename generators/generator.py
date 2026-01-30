@@ -34,7 +34,7 @@ class Generator:
 
         self.sql_validator = SQLExecutable(db)
         self.check_ambiguousness_validator = CheckAmbiguousness(db, models_validator)
-        self.check_gt_validator = CheckGT(db, models_validator)
+        self.check_gt_validator = CheckGT(db, models_validator, max_tokens, max_gen_tokens)
         self.check_copy_validator = CheckDuplicate()
         self.check_unsolvable_validator = CheckUnsolvable(db, models_validator, self.sql_validator, self.check_gt_validator)
         self.category_comparison_validator = CategoryComparison(db, models_validator, categories)
@@ -139,8 +139,6 @@ class Generator:
         # Step 2: SQL Executability Validation if answerable or amb solvable
         # Must check SQL is valid before checking if it satisfies requirements
         questions = self.apply_validator(questions, self.sql_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
-
-        questions = self.apply_validator(questions, self.token_length_validator, "after_token_length_check")
 
         # Step 3: GT Satisfaction Validation if answerable or amb solvable
         # Check that SQL actually answers the question correctly before checking other properties
