@@ -23,6 +23,10 @@ class Model(ABC):
         raise NotImplementedError("This method should be implemented in a subclass.")
 
     @abstractmethod
+    def get_token_lengths(self, prompts: list[str] | list[list[dict[str, str]]]) -> list[int]:
+        raise NotImplementedError("This method should be implemented in a subclass.")
+
+    @abstractmethod
     def generate_batch(self, prompts: list[str] | list[list[dict[str, str]]]) -> list[str]:
         raise NotImplementedError("This method should be implemented in a subclass.")
 

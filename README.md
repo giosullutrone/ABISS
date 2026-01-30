@@ -64,7 +64,7 @@ Generate a dataset of questions across different categories, styles, and difficu
 python do_question_generation.py \
     --db_name bird_dev \
     --db_root_path ../datasets/bird_dev/dev_databases \
-    --model_names ../models/Qwen3-32B ../models/Mistral-Small-3.2-24B-Instruct-2506 ../models/gemma-3-27b-it \
+    --model_names ../models/Qwen2.5-32B-Instruct ../models/Mistral-Small-3.2-24B-Instruct-2506 ../models/gemma-3-27b-it \
     --n_samples 5 \
     --tensor_parallel_size 2 \
     --question_path ../datasets/bird_dev/dev.json \
@@ -94,7 +94,7 @@ Evaluate a text-to-SQL system on generated questions with simulated user interac
 python do_interaction.py \
     --db_name bird_dev \
     --db_root_path ../datasets/bird_dev/dev_databases \
-    --model_names ../models/Qwen3-32B ../models/Mistral-Small-3.2-24B-Instruct-2506 ../models/gemma-3-27b-it \
+    --model_names ../models/Qwen2.5-32B-Instruct ../models/Mistral-Small-3.2-24B-Instruct-2506 ../models/gemma-3-27b-it \
     --tensor_parallel_size 2 \
     --question_path results/question_generation/dev_generated_questions.json \
     --output_path results/interaction/dev_interactions.json \

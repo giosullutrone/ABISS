@@ -41,24 +41,16 @@ class FeedbackQualityCheck(Validator):
         for model in self.models:
             model.init()
             
-            # Only process non-empty prompts
-            indices_to_check = [i for i, p in enumerate(prompts) if p != ""]
-            if not indices_to_check:
-                model.close()
-                continue
-            
-            prompts_to_check = [prompts[i] for i in indices_to_check]
-            
             responses: list[BaseModel] = model.generate_batch_with_constraints(
-                prompts_to_check, 
-                [FeedbackQualityCheckResponse] * len(prompts_to_check)
+                prompts, 
+                [FeedbackQualityCheckResponse] * len(prompts)
             )
             model.close()
             
             # Map responses back to original indices
-            for i, idx in enumerate(indices_to_check):
-                is_valid = get_feedback_quality_check_result(responses[i])
-                valids[idx].append(is_valid)
+            for i, response in enumerate(responses):
+                is_valid = get_feedback_quality_check_result(response)
+                valids[i].append(is_valid)
         
         # Apply majority voting for questions that were checked
         # Questions that weren't checked (empty prompts) automatically pass

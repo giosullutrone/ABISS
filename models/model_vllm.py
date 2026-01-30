@@ -9,6 +9,7 @@ from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 from models import extract_last_json_object
 from pydantic import BaseModel
 from utils.prompt_utils import model_field_descriptions
+from transformers import AutoTokenizer
 import torch
 
 logger = logging.getLogger(__name__)
@@ -44,22 +45,11 @@ class ModelVLLM(Model):
         # Prepare sampling parameters
         self.sampling_params = SamplingParams(**self.sampling_kwargs) if self.sampling_kwargs is not None else None
     
-    def get_token_lengths(self, prompts: list[list[dict[str, str]]]) -> list[int]:
-        tokenizer = self.model.get_tokenizer()
-        
-        # Convert to conversation format if needed
-        conversations = self.convert_prompt_to_conversation_if_needed(prompts)
-        
-        # Apply chat template to get the actual text that would be tokenized
-        formatted_prompts = [tokenizer.apply_chat_template(
-            conversation, # type: ignore
-            tokenize=True, 
-            add_generation_prompt=True
-        ) for conversation in conversations]
-        
-        return [len(formatted_prompt) for formatted_prompt in formatted_prompts]
+    def get_token_lengths(self, prompts: list[str] | list[list[dict[str, str]]]) -> list[int]:
+        prompts_tokens = self.model.preprocess_chat(self.convert_prompt_to_conversation_if_needed(prompts)) # type: ignore        
+        return [len(pt.get("prompt_token_ids")) for pt in prompts_tokens]
     
-    def _generate_batch(self, prompts: list[list[dict[str, str]]], sampling_params: SamplingParams | None, continue_final_message: bool=False, use_tqdm: bool=True) -> list[str]:
+    def _generate_batch(self, prompts: list[list[dict[str, str]]], sampling_params: SamplingParams | None, continue_final_message: bool=False, use_tqdm: bool=True, disable_thinking: bool=False) -> list[str]:
         responses: list[str] = []
         for i in range(0, len(prompts), self.max_batch_with_text_size):
             batch_conversations: list[list[dict[str, str]]] = prompts[i:i + self.max_batch_with_text_size]
@@ -70,7 +60,7 @@ class ModelVLLM(Model):
                 continue_final_message=continue_final_message,
                 add_generation_prompt=not continue_final_message,
                 use_tqdm=use_tqdm,
-                chat_template_kwargs={"enable_thinking": False}
+                chat_template_kwargs={"enable_thinking": False} if disable_thinking else None
             )
             for batch_response in batch_responses:
                 responses.extend([x.text for x in batch_response.outputs])
@@ -119,7 +109,7 @@ class ModelVLLM(Model):
 
         # Loop until all responses are validated or max retries reached
         retry_count = 0
-        max_retries = 2 # The first retry uses normal regeneration with longer max tokens, the second uses StructuredOutputsParams
+        max_retries = 2 # The first retry just continues with longer max tokens, second uses structured output with user message prompt
         
         while retry_count < max_retries and not all(v is not None for v in validated_responses):
             retry_count += 1
@@ -140,15 +130,24 @@ class ModelVLLM(Model):
                 
                 response_text = responses[idx]
                 
-                # Add continuation prompt to guide the model
-                additional_prompt = (
-                    "\n\nNow I'm ready. Let me complete this JSON response properly. I won't produce any text outside the JSON object. I won't use ```json```.\n\n"
-                    f"The complete JSON object must follow this schema:\n{model_field_descriptions(constraint)}\n\n"
-                    "Here is the complete, valid JSON:\n\n"
-                )
+                if retry_count == 2:
+                    # Add continuation prompt to guide the model
+                    additional_prompt = (
+                        "Complete this JSON response properly. Don't produce any text outside the JSON object. Don't use ```json```.\n"
+                        f"The complete JSON object must follow this schema:\n{model_field_descriptions(constraint)}"
+                    )
+
+                    # For retry 2: Strip thinking tags and start fresh with user message
+                    response_text = response_text.replace("<think>", "").replace("</think>", "")
+                    conversation_to_regenerate.append({"role": "assistant", "content": response_text})
+                    conversation_to_regenerate.append({"role": "user", "content": additional_prompt})
+                else:
+                    # For retry 1: Keep thinking tags for natural continuation
+                    # If there's an unclosed <think> tag, close it properly
+                    if "<think>" in response_text and "</think>" not in response_text:
+                        response_text = response_text + "\n</think>\n"
+                    conversation_to_regenerate.append({"role": "assistant", "content": response_text})
                 
-                # We have to add the assistance message with the previous incomplete response
-                conversation_to_regenerate.append({"role": "assistant", "content": response_text + additional_prompt})
                 conversations_to_regenerate[idx] = (conversation_to_regenerate, constraint)
 
             # Group conversations by constraint type for batched regeneration
@@ -173,7 +172,12 @@ class ModelVLLM(Model):
                     ) if retry_count == 2 else None  # Only use StructuredOutputsParams on the second retry
                 )
                 
-                regenerated_responses = self._generate_batch(conversations, structured_sampling_params, continue_final_message=True, use_tqdm=False)
+                # For retry 2, don't continue the final message and disable thinking (for structured output)
+                if retry_count == 2:
+                    regenerated_responses = self._generate_batch(conversations, structured_sampling_params, continue_final_message=False, use_tqdm=False, disable_thinking=True)
+                else:
+                    # For retry 1, continue the final message and enable thinking for natural continuation
+                    regenerated_responses = self._generate_batch(conversations, structured_sampling_params, continue_final_message=True, use_tqdm=False, disable_thinking=False)
                 
                 for idx, regenerated_response in zip(indices, regenerated_responses):
                     validated_response = extract_last_json_object(regenerated_response, constraint)
@@ -182,7 +186,7 @@ class ModelVLLM(Model):
         # Check if all responses are validated after all retries
         if raise_exceptions and not all(v is not None for v in validated_responses):
             failed_indices = [idx for idx, v in enumerate(validated_responses) if v is None]
-            raise ValueError(f"Failed to validate responses at indices {failed_indices} after {max_retries} retries.")
+            raise ValueError(f"Failed to validate responses at indices {failed_indices} after {max_retries} retries. Responses: {[responses[idx] for idx in failed_indices]}")
         
         # At this point, all responses are validated (or raise_exceptions is False)
         return validated_responses

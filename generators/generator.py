@@ -24,6 +24,8 @@ class Generator:
                  models_validator: list[Model],
                  categories: list[Category],
                  n_samples: int, 
+                 max_tokens: int,
+                 max_gen_tokens: int,
                  intermediate_results_folder: str | None) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models
@@ -137,6 +139,8 @@ class Generator:
         # Step 2: SQL Executability Validation if answerable or amb solvable
         # Must check SQL is valid before checking if it satisfies requirements
         questions = self.apply_validator(questions, self.sql_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
+
+        questions = self.apply_validator(questions, self.token_length_validator, "after_token_length_check")
 
         # Step 3: GT Satisfaction Validation if answerable or amb solvable
         # Check that SQL actually answers the question correctly before checking other properties

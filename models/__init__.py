@@ -1,11 +1,31 @@
 import json
+import re
 import traceback
 from typing import Any
 from json_repair import repair_json
 from pydantic import BaseModel
 
 
+def remove_json_comments(json_str: str) -> str:
+    """
+    Removes // single-line comments and /* */ multi-line comments from a JSON string.
+    This is useful for cleaning LLM-generated JSON that may include comments.
+    """
+    # Remove /* */ multi-line comments
+    json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
+    # Remove // single-line comments
+    json_str = re.sub(r'//.*?$', '', json_str, flags=re.MULTILINE)
+    return json_str
+
+
 def clean_json_string(json_str: str) -> str:
+    # Convert Python triple-quoted literals into JSON string literals
+    def _triple_replacer(match: re.Match) -> str:
+        inner = match.group(2)
+        return json.dumps(inner)
+
+    json_str = re.sub(r'(?P<quote>"""|\'\'\')(.*?)(?P=quote)', _triple_replacer, json_str, flags=re.DOTALL)
+
     return json_str.replace('\n', ' ')\
         .replace('\r', ' ')\
         .replace('\t', ' ')\
@@ -15,7 +35,9 @@ def clean_json_string(json_str: str) -> str:
         .replace("‘", "'")\
         .replace("’", "'")\
         .replace("\\.", ".")\
-        .replace("\\_", "_")
+        .replace("\\_", "_")\
+        .replace("```json", "")\
+        .replace("```", "")
 
 def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseModel | None:
     """
@@ -24,8 +46,8 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
     Also normalizes keys by converting to lowercase and replacing '-' and ' ' with '_'.
     """
     def normalize_key(key: str) -> str:
-        """Normalize a key by converting to lowercase and replacing '-' and ' ' with '_'."""
-        return key.lower().replace('-', '_').replace(' ', '_')
+        """Normalize a key by converting to lowercase and replacing '-' and ' ' with '_', and handling escaped underscores."""
+        return key.lower().replace('-', '_').replace(' ', '_').replace('\\_', '_')
     
     def normalize_data_keys(data: dict, constraint: type[BaseModel]) -> dict:
         """
@@ -109,6 +131,8 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
         return None
 
     json_str = text[start_idx:end_idx + 1]
+
+    json_str = remove_json_comments(json_str)
     json_str = clean_json_string(json_str)
 
     try:

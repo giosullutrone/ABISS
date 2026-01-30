@@ -160,6 +160,7 @@ if __name__ == "__main__":
         models_validator=models_validator,
         categories=categories if limit_categories else get_all_categories(),
         n_samples=n_samples,
+        max_token_length=1024,
         intermediate_results_folder=intermediate_results_folder
     )
 

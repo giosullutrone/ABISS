@@ -30,7 +30,7 @@ if __name__ == "__main__":
     parser.add_argument("--knowledge_levels", type=str, nargs='+', required=False, help="List of user knowledge levels to test (full, nl, none). If not specified, all levels will be used", default=None)
     parser.add_argument("--category_uses", type=str, nargs='+', required=False, help="List of category uses to test (ground_truth, predicted, no_category). If not specified, all uses will be used", default=None)
     parser.add_argument("--db_ids", type=str, nargs='+', required=False, help="List of database IDs to use for interaction (if not specified, all database IDs will be used)", default=None)
-    parser.add_argument("--max_steps", type=int, required=False, help="Maximum number of interaction steps", default=5)
+    parser.add_argument("--max_steps", type=int, required=False, help="Maximum number of interaction steps", default=3)
     parser.add_argument("--tensor_parallel_size", type=int, required=False, help="Tensor parallel size for VLLM models", default=1)
     parser.add_argument("--output_path", type=str, required=False, help="Path to save the results", default="results.json")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
