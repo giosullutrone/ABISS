@@ -30,7 +30,7 @@ class CheckGT(Validator):
             lengths = model.get_token_lengths(prompts)
             valid_indices = []
             for i, length in enumerate(lengths):
-                if length > self.max_tokens - (self.max_gen_tokens * 1.1):
+                if length > self.max_tokens - (self.max_gen_tokens * 1.15):
                     valid_questions[i] = False
                 else:
                     valid_indices.append(i)
@@ -38,9 +38,13 @@ class CheckGT(Validator):
             if valid_indices:
                 valid_prompts = [prompts[i] for i in valid_indices]
                 valid_constraints = [CheckGTResponse] * len(valid_indices)
-                responses: list[BaseModel] = model.generate_batch_with_constraints(valid_prompts, cast(list[type[BaseModel]], valid_constraints))
+                responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(valid_prompts, cast(list[type[BaseModel]], valid_constraints))
                 for j, i in enumerate(valid_indices):
-                    is_valid = get_gt_validation_result(responses[j])
+                    if responses[j] is None:
+                        valids[i].append(False)
+                        continue
+
+                    is_valid = get_gt_validation_result(cast(CheckGTResponse, responses[j]))
                     valids[i].append(is_valid)
             
             # For invalid prompts, append False vote

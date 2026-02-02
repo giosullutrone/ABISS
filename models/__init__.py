@@ -35,6 +35,7 @@ def clean_json_string(json_str: str) -> str:
         .replace("‘", "'")\
         .replace("’", "'")\
         .replace("\\.", ".")\
+        .replace("\\\\", "")\
         .replace("\\_", "_")\
         .replace("```json", "")\
         .replace("```", "")

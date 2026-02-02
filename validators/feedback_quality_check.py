@@ -8,6 +8,7 @@ from validators.prompts.feedback_quality_check_prompt import (
     FeedbackQualityCheckResponse,
     get_feedback_quality_check_result
 )
+from typing import cast
 
 
 class FeedbackQualityCheck(Validator):
@@ -41,14 +42,17 @@ class FeedbackQualityCheck(Validator):
         for model in self.models:
             model.init()
             
-            responses: list[BaseModel] = model.generate_batch_with_constraints(
+            responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(
                 prompts, 
-                [FeedbackQualityCheckResponse] * len(prompts)
+                cast(list[type[BaseModel]], [FeedbackQualityCheckResponse] * len(prompts))
             )
             model.close()
             
             # Map responses back to original indices
             for i, response in enumerate(responses):
+                if response is None:
+                    valids[i].append(False)
+                    continue
                 is_valid = get_feedback_quality_check_result(response)
                 valids[i].append(is_valid)
         

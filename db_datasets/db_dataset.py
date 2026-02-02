@@ -164,19 +164,19 @@ class DBDataset:
 
     def compare_query_results(self, 
                               db_id: str, 
-                              sql_query_1: str, 
-                              sql_query_2: str) -> bool | None:
+                              predicted_sql: str, 
+                              ground_truth_sql: str) -> bool | None:
         """
         Compare results of two SQL queries using relaxed semantic equivalence.
         
-        sql_query_1 is treated as the generated query (can have more columns)
-        sql_query_2 is treated as the ground truth query
+        predicted_sql is treated as the generated query (can have more columns)
+        ground_truth_sql is treated as the ground truth query
         
         Returns:
             True if semantically equivalent, False if not, None if execution error
         """
-        result_1 = self.execute_query_with_columns(db_id=db_id, sql_query=sql_query_1)
-        result_2 = self.execute_query_with_columns(db_id=db_id, sql_query=sql_query_2)
+        result_1 = self.execute_query_with_columns(db_id=db_id, sql_query=predicted_sql)
+        result_2 = self.execute_query_with_columns(db_id=db_id, sql_query=ground_truth_sql)
         if result_1 is None or result_2 is None:
             return None
         

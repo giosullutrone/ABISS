@@ -5,6 +5,7 @@ from models.model import Model
 from categories.category import Category
 from prompts.category_comparison_prompt import get_category_comparison_prompt, CategoryComparisonResponse, get_category_comparison_result
 from pydantic import BaseModel
+from typing import cast
 
 
 class CategoryComparison(Validator):
@@ -50,12 +51,15 @@ class CategoryComparison(Validator):
         
         for model in self.models:
             model.init()
-            responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, [CategoryComparisonResponse] * len(prompts))
+            responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(prompts, cast(list[type[BaseModel]], [CategoryComparisonResponse] * len(prompts)))
             model.close()
             
             # Process responses
             for i, response in enumerate(responses):
-                winner = get_category_comparison_result(response)  # 0 for A, 1 for B
+                if response is None:
+                    winner = 1  # Assume other wins if response is None
+                else:
+                    winner = get_category_comparison_result(response)  # 0 for A, 1 for B
                 q_idx, cat_idx, is_main_first = prompt_metadata[i]
                 if is_main_first:
                     # A is main, B is other

@@ -23,8 +23,8 @@ class Generation(Evaluator):
             # Use relaxed semantic equivalence comparison
             result = self.db.compare_query_results(
                 db_id=conversation.question.db_id,
-                sql_query_1=predicted_sql,  # generated query
-                sql_query_2=sql  # ground truth query
+                predicted_sql=predicted_sql,  # generated query
+                ground_truth_sql=sql  # ground truth query
             )
             
-            conversation.solved = result
+            conversation.solved = result or False  # Treat None as False

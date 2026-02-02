@@ -9,7 +9,6 @@ from vllm.sampling_params import SamplingParams, StructuredOutputsParams
 from models import extract_last_json_object
 from pydantic import BaseModel
 from utils.prompt_utils import model_field_descriptions
-from transformers import AutoTokenizer
 import torch
 
 logger = logging.getLogger(__name__)

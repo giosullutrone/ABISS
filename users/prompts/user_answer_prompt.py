@@ -90,6 +90,7 @@ def get_user_answer_relevant_prompt(db: DBDataset,
     prompt += "- Use the provided hidden knowledge to clarify your intent\n"
     prompt += "- Be direct and clear about which interpretation you mean\n"
     prompt += "- Help the system understand the specific meaning you intended\n"
+    prompt += "- Do NOT answer questions about which columns/tables to use - those are TECHNICAL, not RELEVANT\n"
     prompt += "- CRITICALLY: Match the style and register of your original question\n\n"
     
     question_style = question.question_style
@@ -116,7 +117,7 @@ def get_user_answer_technical_prompt(db: DBDataset,
     
     if question.sql:
         prompt += f"**Your Output Preferences (encoded in SQL):** {question.sql}\n"
-        prompt += f"**Note:** You don't think in SQL, but you have preferences about ordering, limits, and formatting. " \
+        prompt += f"**Note:** You don't think in SQL, but you have preferences about columns, tables, ordering, limits, filtering criteria, and formatting. " \
                   f"Extract these preferences from the SQL to answer technical questions.\n"
     else:
         prompt += f"**Note:** No specific technical preferences are defined. Express uncertainty or provide reasonable defaults.\n"
@@ -128,11 +129,12 @@ def get_user_answer_technical_prompt(db: DBDataset,
     prompt += "Answer the technical question based on your output preferences.\n\n"
     
     prompt += "**Technical Question Types:**\n"
+    prompt += "- **Columns/Tables:** Which specific columns or tables to use for the query?\n"
     prompt += "- **Ordering:** Do you want results sorted? In what order? (ASC/DESC, by which field?)\n"
     prompt += "- **Limits:** How many results? Top N? All results?\n"
     prompt += "- **Formatting:** Specific output format requirements?\n"
     prompt += "- **Aggregation:** How to compute averages, sums, counts?\n"
-    prompt += "- **Filtering:** Specific threshold or condition details?\n\n"
+    prompt += "- **Filtering/Criteria:** Specific threshold, time range, or condition details (e.g., last year, above $1000, only active records)?\n\n"
     
     prompt += "**Guidelines:**\n"
     
@@ -180,7 +182,7 @@ def get_user_answer_irrelevant_prompt(db: DBDataset,
     prompt += "- Asks for information unrelated to the query\n"
     prompt += "- Attempts to extract the SQL solution directly (cheating)\n"
     prompt += "- Completely off-topic or tangential\n"
-    prompt += "- Doesn't address the ambiguity or technical details\n\n"
+    prompt += "- Doesn't address the ambiguity or provide useful technical details\n\n"
     
     prompt += "**Guidelines:**\n"
     prompt += "- Politely but firmly refuse to answer\n"

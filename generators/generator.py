@@ -79,15 +79,16 @@ class Generator:
         
         # Use the model to generate all questions in a single call
         model.init()
-        responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, constraints)
+        responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(prompts, constraints)
         model.close()
 
         # Convert the responses into Question instances
         assert len(responses) == len(prompts) * self.n_samples, "Number of responses does not match number of prompts times n_samples."
         for idx, response in enumerate(responses):
-            category, db_id, style, difficulty = metadata[idx // self.n_samples]
-            question = category.get_question(db_id, response, style, difficulty)
-            questions.extend(question)
+            if response is not None:
+                category, db_id, style, difficulty = metadata[idx // self.n_samples]
+                question = category.get_question(db_id, response, style, difficulty)
+                questions.extend(question)
         return questions
 
     def generate(self, db_ids: list[str], categories: list[Category], styles: list[QuestionStyle], difficulties: list[QuestionDifficulty]) -> list[Question]:

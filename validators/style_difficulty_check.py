@@ -8,6 +8,7 @@ from prompts.style_and_difficulty_check_prompt import (
     get_style_difficulty_validation_result
 )
 from pydantic import BaseModel
+from typing import cast
 
 
 class StyleDifficultyCheck(Validator):
@@ -26,10 +27,13 @@ class StyleDifficultyCheck(Validator):
 
         for model in self.models:
             model.init()
-            responses: list[BaseModel] = model.generate_batch_with_constraints(prompts, [StyleDifficultyCheckResponse] * len(prompts))
+            responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(prompts, cast(list[type[BaseModel]], [StyleDifficultyCheckResponse] * len(prompts)))
             model.close()
 
             for i, response in enumerate(responses):
+                if response is None:
+                    valids[i].append(False)
+                    continue
                 is_valid = get_style_difficulty_validation_result(response)
                 valids[i].append(is_valid)
 

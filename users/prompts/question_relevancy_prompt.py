@@ -8,17 +8,56 @@ from dataset_dataclasses.benchmark import RelevancyLabel
 from typing import Literal
 
 
+def _get_relevant_definition() -> str:
+    """Definition of RELEVANT classification - only applies to solvable questions."""
+    return (
+        "**RELEVANT** (Addresses semantic ambiguity):\n"
+        "- ✅ Valid ONLY for Solvable questions\n"
+        "- Directly addresses the semantic ambiguity using hidden knowledge\n"
+        "- Helps clarify which interpretation the user intends\n"
+        "- Focuses on natural language disambiguation (not SQL implementation)\n"
+        "- NOT about which columns/tables to use - about WHICH MEANING is intended\n"
+        "- Examples: 'Which date do you mean - enrollment or graduation?', 'Do you want student count or course count?'\n"
+    )
+
+
+def _get_technical_definition() -> str:
+    """Definition of TECHNICAL classification - applies to both answerable and solvable questions."""
+    return (
+        "**TECHNICAL** (Asks about SQL implementation details):\n"
+        "- ✅ Valid for both Answerable and Solvable questions\n"
+        "- Focuses on output preferences and implementation: ordering, limits, formatting, aggregation, filtering criteria\n"
+        "- Asks about which columns, tables, or fields to use\n"
+        "- Asks about limiting/filtering results by specific criteria (time ranges, thresholds, conditions)\n"
+        "- Can be answered from the ground truth SQL or database schema\n"
+        "- NOT about semantic meaning - about HOW to implement or present results\n"
+        "- Examples: 'Order by newest first?', 'Limit to top 10?', 'Use the enrollment_date column?', 'Join with students table?', 'Limit to last year?', 'Only include results above $1000?'\n"
+    )
+
+
+def _get_irrelevant_definition() -> str:
+    """Definition of IRRELEVANT classification - applies to both answerable and solvable questions."""
+    return (
+        "**IRRELEVANT** (Doesn't help resolve the query):\n"
+        "- ✅ Valid for both Answerable and Solvable questions\n"
+        "- Doesn't address the ambiguity (if solvable) or provide useful technical details\n"
+        "- Tries to extract the SQL solution directly (CHEATING)\n"
+        "- Completely off-topic or tangential to the query\n"
+        "- Examples: 'What's the SQL?', 'Unrelated topic', 'Can you write the query for me?'\n"
+    )
+
+
 # Answerable questions - only TECHNICAL or IRRELEVANT
 class QuestionRelevancyAnswerableResponse(BaseModel):
     answer: Annotated[Literal["Technical", "Irrelevant"], Field(description="Final classification for answerable questions: "
-    "'Technical' if it focuses on SQL implementation details (ordering, limits, formatting), or 'Irrelevant' if it doesn't help or tries to extract SQL. "
+    "'Technical' if it focuses on SQL implementation details (ordering, limits, formatting, columns, tables), or 'Irrelevant' if it doesn't help or tries to extract SQL. "
     "Note: 'Relevant' is NOT valid for answerable questions - they're already clear. Put only 'Technical' or 'Irrelevant'.")]
 
 
 # Solvable questions - all three labels possible
 class QuestionRelevancySolvableResponse(BaseModel):
     answer: Annotated[Literal["Relevant", "Technical", "Irrelevant"], Field(description="Final classification for solvable questions: "
-    "'Relevant' if it addresses semantic ambiguity using hidden knowledge, 'Technical' if it focuses on SQL implementation details, "
+    "'Relevant' if it addresses semantic ambiguity using hidden knowledge (NOT about columns/tables), 'Technical' if it focuses on SQL implementation details (columns, tables, ordering, limits), "
     "or 'Irrelevant' if it doesn't help with disambiguation or tries to extract SQL. Put only 'Relevant', 'Technical', or 'Irrelevant'.")]
 
 
@@ -70,35 +109,23 @@ def get_relevancy_prompt_answerable(conversation: Conversation) -> str:
     
     prompt += "**Classification Definitions:**\n\n"
     
-    prompt += "**1. TECHNICAL** (Asks about SQL implementation details):\n"
-    prompt += "- ✅ Valid for Answerable questions\n"
-    prompt += "- Focuses on output preferences and implementation: ordering, limits, formatting, aggregation\n"
-    prompt += "- Can be answered from the ground truth SQL\n"
-    prompt += "- NOT about semantic meaning - about HOW to present results\n"
-    prompt += "- Examples: 'Order by newest first?', 'Limit to top 10?', 'Include duplicates?'\n\n"
-    
-    prompt += "**2. IRRELEVANT** (Doesn't help resolve the query):\n"
-    prompt += "- ✅ Valid for Answerable questions\n"
-    prompt += "- Doesn't provide useful technical details\n"
-    prompt += "- Tries to extract the SQL solution directly (CHEATING)\n"
-    prompt += "- Completely off-topic or tangential to the query\n"
-    prompt += "- Attempts semantic clarification (question is already clear!)\n"
-    prompt += "- Examples: 'What's the SQL?', 'Unrelated topic', 'Which tables should I join?'\n\n"
+    # Use shared definition functions - numbering adjusted for answerable (no RELEVANT)
+    prompt += "**1. " + _get_technical_definition().replace("**TECHNICAL**", "TECHNICAL**", 1)
+    prompt += "\n"
+    prompt += "**2. " + _get_irrelevant_definition().replace("**IRRELEVANT**", "IRRELEVANT**", 1)
+    prompt += "\n"
     
     prompt += "**CRITICAL RULES:**\n"
-    prompt += "- This is an ANSWERABLE question → CANNOT be classified as RELEVANT\n"
-    prompt += "- If the clarification asks about semantics: classify as IRRELEVANT (question is already clear)\n"
-    prompt += "- Only TECHNICAL (asking implementation details) or IRRELEVANT are valid\n"
-    prompt += "- Questions trying to extract SQL directly are ALWAYS IRRELEVANT (not Technical)\n\n"
+    prompt += "- Questions asking about columns/tables to use are TECHNICAL\n"
+    prompt += "- Questions trying to extract SQL directly are ALWAYS IRRELEVANT (not Technical)\n"
+    prompt += "- If clarification asks about semantics: classify as IRRELEVANT (question is already clear)\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide concise reasoning (approximately 256 characters) addressing: " \
-              "(1) this is answerable so only Technical/Irrelevant are valid, " \
-              "(2) what the clarification question asks about (technical vs. other), " \
-              "(3) your classification choice.\n\n"
+              "(1) what the clarification question asks about (technical vs. other), " \
+              "(2) your classification choice.\n\n"
     prompt += "Then provide your final classification as a JSON object with:\n"
-    prompt += model_field_descriptions(QuestionRelevancyAnswerableResponse) + "\n\n"
-    prompt += "**REMINDER:** Answerable questions CANNOT be RELEVANT. Only TECHNICAL or IRRELEVANT are valid."
+    prompt += model_field_descriptions(QuestionRelevancyAnswerableResponse) + "\n"
     
     return prompt
 
@@ -120,41 +147,24 @@ def get_relevancy_prompt_solvable(conversation: Conversation) -> str:
     
     prompt += "**Classification Definitions:**\n\n"
     
-    prompt += "**1. RELEVANT** (Addresses semantic ambiguity):\n"
-    prompt += "- ✅ Valid for Solvable questions\n"
-    prompt += "- Directly addresses the semantic ambiguity using hidden knowledge\n"
-    prompt += "- Helps clarify which interpretation the user intends\n"
-    prompt += "- Focuses on natural language disambiguation (not SQL implementation)\n"
-    prompt += "- Examples: 'Which date do you mean?', 'Do you want students or courses?'\n\n"
-    
-    prompt += "**2. TECHNICAL** (Asks about SQL implementation details):\n"
-    prompt += "- ✅ Valid for Solvable questions\n"
-    prompt += "- Focuses on output preferences and implementation: ordering, limits, formatting, aggregation\n"
-    prompt += "- Can be answered from the ground truth SQL\n"
-    prompt += "- NOT about semantic meaning - about HOW to present results\n"
-    prompt += "- Examples: 'Order by newest first?', 'Limit to top 10?', 'Include duplicates?'\n\n"
-    
-    prompt += "**3. IRRELEVANT** (Doesn't help resolve the query):\n"
-    prompt += "- ✅ Valid for Solvable questions\n"
-    prompt += "- Doesn't address the ambiguity or provide useful technical details\n"
-    prompt += "- Tries to extract the SQL solution directly (CHEATING)\n"
-    prompt += "- Completely off-topic or tangential to the query\n"
-    prompt += "- Examples: 'What's the SQL?', 'Unrelated topic', 'Which tables should I join?'\n\n"
+    # Use shared definition functions
+    prompt += "**1. " + _get_relevant_definition().replace("**RELEVANT**", "RELEVANT**", 1)
+    prompt += "\n"
+    prompt += "**2. " + _get_technical_definition().replace("**TECHNICAL**", "TECHNICAL**", 1)
+    prompt += "\n"
+    prompt += "**3. " + _get_irrelevant_definition().replace("**IRRELEVANT**", "IRRELEVANT**", 1)
+    prompt += "\n"
     
     prompt += "**CRITICAL RULES:**\n"
-    prompt += "- This is a SOLVABLE question → RELEVANT, TECHNICAL, or IRRELEVANT are all possible\n"
-    prompt += "- RELEVANT = addresses the ambiguity | TECHNICAL = asks implementation | IRRELEVANT = doesn't help\n"
-    prompt += "- Questions trying to extract SQL directly are ALWAYS IRRELEVANT (not Technical)\n"
-    prompt += "- Distinguish: semantic disambiguation (Relevant) vs. implementation details (Technical)\n\n"
+    prompt += "- RELEVANT = addresses semantic ambiguity (which meaning?) | TECHNICAL = asks implementation (which column/table, how to order, etc.) | IRRELEVANT = doesn't help\n"
+    prompt += "- Questions asking about columns/tables to use are TECHNICAL (not Relevant)\n"
+    prompt += "- Questions trying to extract SQL directly are ALWAYS IRRELEVANT (not Technical)\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide concise reasoning (approximately 256 characters) addressing: " \
-              "(1) this is solvable so all three labels are possible, " \
-              "(2) what the clarification question asks about (semantics vs. technical vs. other), " \
-              "(3) your classification choice.\n\n"
+              "(1) what the clarification question asks about (semantics vs. technical vs. other), " \
+              "(2) your classification choice.\n\n"
     prompt += "Then provide your final classification as a JSON object with:\n"
-    prompt += model_field_descriptions(QuestionRelevancySolvableResponse) + "\n\n"
-    prompt += "**REMINDER:** Choose RELEVANT (semantic), TECHNICAL (implementation), or IRRELEVANT (doesn't help)."
+    prompt += model_field_descriptions(QuestionRelevancySolvableResponse) + "\n"
     
     return prompt
-
