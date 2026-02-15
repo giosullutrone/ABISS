@@ -6,7 +6,7 @@ __pycache__/
 results
 *.tex
 *exp.py
-./*.json
+*.json
 
 
 # C extensions

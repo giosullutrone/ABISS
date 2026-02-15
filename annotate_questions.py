@@ -25,7 +25,6 @@ QUALITY_FACTORS = [
     "sql_correct"
 ]
 
-
 def _uniquify_column_names(columns: list[str]) -> list[str]:
     """Return a list of column names made unique by appending _1, _2, ... when duplicates occur.
 
