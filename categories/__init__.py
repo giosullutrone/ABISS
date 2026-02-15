@@ -1,5 +1,6 @@
 from categories.category import Category
-from categories.answerable import AnswerableCategory
+from categories.answerable import AnswerableWithoutEvidenceCategory
+from categories.answerable_with_evidence import AnswerableWithEvidenceCategory
 from categories.conflicting_knowledge import ConflictingKnowledgeCategory
 from categories.improper_question import ImproperQuestionCategory
 from categories.lexical_vagueness import LexicalVaguenessCategory
@@ -14,7 +15,8 @@ from categories.structure_ambiguity_scope import StructureAmbiguityScopeCategory
 
 def get_all_categories() -> list[Category]:
     return [
-        AnswerableCategory(),
+        AnswerableWithoutEvidenceCategory(),
+        AnswerableWithEvidenceCategory(),
         ConflictingKnowledgeCategory(),
         ImproperQuestionCategory(),
         LexicalVaguenessCategory(),
@@ -37,7 +39,7 @@ def get_category_by_name_and_subname(name: str, subname: str | None = None, fuzz
             cat_subname_clean = cat_subname.lower().replace(" ", "") if cat_subname is not None else None
             if cat_name == name and (subname is None or (cat_subname_clean == subname.lower().replace(" ", "") if cat_subname_clean is not None else False)):
                 return category
-        return AnswerableCategory()  # Default to Answerable if no match found
+        return AnswerableWithoutEvidenceCategory()  # Default to Answerable if no match found
     
     for category in get_all_categories():
         if category.get_name() == name and (subname is None or category.get_subname() == subname):
@@ -51,7 +53,8 @@ def get_category_by_class_name(name: str) -> Category | None:
     return None
 
 __all__ = [
-    "AnswerableCategory",
+    "AnswerableWithoutEvidenceCategory",
+    "AnswerableWithEvidenceCategory",
     "ConflictingKnowledgeCategory",
     "ImproperQuestionCategory",
     "LexicalVaguenessCategory",

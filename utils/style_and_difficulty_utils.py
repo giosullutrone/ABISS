@@ -109,95 +109,135 @@ ORDER BY ds.level, ds.name;
 }
 
 
+"""
+From OMNI-SQL paper:
+
+"Formal": '''**Formal Style**
+   - Uses standard grammar and vocabulary.
+   - Example: Find all students older than 18 years and return their home addresses.''',
+
+"Colloquial": '''**Colloquial Style**
+   - Employs informal vocabulary and expressions.
+   - Example: Hey! Could you help me find all the students who are over 18? I'd love to know their names and where they live.''',
+
+"Imperative": '''**Imperative Style**
+   - Uses command or directive sentences.
+   - Example: Could you please gather all the students who are older than 18? I really need to know their names and where they live!''',
+
+"Interrogative": '''**Interrogative Style**
+   - Uses question forms.
+   - Example: Could you tell me which students are older than 18 and what their home addresses are?''',
+
+"Descriptive": '''**Descriptive Style**
+   - Uses detailed descriptions with contextual information.
+   - Example: I want to know the names and home addresses of all students older than 18.''',
+
+"Concise": '''**Concise Style**
+   - Use short sentences.
+   - Example: Students older than 18, return their names and addresses.''',
+"""
+
 # Question Style Descriptions Dictionary (Base descriptions without examples)
 STYLE_DESCRIPTIONS = {
     QuestionStyle.FORMAL: '''**Formal Style:**
-- Uses standard, professional grammar and vocabulary
-- Maintains objective, business-like tone
-- Avoids colloquialisms and emotional language
-- Clear and precise phrasing''',
+- Uses standard grammar and professional vocabulary
+- Complete, well-structured sentences with proper punctuation
+- Neutral tone without personal references or emotional language
+- No contractions, slang, or colloquialisms
+- Clear and precise expression following formal writing conventions''',
 
     QuestionStyle.COLLOQUIAL: '''**Colloquial Style:**
-- Uses informal, conversational vocabulary
-- May include casual expressions, interjections, or filler words
-- Friendly and relaxed tone as if speaking to a colleague
-- May use contractions and everyday language''',
+- Employs informal vocabulary and conversational expressions
+- Includes interjections ("Hey!", "Oh"), filler words, and casual phrases
+- Uses contractions and relaxed grammar as in everyday speech
+- May include personal pronouns (I, me, you) and emotional expressions
+- Friendly, approachable tone with phrases like "I'd love to", "Could you help me"''',
 
     QuestionStyle.IMPERATIVE: '''**Imperative Style:**
-- Uses command or directive sentence structures
-- Direct and action-oriented language
-- Often includes words like "show," "list," "find," "get," "display"
-- Clear instructions without question marks''',
+- Uses command or directive sentences with urgency or necessity
+- Includes polite request markers: "Could you please", "Please help me", "I need"
+- Expresses urgency or importance: "I really need", "It's important", "Must have"
+- May end with exclamation marks to convey emphasis
+- Combines directive intent with polite or urgent phrasing''',
 
     QuestionStyle.INTERROGATIVE: '''**Interrogative Style:**
-- Poses questions using standard question forms
-- Often begins with question words (who, what, where, when, why, how)
-- Uses question marks and inquiry-based phrasing
-- Polite and inquiry-focused''',
+- Uses question forms that explicitly seek information
+- Begins with phrases like: "Could you tell me", "Can you show me", "Would you explain"
+- Or starts with interrogative words: "What", "Which", "Who", "Where", "How"
+- Always ends with a question mark
+- Polite inquiry tone without urgency or commands''',
 
     QuestionStyle.DESCRIPTIVE: '''**Descriptive Style:**
-- Provides context and background information
-- Explains the purpose or motivation behind the request
-- May include additional details about the use case
-- Narrative approach to expressing information needs''',
+- States the information need directly: "I want to know", "I need to find out"
+- May include brief context or purpose in the same sentence
+- Declarative statements describing what information is desired
+- More detailed than concise but not overly elaborate
+- Focuses on describing the desired information rather than commanding or asking''',
 
     QuestionStyle.CONCISE: '''**Concise Style:**
-- Uses minimal words to convey the request
-- Short, direct sentences or phrases
-- Omits unnecessary details while maintaining clarity
-- Efficient and to-the-point'''
+- Uses short sentences with minimal words
+- Includes essential verbs but eliminates unnecessary details
+- Comma-separated phrases for brevity
+- Direct and to-the-point without elaboration
+- Maintains grammatical completeness while being brief'''
 }
 
 # Question Style Descriptions with Question Examples
 STYLE_DESCRIPTIONS_WITH_QUESTION_EXAMPLES = {
     QuestionStyle.FORMAL: STYLE_DESCRIPTIONS[QuestionStyle.FORMAL] + '''
 
-**Example Question:** "Identify all students who exceed 18 years of age and retrieve their residential addresses."''',
+**Example Question:** "Find all students older than 18 years and return their home addresses."
+**Distinguishing Features:** Standard grammar, neutral tone, no personal pronouns, formal vocabulary.''',
 
     QuestionStyle.COLLOQUIAL: STYLE_DESCRIPTIONS[QuestionStyle.COLLOQUIAL] + '''
 
-**Example Question:** "Hey! Can you find all the students who are over 18? I'd love to know their names and where they live."''',
+**Example Question:** "Hey! Could you help me find all the students who are over 18? I'd love to know their names and where they live."
+**Distinguishing Features:** Interjection "Hey!", "Could you help me", "I'd love to", conversational tone.''',
 
     QuestionStyle.IMPERATIVE: STYLE_DESCRIPTIONS[QuestionStyle.IMPERATIVE] + '''
 
-**Example Question:** "Show me all students older than 18 with their home addresses."''',
+**Example Question:** "Could you please gather all the students who are older than 18? I really need to know their names and where they live!"
+**Distinguishing Features:** "Could you please", "I really need", exclamation mark showing urgency.''',
 
     QuestionStyle.INTERROGATIVE: STYLE_DESCRIPTIONS[QuestionStyle.INTERROGATIVE] + '''
 
-**Example Question:** "Which students are older than 18, and what are their home addresses?"''',
+**Example Question:** "Could you tell me which students are older than 18 and what their home addresses are?"
+**Distinguishing Features:** "Could you tell me", question mark, inquiry-focused without urgency.''',
 
     QuestionStyle.DESCRIPTIVE: STYLE_DESCRIPTIONS[QuestionStyle.DESCRIPTIVE] + '''
 
-**Example Question:** "I'm compiling a mailing list for a scholarship program. I need to identify students who are legally adults (over 18 years old) along with their current home addresses."''',
+**Example Question:** "I want to know the names and home addresses of all students older than 18."
+**Distinguishing Features:** "I want to know", declarative statement, brief contextual purpose.''',
 
     QuestionStyle.CONCISE: STYLE_DESCRIPTIONS[QuestionStyle.CONCISE] + '''
 
-**Example Question:** "Students over 18 with addresses."'''
+**Example Question:** "Students older than 18, return their names and addresses."
+**Distinguishing Features:** Short sentence, comma separation, includes verb "return", minimal words.'''
 }
 
 # Question Style Descriptions with Answer Examples
 STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES = {
     QuestionStyle.FORMAL: STYLE_DESCRIPTIONS[QuestionStyle.FORMAL] + '''
 
-**Example Answer:** "I require the records from the engineering department, specifically those pertaining to senior-level positions."''',
+**Example Answer:** "Provide all records from the engineering department pertaining to senior-level positions."''',
 
     QuestionStyle.COLLOQUIAL: STYLE_DESCRIPTIONS[QuestionStyle.COLLOQUIAL] + '''
 
-**Example Answer:** "Oh, just the ones from engineering! Yeah, I'm looking for the senior folks there."''',
+**Example Answer:** "Hey! Could you help me get the engineering folks? I'd really love to see just the senior people there."''',
 
     QuestionStyle.IMPERATIVE: STYLE_DESCRIPTIONS[QuestionStyle.IMPERATIVE] + '''
 
-**Example Answer:** "Use the engineering department. Focus on senior positions only."''',
+**Example Answer:** "Please get me the engineering department records! I really need the senior positions right away."''',
 
     QuestionStyle.INTERROGATIVE: STYLE_DESCRIPTIONS[QuestionStyle.INTERROGATIVE] + '''
 
-**Example Answer:** "I'm asking about the engineering department. Specifically, which employees hold senior positions?"''',
+**Example Answer:** "Could you tell me which employees in the engineering department hold senior positions?"''',
 
     QuestionStyle.DESCRIPTIVE: STYLE_DESCRIPTIONS[QuestionStyle.DESCRIPTIVE] + '''
 
-**Example Answer:** "I'm looking at the engineering department because that's where the relevant expertise is for this project. Specifically, I need information about senior-level employees since they have the decision-making authority I'm interested in."''',
+**Example Answer:** "I want to know which employees in the engineering department hold senior-level positions."''',
 
     QuestionStyle.CONCISE: STYLE_DESCRIPTIONS[QuestionStyle.CONCISE] + '''
 
-**Example Answer:** "Engineering department. Senior positions."'''
+**Example Answer:** "Engineering department, return senior positions."'''
 }

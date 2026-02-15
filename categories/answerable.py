@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
 
 
-class AnswerableCategory(Category):
+class AnswerableWithoutEvidenceCategory(Category):
     class AnswerableOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question that can be directly answered using the database schema and available data without any ambiguity or missing information.")]
         sql: Annotated[str, Field(description="The SQL query that correctly answers the question based on the database schema.")]
@@ -17,7 +17,7 @@ class AnswerableCategory(Category):
 
     @staticmethod
     def get_subname() -> str | None:
-        return None
+        return "Without Evidence"
 
     @staticmethod
     def get_definition() -> str:
@@ -42,15 +42,15 @@ class AnswerableCategory(Category):
 
     @staticmethod
     def get_output() -> type[BaseModel]:
-        return AnswerableCategory.AnswerableOutput
+        return AnswerableWithoutEvidenceCategory.AnswerableOutput
 
     @staticmethod
     def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         from dataset_dataclasses.question import Question
-        assert isinstance(output, AnswerableCategory.AnswerableOutput)
+        assert isinstance(output, AnswerableWithoutEvidenceCategory.AnswerableOutput)
         return [Question(
             db_id=db_id,
-            category=AnswerableCategory(),
+            category=AnswerableWithoutEvidenceCategory(),
             question=output.question,
             evidence=None,
             sql=output.sql,
