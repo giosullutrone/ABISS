@@ -14,7 +14,7 @@ NUM_QUESTIONS_TO_SAMPLE = 5
 QUESTIONS_FILE_PATH = "example_results/dev_generated_question_v12_merged.json"
 DB_ROOT_PATH = "../datasets/bird_dev/dev_databases"
 DB_NAME = "BIRD"
-OUTPUT_FILE_PATH = "annotated_questions.json"
+OUTPUT_FILE_PATH = "./results/annotated_questions.json"
 
 # Quality factors to annotate (binary: correct/incorrect)
 QUALITY_FACTORS = [
@@ -225,6 +225,8 @@ def get_completion_status() -> tuple[int, int]:
 
 def save_annotations(output_path: str):
     """Save annotations to JSON file."""
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
     results = []
     
     for i, question in enumerate(st.session_state.questions):

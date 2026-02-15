@@ -8,13 +8,13 @@ if TYPE_CHECKING:
 
 class ConflictingKnowledgeCategory(Category):
     class ConflictingKnowledgeOutput(BaseModel):
-        question: Annotated[str, Field(description="A natural language question that references a concept for which multiple, non-equivalent definitions or interpretations exist in the knowledge base. The ambiguity arises not from the question itself but from conflicting evidence about how to interpret a specific term or calculation.")]
-        sql_first_evidence: Annotated[str, Field(description="The SQL query based on the first piece of evidence from the knowledge base (e.g., calculating performance as simple average grade).")]
-        sql_second_evidence: Annotated[str, Field(description="The SQL query based on the second piece of evidence from the knowledge base (e.g., calculating performance as credit-weighted average grade).")]
+        question: Annotated[str, Field(description="A natural language question that references a concept for which multiple, non-equivalent definitions or interpretations exist in the knowledge base. The questions itself does not mention the ambiguity or the conflicting evidence, but is answerable by following either interpretation.")]
         evidence_first: Annotated[str, Field(description="The first piece of evidence from the knowledge base that defines or interprets the concept (e.g., 'A student's performance is their average grade').")]
         evidence_second: Annotated[str, Field(description="The second, conflicting piece of evidence from the knowledge base (e.g., 'A student's performance is the average grade weighted by course credits').")]
         hidden_knowledge_first_evidence: Annotated[str, Field(description="The hidden user intent clarifying that the first evidence interpretation should be used (e.g., 'Use the simple average grade definition of performance').")]
         hidden_knowledge_second_evidence: Annotated[str, Field(description="The hidden user intent clarifying that the second evidence interpretation should be used (e.g., 'Use the credit-weighted average definition of performance').")]
+        sql_first_evidence: Annotated[str, Field(description="The SQL query based on the first piece of evidence from the knowledge base (e.g., calculating performance as simple average grade).")]
+        sql_second_evidence: Annotated[str, Field(description="The SQL query based on the second piece of evidence from the knowledge base (e.g., calculating performance as credit-weighted average grade).")]
 
     @staticmethod
     def get_name() -> str:

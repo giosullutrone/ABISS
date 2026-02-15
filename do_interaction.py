@@ -3,7 +3,7 @@ from copy import deepcopy
 import logging
 from typing import Type
 from dataset_dataclasses.question import Question, QuestionUnanswerable
-from dataset_dataclasses.benchmark import UserKnowledgeLevel, CategoryUse
+from dataset_dataclasses.benchmark import CategoryUse
 from db_datasets.db_dataset import DBDataset
 from benchmarks.benchmark import Benchmark
 from enum import Enum
@@ -27,7 +27,6 @@ if __name__ == "__main__":
     parser.add_argument("--question_path", type=str, required=True, help="Path to the questions file")
     parser.add_argument("--model_names", type=str, nargs='+', required=False, help="List of model names to use")
     parser.add_argument("--categories", type=str, nargs='+', required=False, help="List of category names to generate (if not specified, all categories will be used). Note: Use the same categories used to generate the dataset", default=None)
-    parser.add_argument("--knowledge_levels", type=str, nargs='+', required=False, help="List of user knowledge levels to test (full, nl, none). If not specified, all levels will be used", default=None)
     parser.add_argument("--category_uses", type=str, nargs='+', required=False, help="List of category uses to test (ground_truth, predicted, no_category). If not specified, all uses will be used", default=None)
     parser.add_argument("--db_ids", type=str, nargs='+', required=False, help="List of database IDs to use for interaction (if not specified, all database IDs will be used)", default=None)
     parser.add_argument("--max_steps", type=int, required=False, help="Maximum number of interaction steps", default=3)
@@ -47,7 +46,6 @@ if __name__ == "__main__":
     question_path: str = args.question_path
     model_names: list[str] = args.model_names
     category_names: list[str] | None = args.categories
-    knowledge_level_names: list[str] | None = args.knowledge_levels
     category_use_names: list[str] | None = args.category_uses
     db_ids_arg: list[str] | None = args.db_ids
     max_steps: int = args.max_steps
@@ -68,19 +66,6 @@ if __name__ == "__main__":
             if category is None:
                 raise ValueError(f"Category '{cat_name}' not found")
             categories.append(category)
-
-    # Normally we would use all knowledge levels
-    knowledge_levels = list(UserKnowledgeLevel)
-
-    # If the user specified knowledge levels, use only those
-    if knowledge_level_names is not None:
-        knowledge_levels = []
-        for level_name in knowledge_level_names:
-            try:
-                level = UserKnowledgeLevel(level_name.lower())
-                knowledge_levels.append(level)
-            except ValueError:
-                raise ValueError(f"Knowledge level '{level_name}' not found. Valid levels: {[l.value for l in UserKnowledgeLevel]}")
 
     # Normally we would use all category uses
     category_uses = list(CategoryUse)
@@ -159,7 +144,6 @@ if __name__ == "__main__":
         system=system_instance,
         user=user_instance,
         max_steps=max_steps,
-        knowledge_levels=knowledge_levels,
         category_uses=category_uses
     )
 

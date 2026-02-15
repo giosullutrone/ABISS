@@ -4,7 +4,7 @@ from dataset_dataclasses.question import Question
 from dataset_dataclasses.benchmark import Results, Interaction, Conversation, SystemResponse
 from db_datasets.db_dataset import DBDataset
 from categories.category import Category
-from dataset_dataclasses.benchmark import UserKnowledgeLevel, CategoryUse
+from dataset_dataclasses.benchmark import CategoryUse
 from evaluators.evaluator import Evaluator
 from evaluators.recognition import Recognition
 from evaluators.classification import Classification
@@ -13,40 +13,16 @@ from evaluators.feedback import Feedback
 
 
 class Benchmark:
-    """
-    Benchmark for evaluating text-to-SQL systems with clarification interactions.
-    
-    The benchmark runs conversations between a system and a simulated user, where:
-    1. The system classifies questions into categories (answerable/unanswerable-solvable/unsolvable)
-    2. The system asks clarification questions or provides SQL/feedback
-    3. The user responds based on relevancy and knowledge level
-    
-    Each question is tested with different combinations of:
-    - User knowledge levels (FULL/NL/NONE) - customizable via knowledge_levels parameter
-    - Category usage (GROUND_TRUTH/PREDICTED/NO_CATEGORY) - customizable via category_uses parameter
-    
-    If knowledge_levels or category_uses are not specified, all enum values will be used by default.
-    
-    After running the benchmark, use evaluators to assess performance:
-    - Recognition: Check if system identified answerable vs unanswerable correctly
-    - Classification: Check if system identified the exact category correctly  
-    - Generation: Check if predicted SQL matches ground truth
-    - Feedback: Check if system's feedback for unsolvable questions is correct
-    
-    Evaluators are initialized automatically and run after all conversations complete.
-    """
     def __init__(self, 
                  db_dataset: DBDataset, 
                  system: System, 
                  user: User, 
                  max_steps: int,
-                 knowledge_levels: list[UserKnowledgeLevel],
                  category_uses: list[CategoryUse]) -> None:
         self.db_dataset: DBDataset = db_dataset
         self.system: System = system
         self.user: User = user
         self.max_steps: int = max_steps
-        self.knowledge_levels: list[UserKnowledgeLevel] = knowledge_levels
         self.category_uses: list[CategoryUse] = category_uses
         
         # Initialize evaluators automatically
@@ -58,44 +34,19 @@ class Benchmark:
         ]
 
     def run(self, questions: list[Question]) -> Results:
-        """
-        Run the benchmark on a list of questions.
-        
-        Flow:
-        1. Create conversations for each question × knowledge_level × category_use combination
-        2. Classify all questions once (get predicted categories)
-        3. For each step (0 to max_steps):
-           a. System generates response (question, SQL, or feedback)
-           b. Add interaction to conversation
-           c. Mark conversations as finished if they received SQL or feedback
-           d. For unfinished conversations with questions:
-              - Get relevancy labels (Relevant/Technical/Irrelevant)
-              - Get user answers based on relevancy and knowledge level
-        4. Return results with all conversations
-        
-        Note: Conversations stop when:
-        - System provides SQL (for answerable/solvable questions)
-        - System provides feedback (for unsolvable questions)
-        - Max steps + 1 is reached (extra step for final feedback)
-        
-        Evaluation flags (recognition, classification, solved, explained) are not set here.
-        Use evaluators after running the benchmark to compute these metrics.
-        """
         # Initialize conversations for each question and knowledge level
         conversations: list[Conversation] = []
         question_conversation_mapping: dict[int, list[int]] = {x: [] for x in range(len(questions))}
         for idx, question in enumerate(questions):
-            conv_idx: int = idx * len(self.knowledge_levels) * len(self.category_uses)
-            for knowledge_level in self.knowledge_levels:
-                for category_use in self.category_uses:
-                    conversations.append(Conversation(
-                        question=question,
-                        interactions=[],
-                        user_knowledge_level=knowledge_level,
-                        category_use=category_use
-                    ))
-                    question_conversation_mapping[idx].append(conv_idx)
-                    conv_idx += 1
+            conv_idx: int = idx * len(self.category_uses)
+            for category_use in self.category_uses:
+                conversations.append(Conversation(
+                    question=question,
+                    interactions=[],
+                    category_use=category_use
+                ))
+                question_conversation_mapping[idx].append(conv_idx)
+                conv_idx += 1
         
         # Step 1: Classify all questions (only once per question)        
         predicted_categories_per_question: list[Category] = self.system.get_category(
@@ -189,17 +140,5 @@ class Benchmark:
         return results
     
     def evaluate(self, results: Results) -> None:
-        """
-        Run all evaluators on the benchmark results.
-        
-        This method is called automatically at the end of run().
-        It can also be called manually on saved results.
-        
-        The evaluators set the following flags on each conversation:
-        - recognition: True if system identified answerable vs unanswerable correctly
-        - classification: True if system identified the exact category correctly
-        - solved: True if predicted SQL matches ground truth SQL
-        - explained: True if system's feedback matches expected feedback (for unsolvable questions)
-        """
         for evaluator in self.evaluators:
             evaluator.evaluate(results.conversations)

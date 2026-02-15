@@ -10,11 +10,6 @@ class RelevancyLabel(str, Enum):
     TECHNICAL = "Technical"
     IRRELEVANT = "Irrelevant"
 
-class UserKnowledgeLevel(Enum):
-    EXPERT = "expert"
-    DOMAIN = "domain"
-    CASUAL = "casual"
-
 class CategoryUse(Enum):
     GROUND_TRUTH = "ground_truth"
     PREDICTED = "predicted"
@@ -58,7 +53,6 @@ class Interaction:
 @dataclass
 class Conversation:
     question: Question
-    user_knowledge_level: UserKnowledgeLevel
     category_use: CategoryUse
     interactions: list[Interaction]
 
@@ -84,7 +78,6 @@ class Conversation:
         interactions = [Interaction.from_dict(i) for i in d.pop("interactions")]
         return cls(
             question=q,
-            user_knowledge_level=UserKnowledgeLevel(d.get("user_knowledge_level")),
             category_use=CategoryUse(d.get("category_use")),
             interactions=interactions,
             recognition=d.get("recognition"),

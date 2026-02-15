@@ -9,10 +9,10 @@ if TYPE_CHECKING:
 class LexicalVaguenessCategory(Category):
     class LexicalVaguenessOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question containing a vague term whose meaning lacks a precise or objective boundary, requiring subjective interpretation for query generation. Examples include temporal expressions (recent, old), quantitative adjectives (many, few, high, low), or evaluative terms (good, popular, expensive).")]
-        sql_first_interpretation: Annotated[str, Field(description="The SQL query using the first reasonable interpretation of the vague term (e.g., 'recent' interpreted as within the last month).")]
-        sql_second_interpretation: Annotated[str, Field(description="The SQL query using the second reasonable interpretation of the vague term (e.g., 'recent' interpreted as within the last year).")]
         hidden_knowledge_first_interpretation: Annotated[str, Field(description="The hidden user intent clarifying the first interpretation of the vague term (e.g., 'By recent, I mean courses from the last month').")]
         hidden_knowledge_second_interpretation: Annotated[str, Field(description="The hidden user intent clarifying the second interpretation of the vague term (e.g., 'By recent, I mean courses from the last academic year').")]
+        sql_first_interpretation: Annotated[str, Field(description="The SQL query using the first reasonable interpretation of the vague term (e.g., 'recent' interpreted as within the last month).")]
+        sql_second_interpretation: Annotated[str, Field(description="The SQL query using the second reasonable interpretation of the vague term (e.g., 'recent' interpreted as within the last year).")]
 
     @staticmethod
     def get_name() -> str:

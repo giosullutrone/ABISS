@@ -9,8 +9,8 @@ if TYPE_CHECKING:
 class MissingUserKnowledgeCategory(Category):
     class MissingUserKnowledgeOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question that contains user-specific references (e.g., 'my department', 'our projects', 'my courses') whose interpretation depends on objective but user-specific facts not present in the database. The question is valid but cannot be answered without knowing context about the specific user asking the question.")]
-        sql_with_user_knowledge: Annotated[str, Field(description="The SQL query that would correctly answer the question if the user-specific knowledge were known (e.g., using a concrete department value instead of the unresolved 'my department' reference).")]
         hidden_knowledge: Annotated[str, Field(description="The hidden user-specific fact that would resolve the ambiguity (e.g., 'The user's department is Engineering' or 'The user is employee ID 12345').")]
+        sql_with_user_knowledge: Annotated[str, Field(description="The SQL query that would correctly answer the question if the user-specific knowledge were known (e.g., using a concrete department value instead of the unresolved 'my department' reference).")]
 
     @staticmethod
     def get_name() -> str:

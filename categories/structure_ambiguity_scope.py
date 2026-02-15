@@ -9,10 +9,10 @@ if TYPE_CHECKING:
 class StructureAmbiguityScopeCategory(Category):
     class StructureAmbiguityScopeOutput(BaseModel):
         question: Annotated[str, Field(description="The generated natural language question containing scope ambiguity, where quantifiers (e.g., 'each', 'every', 'all') can be interpreted either collectively (referring to all entities together) or distributively (treating each entity independently).")]
-        sql_collective: Annotated[str, Field(description="The SQL query for the collective interpretation, where the quantifier refers to all entities together, typically using aggregation over the entire group (e.g., 'What courses does each department offer?' interpreted as all courses offered across all departments).")]
-        sql_distributive: Annotated[str, Field(description="The SQL query for the distributive interpretation, where the quantifier treats each entity independently, typically using grouping or iteration (e.g., 'What courses does each department offer?' interpreted as courses grouped by individual departments).")]
         hidden_knowledge_collective: Annotated[str, Field(description="The hidden user intent specifying that the quantifier should be interpreted collectively, referring to all entities as a group rather than individually (e.g., 'I want all courses offered by any department' rather than 'courses per department').")]
         hidden_knowledge_distributive: Annotated[str, Field(description="The hidden user intent specifying that the quantifier should be interpreted distributively, treating each entity separately and typically requiring grouping in the SQL query (e.g., 'I want to see which courses each individual department offers').")]
+        sql_collective: Annotated[str, Field(description="The SQL query for the collective interpretation, where the quantifier refers to all entities together, typically using aggregation over the entire group (e.g., 'What courses does each department offer?' interpreted as all courses offered across all departments).")]
+        sql_distributive: Annotated[str, Field(description="The SQL query for the distributive interpretation, where the quantifier treats each entity independently, typically using grouping or iteration (e.g., 'What courses does each department offer?' interpreted as courses grouped by individual departments).")]
 
     @staticmethod
     def get_name() -> str:

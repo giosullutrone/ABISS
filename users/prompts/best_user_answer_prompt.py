@@ -2,7 +2,6 @@ from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from dataset_dataclasses.question import QuestionUnanswerable
 from db_datasets.db_dataset import DBDataset
 from utils.prompt_utils import get_conversation_history_prompt
-from utils.knowledge_level_utils import KNOWLEDGE_LEVEL_INFO
 from utils.style_and_difficulty_utils import STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES
 from pydantic import BaseModel
 from typing import Annotated, Literal
@@ -63,8 +62,6 @@ def _get_best_user_answer_prompt_common(db: DBDataset,
     prompt = f"You are an expert evaluator for user answers to {relevancy_type.value} clarification questions in text-to-SQL scenarios.\n\n"
     
     prompt += "## Context\n"
-    user_knowledge_level = conversation.user_knowledge_level
-    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['description']
     prompt += get_conversation_history_prompt(conversation)
     
     question = conversation.question

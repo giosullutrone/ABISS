@@ -6,7 +6,6 @@ from typing import Annotated
 from pydantic import Field
 from utils.prompt_utils import model_field_descriptions, get_conversation_history_prompt
 from utils.style_and_difficulty_utils import STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES
-from utils.knowledge_level_utils import KNOWLEDGE_LEVEL_INFO
 
 
 # Response models for each relevancy type
@@ -53,9 +52,6 @@ def _get_user_answer_prompt_common(db: DBDataset,
         prompt += " that doesn't help with your original question.\n\n"
 
     prompt += "## Context\n"
-    user_knowledge_level = conversation.user_knowledge_level
-    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['description']
-
     prompt += f"\n**Original Question:** {question.question}\n"
     if question.evidence:
         prompt += f"**Additional Context:** {question.evidence}\n"
@@ -82,11 +78,7 @@ def get_user_answer_relevant_prompt(db: DBDataset,
 
     prompt += "## Task\n"
     prompt += "Answer the clarification question using your hidden knowledge to disambiguate and resolve the semantic ambiguity.\n\n"
-    prompt += "**Guidelines:**\n"
-    
-    user_knowledge_level = conversation.user_knowledge_level
-    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['relevant_guidelines'] + "\n"
-    
+    prompt += "**Guidelines:**\n"    
     prompt += "- Use the provided hidden knowledge to clarify your intent\n"
     prompt += "- Be direct and clear about which interpretation you mean\n"
     prompt += "- Help the system understand the specific meaning you intended\n"
@@ -97,8 +89,6 @@ def get_user_answer_relevant_prompt(db: DBDataset,
     style_description = STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES[question_style]
     prompt += f"**Expected Answer Style (Match Your Original Question):**\n{style_description}\n"
     prompt += "Your answer should feel like a natural continuation of your original question - maintain consistency in formality, vocabulary, and tone.\n\n"
-    
-    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['style_fusion'] + "\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide brief reasoning (approximately 256 characters) about how to use the hidden knowledge to answer the clarification question.\n\n"
@@ -138,10 +128,8 @@ def get_user_answer_technical_prompt(db: DBDataset,
     
     prompt += "**Guidelines:**\n"
     
-    user_knowledge_level = conversation.user_knowledge_level
     if question.sql:
         prompt += "- Extract the relevant preference from your SQL\n"
-        prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['technical_guidelines'] + "\n"
     else:
         prompt += "- Express uncertainty: 'I'm not sure', 'Either way is fine', 'Whatever is standard'\n"
         prompt += "- Provide reasonable defaults if you have a preference\n"
@@ -153,9 +141,6 @@ def get_user_answer_technical_prompt(db: DBDataset,
     style_description = STYLE_DESCRIPTIONS_WITH_ANSWER_EXAMPLES[question_style]
     prompt += f"**Expected Answer Style (Match Your Original Question):**\n{style_description}\n"
     prompt += "Your answer should feel like a natural continuation of your original question - maintain consistency in formality, vocabulary, and tone.\n\n"
-    
-    prompt += "**IMPORTANT - Fusing Knowledge Level with Style:**\n"
-    prompt += KNOWLEDGE_LEVEL_INFO[user_knowledge_level]['technical_style_fusion'] + "\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Provide brief reasoning (approximately 256 characters) about what technical preference to extract or that you're uncertain.\n\n"

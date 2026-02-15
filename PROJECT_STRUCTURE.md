@@ -34,7 +34,7 @@ Question category definitions implementing the taxonomy.
 ### `dataset_dataclasses/`
 Data structures for questions and benchmark results.
 - **`question.py`**: Question dataclasses (`Question`, `QuestionUnanswerable`) with enums for `QuestionStyle` (formal, colloquial, imperative, interrogative, descriptive, concise) and `QuestionDifficulty` (simple, moderate, complex, highly_complex)
-- **`benchmark.py`**: Benchmark result structures (`Results`, `Interaction`, `Conversation`, `SystemResponse`) and enums for `UserKnowledgeLevel` and `CategoryUse`
+- **`benchmark.py`**: Benchmark result structures (`Results`, `Interaction`, `Conversation`, `SystemResponse`) and `CategoryUse`
 
 ### `db_datasets/`
 Database interface and schema management.

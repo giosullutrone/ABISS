@@ -9,10 +9,10 @@ if TYPE_CHECKING:
 class StructureAmbiguityAttachmentCategory(Category):
     class StructureAmbiguityAttachmentOutput(BaseModel):
         question: Annotated[str, Field(description="The generated natural language question containing attachment ambiguity, where a modifier or condition can attach to either only the nearest element or to multiple elements in a conjunction or list, leading to different scopes of filtering or constraint.")]
-        sql_last_only: Annotated[str, Field(description="The SQL query where the modifier applies only to the last element in the conjunction (e.g., in 'professors and students in engineering', the condition 'in engineering' filters only students, not professors).")]
-        sql_all_elements: Annotated[str, Field(description="The SQL query where the modifier applies to all elements in the conjunction (e.g., in 'professors and students in engineering', the condition 'in engineering' filters both professors and students).")]
         hidden_knowledge_last_only: Annotated[str, Field(description="The hidden user intent specifying that the modifier or condition applies only to the last element in the conjunction or list (e.g., 'I want all professors and only the students who are in engineering').")]
         hidden_knowledge_all_elements: Annotated[str, Field(description="The hidden user intent specifying that the modifier or condition applies to all elements in the conjunction or list (e.g., 'I want both professors and students, but only those who are in engineering').")]
+        sql_last_only: Annotated[str, Field(description="The SQL query where the modifier applies only to the last element in the conjunction (e.g., in 'professors and students in engineering', the condition 'in engineering' filters only students, not professors).")]
+        sql_all_elements: Annotated[str, Field(description="The SQL query where the modifier applies to all elements in the conjunction (e.g., in 'professors and students in engineering', the condition 'in engineering' filters both professors and students).")]
 
     @staticmethod
     def get_name() -> str:

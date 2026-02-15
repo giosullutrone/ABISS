@@ -9,10 +9,10 @@ if TYPE_CHECKING:
 class SemanticMappingEntityAmbiguityCategory(Category):
     class SemanticMappingEntityAmbiguityOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question where a term or expression can correspond to attributes from multiple different entities or tables in the schema. The ambiguity arises because the same concept could be represented in different tables representing different entities or contexts (e.g., enrollment_date in students table vs. student_courses table).")]
-        sql_first_entity: Annotated[str, Field(description="The SQL query using the attribute from the first entity (e.g., using students.enrollment_date to represent when the student enrolled at the university).")]
-        sql_second_entity: Annotated[str, Field(description="The SQL query using the attribute from the second entity (e.g., using student_courses.enrollment_date to represent when the student enrolled in a specific course).")]
         hidden_knowledge_first_entity: Annotated[str, Field(description="The hidden user intent clarifying that the term refers to the attribute from the first entity (e.g., 'I mean the date when students first enrolled at the university, not in specific courses').")]
         hidden_knowledge_second_entity: Annotated[str, Field(description="The hidden user intent clarifying that the term refers to the attribute from the second entity (e.g., 'I mean the date when students enrolled in the specific course, not their university enrollment date').")]
+        sql_first_entity: Annotated[str, Field(description="The SQL query using the attribute from the first entity (e.g., using students.enrollment_date to represent when the student enrolled at the university).")]
+        sql_second_entity: Annotated[str, Field(description="The SQL query using the attribute from the second entity (e.g., using student_courses.enrollment_date to represent when the student enrolled in a specific course).")]
 
     @staticmethod
     def get_name() -> str:

@@ -9,10 +9,10 @@ if TYPE_CHECKING:
 class SemanticMappingLexicalOverlapCategory(Category):
     class SemanticMappingLexicalOverlapOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question containing a term or expression that can map to multiple schema attributes with similar or identical names within the same entity or closely related entities. The ambiguity arises from lexical overlap where the same expression corresponds to different columns representing variants or types of the same concept (e.g., personal_email vs. institutional_email).")]
-        sql_first_mapping: Annotated[str, Field(description="The SQL query using the first plausible schema mapping for the ambiguous term (e.g., using students.personal_email to represent the students' personal email addresses).")]
-        sql_second_mapping: Annotated[str, Field(description="The SQL query using the second plausible schema mapping for the ambiguous term (e.g., using students.institutional_email to represent the students' institutional email addresses).")]
         hidden_knowledge_first_mapping: Annotated[str, Field(description="The hidden user intent clarifying that the ambiguous term refers to the first schema mapping (e.g., 'I mean the students' personal email addresses, not their institutional ones').")]
         hidden_knowledge_second_mapping: Annotated[str, Field(description="The hidden user intent clarifying that the ambiguous term refers to the second schema mapping (e.g., 'I mean the students' institutional email addresses, not their personal ones').")]
+        sql_first_mapping: Annotated[str, Field(description="The SQL query using the first plausible schema mapping for the ambiguous term (e.g., using students.personal_email to represent the students' personal email addresses).")]
+        sql_second_mapping: Annotated[str, Field(description="The SQL query using the second plausible schema mapping for the ambiguous term (e.g., using students.institutional_email to represent the students' institutional email addresses).")]
 
     @staticmethod
     def get_name() -> str:
