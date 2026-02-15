@@ -11,7 +11,7 @@ RANDOM_SEED = 42
 NUM_QUESTIONS_TO_SAMPLE = 5
 
 # File paths and database configuration
-QUESTIONS_FILE_PATH = "example_results/dev_generated_question_v12_merged.json"
+QUESTIONS_FILE_PATH = "example_results/dev_generated_question_v13_merged.json"
 DB_ROOT_PATH = "../datasets/bird_dev/dev_databases"
 DB_NAME = "BIRD"
 OUTPUT_FILE_PATH = "./results/annotated_questions.json"
@@ -194,6 +194,45 @@ def get_database_schema_with_examples(db_dataset: DBDataset, db_id: str):
         return None
 
 
+def load_existing_annotations(output_path: str, questions: list[Question]) -> dict | None:
+    """Load existing annotations from file if it exists and matches current questions."""
+    if not os.path.exists(output_path):
+        return None
+    
+    try:
+        with open(output_path, 'r') as f:
+            saved_data = json.load(f)
+        
+        # Check if the saved questions match current questions
+        if len(saved_data) != len(questions):
+            return None
+        
+        # Verify questions match by comparing key attributes
+        for i, (saved_item, current_q) in enumerate(zip(saved_data, questions)):
+            saved_q = saved_item.get('question', {})
+            if (saved_q.get('question') != current_q.question or
+                saved_q.get('db_id') != current_q.db_id):
+                return None
+        
+        # Extract annotations
+        annotations = {}
+        for i, item in enumerate(saved_data):
+            annotations[i] = item.get('quality_annotations', {factor: None for factor in QUALITY_FACTORS})
+        
+        return annotations
+    except Exception as e:
+        print(f"Error loading existing annotations: {e}")
+        return None
+
+
+def autosave_annotations():
+    """Automatically save annotations after each change."""
+    try:
+        save_annotations(OUTPUT_FILE_PATH)
+    except Exception as e:
+        st.error(f"Autosave failed: {str(e)}")
+
+
 def initialize_session_state(questions: list[Question]):
     """Initialize session state variables."""
     if 'questions' not in st.session_state:
@@ -203,11 +242,17 @@ def initialize_session_state(questions: list[Question]):
         st.session_state.current_index = 0
     
     if 'annotations' not in st.session_state:
-        # Initialize annotations dict for each question
-        st.session_state.annotations = {
-            i: {factor: None for factor in QUALITY_FACTORS}
-            for i in range(len(questions))
-        }
+        # Try to load existing annotations
+        existing_annotations = load_existing_annotations(OUTPUT_FILE_PATH, questions)
+        
+        if existing_annotations is not None:
+            st.session_state.annotations = existing_annotations
+        else:
+            # Initialize annotations dict for each question
+            st.session_state.annotations = {
+                i: {factor: None for factor in QUALITY_FACTORS}
+                for i in range(len(questions))
+            }
 
 
 def get_completion_status() -> tuple[int, int]:
@@ -267,7 +312,12 @@ def main():
                 if DB_ROOT_PATH and DB_NAME:
                     st.session_state.db_dataset = DBDataset(DB_ROOT_PATH, DB_NAME)
                 
-                st.sidebar.success(f"Loaded {len(sampled_questions)} questions")
+                # Check if annotations were loaded from file
+                existing_file = os.path.exists(OUTPUT_FILE_PATH)
+                if existing_file:
+                    st.sidebar.success(f"Loaded {len(sampled_questions)} questions (annotations restored from file)")
+                else:
+                    st.sidebar.success(f"Loaded {len(sampled_questions)} questions")
             except Exception as e:
                 st.sidebar.error(f"Error loading questions: {str(e)}")
                 return
@@ -475,7 +525,8 @@ def main():
                 format_func=lambda x: "Not annotated" if x is None else ("✓ Realistic" if x else "✗ Not Realistic"),
                 key=f"sql_realistic_{idx}",
                 index=0 if annotations["sql_realistic"] is None else (1 if annotations["sql_realistic"] else 2),
-                label_visibility="collapsed"
+                label_visibility="collapsed",
+                on_change=autosave_annotations
             )
             st.session_state.annotations[idx]["sql_realistic"] = sql_realistic
             
@@ -489,7 +540,8 @@ def main():
                 format_func=lambda x: "Not annotated" if x is None else ("✓ Correct" if x else "✗ Incorrect"),
                 key=f"category_{idx}",
                 index=0 if annotations["category"] is None else (1 if annotations["category"] else 2),
-                label_visibility="collapsed"
+                label_visibility="collapsed",
+                on_change=autosave_annotations
             )
             st.session_state.annotations[idx]["category"] = category_quality
             
@@ -506,7 +558,8 @@ def main():
                 format_func=lambda x: "Not annotated" if x is None else ("✓ Correct" if x else "✗ Incorrect"),
                 key=f"style_{idx}",
                 index=0 if annotations["style"] is None else (1 if annotations["style"] else 2),
-                label_visibility="collapsed"
+                label_visibility="collapsed",
+                on_change=autosave_annotations
             )
             st.session_state.annotations[idx]["style"] = style_quality
             
@@ -523,7 +576,8 @@ def main():
                 format_func=lambda x: "Not annotated" if x is None else ("✓ Correct" if x else "✗ Incorrect"),
                 key=f"difficulty_{idx}",
                 index=0 if annotations["difficulty"] is None else (1 if annotations["difficulty"] else 2),
-                label_visibility="collapsed"
+                label_visibility="collapsed",
+                on_change=autosave_annotations
             )
             st.session_state.annotations[idx]["difficulty"] = difficulty_quality
             
@@ -545,7 +599,8 @@ def main():
                         format_func=lambda x: "Not annotated" if x is None else ("✓ Correct" if x else "✗ Incorrect"),
                         key=f"disambiguation_{idx}",
                         index=0 if annotations.get("disambiguation") is None else (1 if annotations.get("disambiguation") else 2),
-                        label_visibility="collapsed"
+                        label_visibility="collapsed",
+                        on_change=autosave_annotations
                     )
                     st.session_state.annotations[idx]["disambiguation"] = disamb_value
                     st.markdown("---")
@@ -557,7 +612,8 @@ def main():
                     format_func=lambda x: "Not annotated" if x is None else ("✓ Correct" if x else "✗ Incorrect"),
                     key=f"sql_{idx}",
                     index=0 if annotations["sql_correct"] is None else (1 if annotations["sql_correct"] else 2),
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    on_change=autosave_annotations
                 )
             else:
                 st.markdown("**Feedback Correct?**")
@@ -567,7 +623,8 @@ def main():
                     format_func=lambda x: "Not annotated" if x is None else ("✓ Correct" if x else "✗ Incorrect"),
                     key=f"sql_{idx}",
                     index=0 if annotations["sql_correct"] is None else (1 if annotations["sql_correct"] else 2),
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    on_change=autosave_annotations
                 )
             st.session_state.annotations[idx]["sql_correct"] = sql_quality
         
