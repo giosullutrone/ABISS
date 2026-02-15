@@ -8,7 +8,7 @@ from utils.style_and_difficulty_utils import DIFFICULTY_CRITERIA, STYLE_DESCRIPT
 
 # Configuration Constants
 RANDOM_SEED = 42
-NUM_QUESTIONS_TO_SAMPLE = 2
+NUM_QUESTIONS_TO_SAMPLE = 5
 
 # File paths and database configuration
 QUESTIONS_FILE_PATH = "example_results/dev_generated_question_v12_merged.json"
