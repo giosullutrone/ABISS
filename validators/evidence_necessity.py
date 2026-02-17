@@ -4,7 +4,7 @@ from models.model import Model
 from db_datasets.db_dataset import DBDataset
 
 
-class CheckEvidenceNecessity(Validator):
+class EvidenceNecessity(Validator):
     """
     Validates that evidence is truly necessary for answerable-with-evidence questions.
     
@@ -46,9 +46,9 @@ class CheckEvidenceNecessity(Validator):
                 ):
                     equivalent_count += 1
 
-            # If the majority of models can produce equivalent SQL without evidence,
+            # If any model can produce equivalent SQL without evidence,
             # the evidence is not necessary — mark as invalid
-            if equivalent_count > len(self.models) / 2:
+            if equivalent_count > 0:
                 valids[i] = False
 
         return valids

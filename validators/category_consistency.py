@@ -3,12 +3,12 @@ from validators.validator import Validator
 from dataset_dataclasses.question import Question
 from models.model import Model
 from categories.category import Category
-from prompts.category_comparison_prompt import get_category_comparison_prompt, CategoryComparisonResponse, get_category_comparison_result
+from prompts.category_consistency_prompt import get_category_consistency_prompt, CategoryConsistencyResponse, get_category_consistency_result
 from pydantic import BaseModel
 from typing import cast
 
 
-class CategoryComparison(Validator):
+class CategoryConsistency(Validator):
     def __init__(self, db: DBDataset, models: list[Model], categories: list[Category]) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models
@@ -27,22 +27,20 @@ class CategoryComparison(Validator):
             for cat_idx, other_cat in enumerate(self.categories):
                 if other_cat == main_cat:
                     continue
-                if not main_cat.is_answerable() and other_cat.is_answerable():
-                    # Skip comparisons where main is unanswerable and other is answerable
-                    # Reason: By this point, unanswerable questions have already been validated:
-                    # - Solvable questions passed CheckAmbiguousness (proven ambiguous, thus NOT answerable)
-                    # - Unsolvable questions passed CheckUnsolvable (proven unsolvable, thus NOT answerable)
-                    # Comparing against answerable would be redundant and waste LLM calls.
-                    # We focus on distinguishing between ambiguous subcategories instead for them.
+                # Only compare against categories of the same type:
+                # - ambiguous (is_solvable=True)
+                # - unanswerable (is_solvable=False)
+                # Answerable questions are excluded upstream (generator.py).
+                if other_cat.is_answerable() or main_cat.is_solvable() != other_cat.is_solvable():
                     continue
                 
                 # Prompt with main as A, other as B
-                prompt = get_category_comparison_prompt(self.db, main_cat, other_cat, question)
+                prompt = get_category_consistency_prompt(self.db, main_cat, other_cat, question)
                 prompts.append(prompt)
                 prompt_metadata.append((q_idx, cat_idx, True))
                 
                 # Prompt with other as A, main as B
-                prompt = get_category_comparison_prompt(self.db, other_cat, main_cat, question)
+                prompt = get_category_consistency_prompt(self.db, other_cat, main_cat, question)
                 prompts.append(prompt)
                 prompt_metadata.append((q_idx, cat_idx, False))
         
@@ -51,7 +49,7 @@ class CategoryComparison(Validator):
         
         for model in self.models:
             model.init()
-            responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(prompts, cast(list[type[BaseModel]], [CategoryComparisonResponse] * len(prompts)))
+            responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(prompts, cast(list[type[BaseModel]], [CategoryConsistencyResponse] * len(prompts)))
             model.close()
             
             # Process responses
@@ -59,7 +57,7 @@ class CategoryComparison(Validator):
                 if response is None:
                     winner = 1  # Assume other wins if response is None
                 else:
-                    winner = get_category_comparison_result(response)  # 0 for A, 1 for B
+                    winner = get_category_consistency_result(response)  # 0 for A, 1 for B
                 q_idx, cat_idx, is_main_first = prompt_metadata[i]
                 if is_main_first:
                     # A is main, B is other

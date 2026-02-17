@@ -6,18 +6,18 @@ from typing import Annotated, Literal
 from utils.style_and_difficulty_utils import STYLE_DESCRIPTIONS
 
 
-class StyleCheckResponse(BaseModel):
+class StyleConformanceResponse(BaseModel):
     style_matches: Annotated[Literal["Yes", "No"], Field(description="'Yes' if the question's style matches the specified style requirements, 'No' otherwise. Put only 'Yes' or 'No'.")]
 
 
-def get_style_validation_result(response: BaseModel) -> bool:
+def get_style_conformance_result(response: BaseModel) -> bool:
     """Returns True if the style matches, False otherwise."""
-    validated = StyleCheckResponse.model_validate(response)
+    validated = StyleConformanceResponse.model_validate(response)
     style_valid = "yes" in validated.style_matches.strip().lower()
     return style_valid
 
 
-def get_style_validation_prompt(db: DBDataset, question: Question) -> str:
+def get_style_conformance_prompt(db: DBDataset, question: Question) -> str:
     prompt = "You are an expert in evaluating natural language question styles. " \
              "Your task is to verify whether a generated question's style matches its specified requirements.\n\n"
     
@@ -54,6 +54,6 @@ def get_style_validation_prompt(db: DBDataset, question: Question) -> str:
     prompt += "**Style Analysis:** How well does the question match the specified style? What characteristics support or contradict this?\n\n"
 
     prompt += "Then provide your final verdict as a JSON object with:\n"
-    prompt += model_field_descriptions(StyleCheckResponse) + "\n\n"
+    prompt += model_field_descriptions(StyleConformanceResponse) + "\n\n"
     
     return prompt

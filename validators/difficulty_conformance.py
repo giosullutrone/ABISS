@@ -171,7 +171,7 @@ def classify_sql_difficulty(sql: str) -> QuestionDifficulty:
     return QuestionDifficulty.SIMPLE
 
 
-class DifficultyCheck(Validator):
+class DifficultyConformance(Validator):
     """
     Automated difficulty validator that checks whether a question's SQL query
     complexity matches its specified difficulty level using keyword/pattern analysis.

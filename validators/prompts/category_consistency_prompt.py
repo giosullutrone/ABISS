@@ -8,19 +8,21 @@ from pydantic import Field
 from typing import Literal
 
 
-class CategoryComparisonResponse(BaseModel):
+class CategoryConsistencyResponse(BaseModel):
     answer: Annotated[Literal["A", "B"], Field(description="Final selection: 'A' if the question better fits Category A, 'B' if it better fits Category B. Put only 'A' or 'B'.")]
 
-def get_category_comparison_result(response: BaseModel) -> int:
+def get_category_consistency_result(response: BaseModel) -> int:
     """Parses the model response and returns 0 if Category A is better, 1 if Category B is better."""
-    answer = CategoryComparisonResponse.model_validate(response).answer.strip().upper()
+    answer = CategoryConsistencyResponse.model_validate(response).answer.strip().upper()
     if "A" in answer:
         return 0
     elif "B" in answer:
         return 1
-    raise ValueError("Invalid answer in CategoryComparisonResponse: must contain 'A' or 'B'.")
+    raise ValueError("Invalid answer in CategoryConsistencyResponse: must contain 'A' or 'B'.")
 
-def get_category_comparison_prompt(db: DBDataset, category_a: Category, category_b: Category, question: Question) -> str:
+def get_category_consistency_prompt(db: DBDataset, category_a: Category, category_b: Category, question: Question) -> str:
+    is_ambiguous = isinstance(question, QuestionUnanswerable) and question.is_solvable
+
     prompt = "You are an expert in text-to-SQL ambiguity and unanswerability classification. " \
              "Your task is to perform a comparative analysis between two categories and determine which one " \
              "a question more closely aligns with based on their definitions, characteristics, and examples.\n\n"
@@ -45,10 +47,11 @@ def get_category_comparison_prompt(db: DBDataset, category_a: Category, category
         if results is not None:
             prompt += f"**Query Results (first 5 rows):** {results[:5]}\n"
     
-    # Only include hidden knowledge if the question is of type QuestionUnanswerable
-    if isinstance(question, QuestionUnanswerable):
-        if question.hidden_knowledge:
-            prompt += f"**Hidden Knowledge:**\n{question.hidden_knowledge}\n"
+    if isinstance(question, QuestionUnanswerable) and question.hidden_knowledge:
+        if is_ambiguous:
+            prompt += f"**Disambiguation Information** (clarifies the user's intended interpretation among the possible ones):\n{question.hidden_knowledge}\n"
+        else:
+            prompt += f"**Unsolvability Feedback** (explains why the question cannot be answered with the current schema/knowledge):\n{question.hidden_knowledge}\n"
     
     prompt += "\n## Category A\n"
     prompt += f"**Name:** {category_a.get_name()}"
@@ -88,12 +91,15 @@ def get_category_comparison_prompt(db: DBDataset, category_a: Category, category
     prompt += "2. **Distinctive Characteristics**: Which category's unique/specific features are present in the question\n"
     prompt += "3. **Problem Type Match**: Whether the underlying issue matches one category's problem type better\n"
 
-    # Add specific guidance for solvable/unsolvable categories
-    if isinstance(question, QuestionUnanswerable):
-        if question.hidden_knowledge:
-            prompt += "4. **Hidden Knowledge Relevance**: Which category's resolution approach the hidden knowledge aligns with\n"
-            
-    prompt += f"{'5' if isinstance(question, QuestionUnanswerable) and question.hidden_knowledge else '4'}. **Example Similarity**: Which category's examples are most similar to the question\n"
+    # Add type-specific guidance based on whether the question is ambiguous or unanswerable
+    if isinstance(question, QuestionUnanswerable) and question.hidden_knowledge:
+        if is_ambiguous:
+            prompt += "4. **Disambiguation Alignment**: Which category's type of ambiguity the disambiguation information better resolves (i.e., the disambiguation should match the nature of the ambiguity described by the category)\n"
+        else:
+            prompt += "4. **Feedback Alignment**: Which category's unsolvability cause the feedback better describes (i.e., the feedback should match the specific limitation described by the category)\n"
+
+    has_extra_criterion = isinstance(question, QuestionUnanswerable) and question.hidden_knowledge
+    prompt += f"{'5' if has_extra_criterion else '4'}. **Example Similarity**: Which category's examples are most similar to the question\n"
     
     prompt += "\n**Select 'A' if:** Category A is the better fit based on the criteria above.\n"
     prompt += "**Select 'B' if:** Category B is the better fit based on the criteria above.\n\n"
@@ -107,7 +113,7 @@ def get_category_comparison_prompt(db: DBDataset, category_a: Category, category
     prompt += "Keep your reasoning concise but thorough (approximately 200-400 words total). " \
               "Be decisive and objective in your comparison.\n\n"
     prompt += "Then provide your final selection as a JSON object with:\n"
-    prompt += model_field_descriptions(CategoryComparisonResponse) + "\n\n"
+    prompt += model_field_descriptions(CategoryConsistencyResponse) + "\n\n"
     prompt += "Important: Choose the category that most closely matches the question's primary characteristics. " \
               "If the question exhibits features of both categories, select the one with the STRONGEST alignment."
     

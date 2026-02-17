@@ -1,13 +1,13 @@
 from validators.validator import Validator
-from validators.sql_executable import SQLExecutable
-from validators.check_gt import CheckGT
+from validators.sql_executability import SQLExecutability
+from validators.gt_satisfaction import GTSatisfaction
 from dataset_dataclasses.question import Question
 from models.model import Model
 from db_datasets.db_dataset import DBDataset
 from copy import deepcopy
 
 
-class CheckUnsolvable(Validator):
+class UnsolvabilityVerification(Validator):
     """
     Validator for unsolvable questions (questions that shouldn't have an SQL answer).
     
@@ -21,11 +21,11 @@ class CheckUnsolvable(Validator):
          - If doesn't answer correctly -> Valid (confirmed unsolvable)
     """
     
-    def __init__(self, db: DBDataset, models: list[Model], sql_executable_validator: SQLExecutable, check_gt_validator: CheckGT) -> None:
+    def __init__(self, db: DBDataset, models: list[Model], sql_executability_validator: SQLExecutability, gt_satisfaction_validator: GTSatisfaction) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models
-        self.sql_executable_validator = sql_executable_validator
-        self.check_gt_validator = check_gt_validator
+        self.sql_executability_validator = sql_executability_validator
+        self.gt_satisfaction_validator = gt_satisfaction_validator
 
     def validate(self, questions: list[Question]) -> list[bool]:
         valids: list[bool] = [True for _ in questions]
@@ -51,7 +51,7 @@ class CheckUnsolvable(Validator):
             return valids
         
         # Check which generated SQLs are executable
-        executable_flags = self.sql_executable_validator.validate(all_questions_with_generated_sql)
+        executable_flags = self.sql_executability_validator.validate(all_questions_with_generated_sql)
         executable_questions = [q for j, q in enumerate(all_questions_with_generated_sql) if executable_flags[j]]
         executable_mapping = [question_mapping[j] for j, flag in enumerate(executable_flags) if flag]
         
@@ -60,7 +60,7 @@ class CheckUnsolvable(Validator):
             return valids
         
         # For executable SQLs, check if they correctly answer the question
-        gt_validation_flags = self.check_gt_validator.validate(executable_questions)
+        gt_validation_flags = self.gt_satisfaction_validator.validate(executable_questions)
         
         # Mark questions as invalid if any of their generated SQLs are executable AND correctly answer the question
         for j, is_valid_gt in enumerate(gt_validation_flags):

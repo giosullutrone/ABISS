@@ -4,7 +4,7 @@ from models.model import Model
 from db_datasets.db_dataset import DBDataset
 
 
-class CheckAmbiguousness(Validator):
+class AmbiguityVerification(Validator):
     def __init__(self, db: DBDataset, models: list[Model]) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models

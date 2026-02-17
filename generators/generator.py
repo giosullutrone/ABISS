@@ -6,16 +6,16 @@ import json
 import os
 from generators.prompts.generator_prompt import get_generation_prompt
 from pydantic import BaseModel
-from validators.sql_executable import SQLExecutable
-from validators.check_ambiguousness import CheckAmbiguousness
-from validators.check_gt import CheckGT
-from validators.check_duplicate import CheckDuplicate
-from validators.check_unsolvable import CheckUnsolvable
-from validators.category_comparison import CategoryComparison
-from validators.style_check import StyleCheck
-from validators.difficulty_check import DifficultyCheck
+from validators.sql_executability import SQLExecutability
+from validators.ambiguity_verification import AmbiguityVerification
+from validators.gt_satisfaction import GTSatisfaction
+from validators.duplicate_removal import DuplicateRemoval
+from validators.unsolvability_verification import UnsolvabilityVerification
+from validators.category_consistency import CategoryConsistency
+from validators.style_conformance import StyleConformance
+from validators.difficulty_conformance import DifficultyConformance
 from validators.feedback_quality_check import FeedbackQualityCheck
-from validators.check_evidence_necessity import CheckEvidenceNecessity
+from validators.evidence_necessity import EvidenceNecessity
 from categories.answerable_with_evidence import AnswerableWithEvidenceCategory
 from validators.validator import Validator
 
@@ -35,16 +35,16 @@ class Generator:
         self.n_samples: int = n_samples
         self.intermediate_results_folder = intermediate_results_folder
 
-        self.sql_validator = SQLExecutable(db)
-        self.check_ambiguousness_validator = CheckAmbiguousness(db, models_validator)
-        self.check_gt_validator = CheckGT(db, models_validator, max_tokens, max_gen_tokens)
-        self.check_copy_validator = CheckDuplicate()
-        self.check_unsolvable_validator = CheckUnsolvable(db, models_validator, self.sql_validator, self.check_gt_validator)
-        self.category_comparison_validator = CategoryComparison(db, models_validator, categories)
-        self.style_check_validator = StyleCheck(db, models_validator)
-        self.difficulty_check_validator = DifficultyCheck()
+        self.sql_executability_validator = SQLExecutability(db)
+        self.ambiguity_verification_validator = AmbiguityVerification(db, models_validator)
+        self.gt_satisfaction_validator = GTSatisfaction(db, models_validator, max_tokens, max_gen_tokens)
+        self.duplicate_removal_validator = DuplicateRemoval()
+        self.unsolvability_verification_validator = UnsolvabilityVerification(db, models_validator, self.sql_executability_validator, self.gt_satisfaction_validator)
+        self.category_consistency_validator = CategoryConsistency(db, models_validator, categories)
+        self.style_conformance_validator = StyleConformance(db, models_validator)
+        self.difficulty_conformance_validator = DifficultyConformance()
         self.feedback_quality_check_validator = FeedbackQualityCheck(db, models_validator)
-        self.check_evidence_necessity_validator = CheckEvidenceNecessity(db, models_validator)
+        self.evidence_necessity_validator = EvidenceNecessity(db, models_validator)
 
     def save_intermediate_results(self, questions: list[Question], stage: str) -> None:
         if self.intermediate_results_folder is not None:
@@ -142,42 +142,42 @@ class Generator:
     def validate(self, questions: list[Question]) -> list[Question]:
         self.save_intermediate_results(questions, "initial")
 
-        # Step 1: Check Copy Validation (remove duplicates)
-        questions = self.apply_validator(questions, self.check_copy_validator, "after_copy_check")
+        # Step 1: Duplicate Removal (remove duplicates)
+        questions = self.apply_validator(questions, self.duplicate_removal_validator, "after_duplicate_removal")
 
         # Step 2: SQL Executability Validation if answerable or amb solvable
         # Must check SQL is valid before checking if it satisfies requirements
-        questions = self.apply_validator(questions, self.sql_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
+        questions = self.apply_validator(questions, self.sql_executability_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
 
         # Step 3: GT Satisfaction Validation if answerable or amb solvable
         # Check that SQL actually answers the question correctly before checking other properties
-        questions = self.apply_validator(questions, self.check_gt_validator, "after_gt_satisfaction_check", check_if_amb_solvable=True, check_if_answerable=True)
+        questions = self.apply_validator(questions, self.gt_satisfaction_validator, "after_gt_satisfaction_check", check_if_amb_solvable=True, check_if_answerable=True)
 
         # Step 4: Evidence Necessity Validation if answerable with evidence
         # Verify that evidence is truly needed — models should NOT be able to produce equivalent SQL without it
-        questions = self.apply_validator(questions, self.check_evidence_necessity_validator, "after_evidence_necessity_check", check_if_answerable_with_evidence=True)
+        questions = self.apply_validator(questions, self.evidence_necessity_validator, "after_evidence_necessity_check", check_if_answerable_with_evidence=True)
 
-        # Step 5: Ambiguity Validation if amb solvable
+        # Step 5: Ambiguity Verification if amb solvable
         # After confirming SQL is valid and correct, check if question is actually ambiguous
-        questions = self.apply_validator(questions, self.check_ambiguousness_validator, "after_ambiguity_check", check_if_amb_solvable=True)
+        questions = self.apply_validator(questions, self.ambiguity_verification_validator, "after_ambiguity_verification", check_if_amb_solvable=True)
 
-        # Step 6: Unsolvability Validation if amb unsolvable
+        # Step 6: Unsolvability Verification if amb unsolvable
         # Check if unsolvable questions are truly unsolvable
-        questions = self.apply_validator(questions, self.check_unsolvable_validator, "after_unsolvability_check", check_if_amb_unsolvable=True)
+        questions = self.apply_validator(questions, self.unsolvability_verification_validator, "after_unsolvability_verification", check_if_amb_unsolvable=True)
         
         # Step 7: Feedback Quality Check if amb unsolvable
         # After confirming unsolvability, check that feedback correctly explains why
         questions = self.apply_validator(questions, self.feedback_quality_check_validator, "after_feedback_quality_check", check_if_amb_unsolvable=True)
 
-        # Step 8: Other Categories Check Validation
+        # Step 8: Category Consistency Check Validation
         # Verify question doesn't fit better in a different category
-        questions = self.apply_validator(questions, self.category_comparison_validator, "after_category_comparison_check")
+        questions = self.apply_validator(questions, self.category_consistency_validator, "after_category_consistency_check", check_if_amb_solvable=True, check_if_amb_unsolvable=True)
 
-        # Step 9: Check difficulty (automated keyword-based SQL analysis)
+        # Step 9: Difficulty Conformance check (automated keyword-based SQL analysis)
         # Verify SQL complexity matches the specified difficulty level
-        questions = self.apply_validator(questions, self.difficulty_check_validator, "after_difficulty_check")
+        questions = self.apply_validator(questions, self.difficulty_conformance_validator, "after_difficulty_conformance")
 
-        # Step 10: Check style (LLM-based)
+        # Step 10: Style Conformance check (LLM-based)
         # Verify question matches the intended style
-        questions = self.apply_validator(questions, self.style_check_validator, "after_style_check")
+        questions = self.apply_validator(questions, self.style_conformance_validator, "after_style_conformance")
         return questions

@@ -4,10 +4,10 @@ from db_datasets.db_dataset import DBDataset
 from validators.validator import Validator
 from dataset_dataclasses.question import Question
 from models.model import Model
-from prompts.check_gt_prompt import get_gt_validation_prompt, CheckGTResponse, get_gt_validation_result
+from prompts.gt_satisfaction_prompt import get_gt_satisfaction_prompt, GTSatisfactionResponse, get_gt_satisfaction_result
 
 
-class CheckGT(Validator):
+class GTSatisfaction(Validator):
     def __init__(self, db: DBDataset, models: list[Model], max_tokens: int, max_gen_tokens: int) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models
@@ -18,7 +18,7 @@ class CheckGT(Validator):
         prompts: list[str] = []
         
         for question in questions:
-            prompt = get_gt_validation_prompt(self.db, question)
+            prompt = get_gt_satisfaction_prompt(self.db, question)
             prompts.append(prompt)
         
         valids: list[list[bool]] = [[] for _ in questions]
@@ -37,14 +37,14 @@ class CheckGT(Validator):
             
             if valid_indices:
                 valid_prompts = [prompts[i] for i in valid_indices]
-                valid_constraints = [CheckGTResponse] * len(valid_indices)
+                valid_constraints = [GTSatisfactionResponse] * len(valid_indices)
                 responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(valid_prompts, cast(list[type[BaseModel]], valid_constraints))
                 for j, i in enumerate(valid_indices):
                     if responses[j] is None:
                         valids[i].append(False)
                         continue
 
-                    is_valid = get_gt_validation_result(cast(CheckGTResponse, responses[j]))
+                    is_valid = get_gt_satisfaction_result(cast(GTSatisfactionResponse, responses[j]))
                     valids[i].append(is_valid)
             
             # For invalid prompts, append False vote

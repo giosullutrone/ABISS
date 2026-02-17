@@ -23,7 +23,7 @@ def mask_sql_values(sql: str) -> str:
     return masked_sql
 
 
-class CheckDuplicate(Validator):
+class DuplicateRemoval(Validator):
     def validate(self, questions: list[Question]) -> list[bool]:
         # Check if any questions is a copy of another question in the dataset.
         # Deduplication based on:

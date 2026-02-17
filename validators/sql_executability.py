@@ -4,7 +4,7 @@ from db_datasets.db_dataset import DBDataset
 from tqdm import tqdm
 
 
-class SQLExecutable(Validator):
+class SQLExecutability(Validator):
     def __init__(self, db: DBDataset) -> None:
         self.db: DBDataset = db
 

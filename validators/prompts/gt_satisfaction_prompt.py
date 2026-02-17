@@ -7,15 +7,15 @@ from pydantic import Field
 from typing import Literal
 
 
-class CheckGTResponse(BaseModel):
+class GTSatisfactionResponse(BaseModel):
     answer: Annotated[Literal["Yes", "No"], Field(description="Final verdict: 'Yes' if the SQL query correctly answers the question (considering any hidden knowledge if provided), "
     "or 'No' if it fails to capture the intended meaning or contains errors. Put only 'Yes' or 'No'.")]
 
-def get_gt_validation_result(response: BaseModel) -> bool:
-    answer = CheckGTResponse.model_validate(response).answer.strip().lower()
+def get_gt_satisfaction_result(response: BaseModel) -> bool:
+    answer = GTSatisfactionResponse.model_validate(response).answer.strip().lower()
     return "yes" in answer
 
-def get_gt_validation_prompt(db: DBDataset, question: Question) -> str:
+def get_gt_satisfaction_prompt(db: DBDataset, question: Question) -> str:
     # Check if the question has hidden knowledge
     has_hidden_knowledge = isinstance(question, QuestionUnanswerable) and question.hidden_knowledge
     
@@ -92,5 +92,5 @@ def get_gt_validation_prompt(db: DBDataset, question: Question) -> str:
     else:
         prompt += "question's intent. Consider: (1) whether the query uses the correct tables and columns from the schema, (2) whether the joins, filters, and aggregations match the question's requirements, and (3) whether the query results align with what the question is asking for.\n\n"
     prompt += "Provide your evaluation as a JSON object with:\n"
-    prompt += model_field_descriptions(CheckGTResponse) + "\n\n"
+    prompt += model_field_descriptions(GTSatisfactionResponse) + "\n\n"
     return prompt
