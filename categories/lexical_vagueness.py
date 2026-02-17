@@ -29,11 +29,11 @@ class LexicalVaguenessCategory(Category):
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List recent courses.",  # Temporal vagueness: last semester? last year? last month?
-            "Show employees with high salaries.",  # Quantitative vagueness: what threshold defines 'high'?
-            "Find popular products.",  # Evaluative vagueness: based on sales? reviews? views?
-            "Display old buildings on campus.",  # Temporal vagueness: how old is 'old'?
-            "Show students with many course enrollments."  # Quantitative vagueness: how many is 'many'?
+            "List recent courses. (Temporal vagueness: 'recent' could mean last semester, last year, or last month)",
+            "Show employees with high salaries. (Quantitative vagueness: no clear threshold defines what 'high' means)",
+            "Find affordable products. (Quantitative vagueness: no clear price threshold defines what 'affordable' means)",
+            "Display old buildings on campus. (Temporal vagueness: no clear boundary for how old is 'old')",
+            "Show students with many course enrollments. (Quantitative vagueness: no clear threshold for how many is 'many')"
         ]
 
     @staticmethod

@@ -27,7 +27,7 @@ def get_gt_validation_prompt(db: DBDataset, question: Question) -> str:
         prompt += "## Context\n"
         prompt += "The original question was ambiguous or underspecified. The user has provided hidden knowledge " \
                     "that clarifies their intent. Your job is to evaluate whether the provided SQL query correctly " \
-                    "implements this disambiguated intent.\n\n"
+                    "implements this disambiguated intent and reflects the intended meaning of the question.\n\n"
     else:
         prompt += ".\n\n"
         prompt += "## Context\n"

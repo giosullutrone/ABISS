@@ -29,10 +29,10 @@ class SemanticMappingEntityAmbiguityCategory(Category):
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List the enrollment date of the students of the 'database' course.",  # students.enrollment_date vs student_courses.enrollment_date
-            "Show the start date for all projects in the engineering department.",  # projects.start_date vs departments.start_date vs employees.start_date
-            "Find the location of employees working on the Mars project.",  # employees.location vs projects.location vs offices.location
-            "What is the price for items in the electronics category?"  # items.price vs categories.base_price
+            "List the enrollment date of the students of the 'database' course. (Ambiguous: 'enrollment date' exists in both the students table and the student_courses table, referring to different events)",
+            "Show the start date for all projects in the engineering department. (Ambiguous: 'start date' could come from projects.start_date, departments.start_date, or employees.start_date)",
+            "Find the location of employees working on the Mars project. (Ambiguous: 'location' could refer to employees.location, projects.location, or offices.location)",
+            "What is the price for items in the electronics category? (Ambiguous: 'price' could come from items.price or categories.base_price, which are different entities)"
         ]
 
     @staticmethod

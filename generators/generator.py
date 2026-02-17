@@ -12,8 +12,11 @@ from validators.check_gt import CheckGT
 from validators.check_duplicate import CheckDuplicate
 from validators.check_unsolvable import CheckUnsolvable
 from validators.category_comparison import CategoryComparison
-from validators.style_difficulty_check import StyleDifficultyCheck
+from validators.style_check import StyleCheck
+from validators.difficulty_check import DifficultyCheck
 from validators.feedback_quality_check import FeedbackQualityCheck
+from validators.check_evidence_necessity import CheckEvidenceNecessity
+from categories.answerable_with_evidence import AnswerableWithEvidenceCategory
 from validators.validator import Validator
 
 
@@ -38,8 +41,10 @@ class Generator:
         self.check_copy_validator = CheckDuplicate()
         self.check_unsolvable_validator = CheckUnsolvable(db, models_validator, self.sql_validator, self.check_gt_validator)
         self.category_comparison_validator = CategoryComparison(db, models_validator, categories)
-        self.style_difficulty_check_validator = StyleDifficultyCheck(db, models_validator)
+        self.style_check_validator = StyleCheck(db, models_validator)
+        self.difficulty_check_validator = DifficultyCheck()
         self.feedback_quality_check_validator = FeedbackQualityCheck(db, models_validator)
+        self.check_evidence_necessity_validator = CheckEvidenceNecessity(db, models_validator)
 
     def save_intermediate_results(self, questions: list[Question], stage: str) -> None:
         if self.intermediate_results_folder is not None:
@@ -104,7 +109,8 @@ class Generator:
                         intermediate_results_label: str,
                         check_if_amb_solvable: bool=False,
                         check_if_amb_unsolvable: bool=False,
-                        check_if_answerable: bool=False) -> list[Question]:
+                        check_if_answerable: bool=False,
+                        check_if_answerable_with_evidence: bool=False) -> list[Question]:
         questions_to_check: list[Question] = []
         # Determine which questions to validate based on their category properties and flags
         if check_if_amb_solvable:
@@ -113,7 +119,9 @@ class Generator:
             questions_to_check.extend([q for q in questions if not q.category.is_answerable() and not q.category.is_solvable()])
         if check_if_answerable:
             questions_to_check.extend([q for q in questions if q.category.is_answerable()])
-        if not check_if_amb_solvable and not check_if_amb_unsolvable and not check_if_answerable:
+        if check_if_answerable_with_evidence:
+            questions_to_check.extend([q for q in questions if isinstance(q.category, AnswerableWithEvidenceCategory)])
+        if not check_if_amb_solvable and not check_if_amb_unsolvable and not check_if_answerable and not check_if_answerable_with_evidence:
             questions_to_check = questions
         
         if len(questions_to_check) == 0:
@@ -145,23 +153,31 @@ class Generator:
         # Check that SQL actually answers the question correctly before checking other properties
         questions = self.apply_validator(questions, self.check_gt_validator, "after_gt_satisfaction_check", check_if_amb_solvable=True, check_if_answerable=True)
 
-        # Step 4: Ambiguity Validation if amb solvable
+        # Step 4: Evidence Necessity Validation if answerable with evidence
+        # Verify that evidence is truly needed — models should NOT be able to produce equivalent SQL without it
+        questions = self.apply_validator(questions, self.check_evidence_necessity_validator, "after_evidence_necessity_check", check_if_answerable_with_evidence=True)
+
+        # Step 5: Ambiguity Validation if amb solvable
         # After confirming SQL is valid and correct, check if question is actually ambiguous
         questions = self.apply_validator(questions, self.check_ambiguousness_validator, "after_ambiguity_check", check_if_amb_solvable=True)
 
-        # Step 5: Unsolvability Validation if amb unsolvable
+        # Step 6: Unsolvability Validation if amb unsolvable
         # Check if unsolvable questions are truly unsolvable
         questions = self.apply_validator(questions, self.check_unsolvable_validator, "after_unsolvability_check", check_if_amb_unsolvable=True)
         
-        # Step 6: Feedback Quality Check if amb unsolvable
+        # Step 7: Feedback Quality Check if amb unsolvable
         # After confirming unsolvability, check that feedback correctly explains why
         questions = self.apply_validator(questions, self.feedback_quality_check_validator, "after_feedback_quality_check", check_if_amb_unsolvable=True)
 
-        # Step 7: Other Categories Check Validation
+        # Step 8: Other Categories Check Validation
         # Verify question doesn't fit better in a different category
         questions = self.apply_validator(questions, self.category_comparison_validator, "after_category_comparison_check")
 
-        # Step 8: Check style and difficulty
-        # Final check that question matches intended style and difficulty
-        questions = self.apply_validator(questions, self.style_difficulty_check_validator, "after_style_difficulty_check")
+        # Step 9: Check difficulty (automated keyword-based SQL analysis)
+        # Verify SQL complexity matches the specified difficulty level
+        questions = self.apply_validator(questions, self.difficulty_check_validator, "after_difficulty_check")
+
+        # Step 10: Check style (LLM-based)
+        # Verify question matches the intended style
+        questions = self.apply_validator(questions, self.style_check_validator, "after_style_check")
         return questions

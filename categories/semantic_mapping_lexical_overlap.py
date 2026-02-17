@@ -29,10 +29,10 @@ class SemanticMappingLexicalOverlapCategory(Category):
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List the emails of the students of the 'database' course.",  # students.personal_email vs students.institutional_email
-            "Show the addresses of customers who ordered laptops.",  # customers.home_address vs customers.billing_address vs customers.shipping_address
-            "What is the phone number for all employees?",  # employees.work_phone vs employees.mobile_phone
-            "Find the start date for projects in the IT department."  # projects.planned_start_date vs projects.actual_start_date
+            "List the emails of the students of the 'database' course. (Ambiguous: 'emails' could map to students.personal_email or students.institutional_email)",
+            "Show the addresses of customers who ordered laptops. (Ambiguous: 'addresses' could map to customers.home_address, customers.billing_address, or customers.shipping_address)",
+            "What is the phone number for all employees? (Ambiguous: 'phone number' could map to employees.work_phone or employees.mobile_phone)",
+            "Find the start date for projects in the IT department. (Ambiguous: 'start date' could map to projects.planned_start_date or projects.actual_start_date)"
         ]
 
     @staticmethod

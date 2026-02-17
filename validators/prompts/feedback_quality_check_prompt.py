@@ -34,7 +34,7 @@ def get_feedback_quality_check_prompt(db: DBDataset, question: Question) -> str:
         prompt += f"**Additional Context:** {question.evidence}\n"
     
     prompt += "\n## Database Schema\n"
-    prompt += db.get_schema_prompt(question.db_id, rows=3) + "\n\n"
+    prompt += db.get_schema_prompt(question.db_id, rows=5) + "\n\n"
     
     prompt += "## Question Category\n"
     prompt += f"**Category:** {question.category.get_name()}"

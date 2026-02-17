@@ -33,7 +33,6 @@ def get_category_comparison_prompt(db: DBDataset, category_a: Category, category
     
     if question.evidence:
         prompt += f"**Evidence/Context:** {question.evidence}\n"
-        prompt += "Pay close attention to the evidence above as it may reveal crucial information for the task.\n"
     
     # Include SQL for all questions (both answerable and unanswerable)
     if question.sql:
@@ -87,13 +86,14 @@ def get_category_comparison_prompt(db: DBDataset, category_a: Category, category
     prompt += "**Evaluation Criteria (in order of importance):**\n"
     prompt += "1. **Core Definition Alignment**: Which category's fundamental definition the question best exemplifies\n"
     prompt += "2. **Distinctive Characteristics**: Which category's unique/specific features are present in the question\n"
-    prompt += "3. **Example Similarity**: Which category's examples are most similar to the question\n"
-    prompt += "4. **Problem Type Match**: Whether the underlying issue matches one category's problem type better\n"
-    
+    prompt += "3. **Problem Type Match**: Whether the underlying issue matches one category's problem type better\n"
+
     # Add specific guidance for solvable/unsolvable categories
     if isinstance(question, QuestionUnanswerable):
         if question.hidden_knowledge:
-            prompt += "5. **Hidden Knowledge Relevance**: Which category's resolution approach the hidden knowledge aligns with\n"
+            prompt += "4. **Hidden Knowledge Relevance**: Which category's resolution approach the hidden knowledge aligns with\n"
+            
+    prompt += f"{'5' if isinstance(question, QuestionUnanswerable) and question.hidden_knowledge else '4'}. **Example Similarity**: Which category's examples are most similar to the question\n"
     
     prompt += "\n**Select 'A' if:** Category A is the better fit based on the criteria above.\n"
     prompt += "**Select 'B' if:** Category B is the better fit based on the criteria above.\n\n"

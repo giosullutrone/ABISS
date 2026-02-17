@@ -29,10 +29,10 @@ class StructureAmbiguityScopeCategory(Category):
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "What courses does each department offer?",
-            "List all projects every employee worked on.",
-            "Show the total sales for each region.",
-            "What are all the books each author has written?"
+            "What courses does each department offer? (Scope ambiguity: all courses across departments collectively vs. courses grouped per department)",
+            "List all projects every employee worked on. (Scope ambiguity: all projects collectively vs. projects listed per individual employee)",
+            "What is the average salary of managers and engineers? (Scope ambiguity: one combined average across both roles vs. separate averages for each role)",
+            "What are all the books each author has written? (Scope ambiguity: all books collectively vs. books grouped by individual author)"
         ]
 
     @staticmethod

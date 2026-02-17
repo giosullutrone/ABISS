@@ -54,6 +54,20 @@ class DBDataset:
         responses = model.generate_batch_with_constraints_unsafe(prompts, [SQLGenerationResponse for _ in prompts])
         model.close()
         return [get_sql_result(response) if response is not None else None for response in responses]
+
+    def generate_sqls_without_evidence_unsafe(self, model: Model, questions: list[Question]) -> list[str | None]:
+        """Generate SQL for each question WITHOUT providing the evidence."""
+        prompts = [get_sql_generation_prompt(
+            db=self,
+            db_id=q.db_id,
+            question=q.question,
+            evidence=None
+        ) for q in questions]
+
+        model.init()
+        responses = model.generate_batch_with_constraints_unsafe(prompts, [SQLGenerationResponse for _ in prompts])
+        model.close()
+        return [get_sql_result(response) if response is not None else None for response in responses]
     
     ### Query execution and result comparison methods ###
     def _execute_query(

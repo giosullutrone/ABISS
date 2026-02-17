@@ -26,11 +26,11 @@ class MissingExternalKnowledgeCategory(Category):
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List all the grades of the students for the course 'database' using alphabetic notation (A-F).",  # Requires grade mapping
-            "Show the students' GPA on a 4.0 scale.",  # Requires GPA calculation formula
-            "Convert all product prices to euros.",  # Requires current exchange rates
-            "Classify employees as junior, mid-level, or senior based on their experience.",  # Requires classification rules
-            "Find courses that satisfy the computer science degree requirements."  # Requires degree requirement policies
+            "List all the grades of the students for the course 'database' using alphabetic notation (A-F). (Unanswerable: requires an external grade-to-letter mapping not in the database)",
+            "Show the students' GPA on a 4.0 scale. (Unanswerable: requires an external GPA calculation formula not in the database)",
+            "Convert all product prices to euros. (Unanswerable: requires current exchange rates not stored in the database)",
+            "Classify employees as junior, mid-level, or senior based on their experience. (Unanswerable: requires external classification rules defining experience thresholds)",
+            "Find courses that satisfy the computer science degree requirements. (Unanswerable: requires external degree requirement policies not in the database)"
         ]
 
     @staticmethod

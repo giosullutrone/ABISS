@@ -28,10 +28,10 @@ class AnswerableWithEvidenceCategory(Category):
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "What is the GPA of students in Biology 101?",  # Requires evidence defining GPA calculation
-            "List all senior employees in the Engineering department.",  # Requires evidence defining 'senior'
-            "Show CS courses with high enrollment.",  # Requires evidence that CS = Computer Science and what 'high' means
-            "Find products with good profit margins."  # Requires evidence defining what constitutes a 'good' margin
+            "What is the GPA of students in Biology 101? (Requires evidence defining GPA calculation formula)",
+            "List all senior employees in the Engineering department. (Requires evidence defining what 'senior' means, e.g., years of experience threshold)",
+            "Show CS courses with high enrollment. (Requires evidence that CS = Computer Science and what threshold defines 'high' enrollment)",
+            "Find products with good profit margins. (Requires evidence defining what percentage constitutes a 'good' profit margin)"
         ]
     
     @staticmethod

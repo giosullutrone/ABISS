@@ -31,10 +31,10 @@ class ConflictingKnowledgeCategory(Category):
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List the top five students' performance.",  # Performance = average grade vs. weighted average
-            "Show the most profitable products.",  # Profit = revenue - cost vs. profit = margin percentage
-            "Find experienced employees.",  # Experience = years at company vs. years in industry
-            "Display high-priority tasks."  # Priority based on deadline vs. priority based on importance score
+            "List the top five students' performance. (Conflicting evidence: one source defines performance as the simple average grade, another as the credit-weighted average grade)",
+            "Show the most profitable products. (Conflicting evidence: one source defines profit as revenue minus cost, another as the profit margin percentage)",
+            "What is the total compensation for each employee? (Conflicting evidence: one source defines compensation as salary only, another as salary plus benefits)",
+            "Rank the departments by efficiency. (Conflicting evidence: one source defines efficiency as output divided by input, another as cost per unit produced)"
         ]
     
     @staticmethod

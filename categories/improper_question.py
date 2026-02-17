@@ -26,12 +26,12 @@ class ImproperQuestionCategory(Category):
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "Hello!",  # Chit-chat
-            "How are you doing today?",  # Chit-chat
-            "What is the meaning of life?",  # External reasoning/philosophy
-            "Update my mailing address.",  # Non-query request (update command)
-            "Who won the World Cup last year?",  # General knowledge unrelated to database domain
-            "Can you help me write a poem?"  # Request outside database querying
+            "Hello! (Improper: chit-chat greeting, not a database query)",
+            "How are you doing today? (Improper: chit-chat, not a database query)",
+            "What is the meaning of life? (Improper: philosophical question requiring external reasoning, unrelated to the database)",
+            "Update my mailing address. (Improper: a data modification request, not a retrieval query)",
+            "Who won the World Cup last year? (Improper: general knowledge question unrelated to the database domain)",
+            "Can you help me write a poem? (Improper: creative writing request, not a database query)"
         ]
 
     @staticmethod

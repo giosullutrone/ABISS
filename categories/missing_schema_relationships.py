@@ -25,7 +25,12 @@ class MissingSchemaRelationshipsCategory(Category):
 
     @staticmethod
     def get_examples() -> list[str] | None:
-        return None
+        return [
+            "List the professors for the course 'database'. (Unanswerable: both teachers and courses tables exist, but no foreign key or junction table links them)",
+            "Show which students are advised by which professors. (Unanswerable: students and professors tables exist, but no advising relationship connects them)",
+            "Find the suppliers for products in the electronics category. (Unanswerable: suppliers and products tables exist, but no linkage table relates them)",
+            "What buildings are each department located in? (Unanswerable: departments and buildings tables exist, but no assignment relationship links them)"
+        ]
 
     @staticmethod
     def is_answerable() -> bool:

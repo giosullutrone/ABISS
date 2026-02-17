@@ -25,7 +25,12 @@ class MissingSchemaEntitiesCategory(Category):
 
     @staticmethod
     def get_examples() -> list[str] | None:
-        return None
+        return [
+            "List the administrative staff in the engineering department. (Unanswerable: no table or column for 'staff' exists in the schema)",
+            "Show the attendance records for all students. (Unanswerable: no attendance-related table exists in the schema)",
+            "What are the office hours for each professor? (Unanswerable: no office_hours column or table exists in the schema)",
+            "Find the parking spot assignments for employees. (Unanswerable: no parking-related entities exist in the schema)"
+        ]
     
     @staticmethod
     def is_answerable() -> bool:
