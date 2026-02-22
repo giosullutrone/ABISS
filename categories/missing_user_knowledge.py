@@ -8,9 +8,9 @@ if TYPE_CHECKING:
 
 class MissingUserKnowledgeCategory(Category):
     class MissingUserKnowledgeOutput(BaseModel):
-        question: Annotated[str, Field(description="A natural language question that contains user-specific references (e.g., 'my department', 'our projects', 'my courses') whose interpretation depends on objective but user-specific facts not present in the database. The question is valid but ambiguous without knowing context about the specific user asking the question.")]
-        hidden_knowledge: Annotated[str, Field(description="The hidden user-specific fact that would resolve the ambiguity (e.g., 'The user's department is Engineering' or 'The user is employee ID 12345').")]
-        sql_with_user_knowledge: Annotated[str, Field(description="The SQL query that would correctly answer the question if the user-specific knowledge were known (e.g., using a concrete department value instead of the unresolved 'my department' reference).")]
+        question: Annotated[str, Field(description="A natural language question containing user-specific references (e.g., 'my department', 'our projects', 'my courses', 'I am enrolled in') whose interpretation depends on knowing WHO is asking. The question MUST contain explicit user-referencing pronouns or possessives ('my', 'our', 'I', 'me', 'we'). The ambiguity is about user identity, NOT about sentence structure, NOT about which column a word maps to, NOT about vague terms, and NOT about conflicting definitions.")]
+        hidden_knowledge: Annotated[str, Field(description="The objective user-specific fact that resolves the ambiguity. It should state a concrete fact about the user's identity or affiliation. For example: 'The user is in the Engineering department.' or 'The user is employee ID 12345.'")]
+        sql_with_user_knowledge: Annotated[str, Field(description="A valid, executable SQL query that correctly answers the question using the concrete user-specific fact from the hidden knowledge (e.g., WHERE department = 'Engineering' instead of the unresolved 'my department'). The query must faithfully represent the user's intent once the disambiguation is applied.")]
 
     @staticmethod
     def get_name() -> str:
@@ -22,16 +22,27 @@ class MissingUserKnowledgeCategory(Category):
 
     @staticmethod
     def get_definition() -> str:
-        return "A question is ambiguous due to Missing User Knowledge when its interpretation depends on objective but user-specific facts absent from the database or knowledge base. These questions contain references to user context (e.g., 'my', 'our', 'I') that require knowing who is asking the question and their specific attributes or affiliations. Without this user-specific information, the question cannot be properly resolved into a concrete SQL query."
+        return (
+            "A question is ambiguous due to Missing User Knowledge when its interpretation depends on objective but user-specific facts "
+            "absent from the database or knowledge base. "
+            "These questions contain explicit references to user context — pronouns or possessives like 'my', 'our', 'I', 'me', 'we' — "
+            "that require knowing who is asking the question and their specific attributes or affiliations. "
+            "Without this user-specific information, the question cannot be resolved into a concrete SQL query. "
+            "The distinguishing marker is the presence of user-referencing language that ties the query to a specific person's identity. "
+            "Important: This is NOT about how a modifier attaches in a conjunction (Attachment Ambiguity), "
+            "NOT about quantifier scope (Scope Ambiguity), "
+            "NOT about which database table or column a word maps to (Entity Ambiguity / Lexical Overlap), "
+            "NOT about conflicting evidence definitions (Conflicting Knowledge), "
+            "and NOT about vague terms with imprecise boundaries like 'recent' or 'high' (Lexical Vagueness)."
+        )
 
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List the students in my department. (Ambiguous: requires knowing the user's department to resolve 'my')",
-            "Show all projects I'm working on. (Ambiguous: requires knowing the user's identity to resolve 'I')",
-            "What courses am I enrolled in? (Ambiguous: requires knowing the user's student ID to resolve 'I')",
-            "Find employees in my office location. (Ambiguous: requires knowing the user's office to resolve 'my')",
-            "Display our team's sales figures. (Ambiguous: requires knowing the user's team to resolve 'our')"
+            "List the students in my department. (Missing user knowledge: requires knowing which department the user belongs to, to resolve 'my')",
+            "Show all projects I'm working on. (Missing user knowledge: requires knowing the user's employee ID to resolve 'I')",
+            "Display our team's sales figures. (Missing user knowledge: requires knowing which team the user belongs to, to resolve 'our')",
+            "How many tasks are assigned to me this week? (Missing user knowledge: requires knowing the user's identity to resolve 'me')"
         ]
 
     @staticmethod

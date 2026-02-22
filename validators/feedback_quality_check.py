@@ -64,7 +64,7 @@ class FeedbackQualityCheck(Validator):
                 # No validation needed (answerable or solvable question, or no feedback)
                 final_valids.append(True)
             else:
-                # Majority voting
+                # Majority voting (ties resolve conservatively: question rejected)
                 yes_votes = sum(votes)
                 no_votes = len(votes) - yes_votes
                 final_valids.append(yes_votes > no_votes)

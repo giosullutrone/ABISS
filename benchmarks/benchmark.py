@@ -13,10 +13,10 @@ from evaluators.feedback import Feedback
 
 
 class Benchmark:
-    def __init__(self, 
-                 db_dataset: DBDataset, 
-                 system: System, 
-                 user: User, 
+    def __init__(self,
+                 db_dataset: DBDataset,
+                 system: System,
+                 user: User,
                  max_steps: int,
                  category_uses: list[CategoryUse]) -> None:
         self.db_dataset: DBDataset = db_dataset
@@ -24,7 +24,7 @@ class Benchmark:
         self.user: User = user
         self.max_steps: int = max_steps
         self.category_uses: list[CategoryUse] = category_uses
-        
+
         # Initialize evaluators automatically
         self.evaluators: list[Evaluator] = [
             Recognition(),
@@ -34,12 +34,21 @@ class Benchmark:
         ]
 
     def run(self, questions: list[Question]) -> Results:
-        # Initialize conversations for each question and knowledge level
+        # Step 1: Classify all questions (only once per question, not per category_use)
+        predicted_categories_per_question: list[Category] | None = self.system.get_category(questions)
+
+        # If the system doesn't support classification, force NO_CATEGORY mode
+        if predicted_categories_per_question is None:
+            effective_category_uses = [CategoryUse.NO_CATEGORY]
+        else:
+            effective_category_uses = self.category_uses
+
+        # Initialize conversations for each question and category use
         conversations: list[Conversation] = []
         question_conversation_mapping: dict[int, list[int]] = {x: [] for x in range(len(questions))}
         for idx, question in enumerate(questions):
-            conv_idx: int = idx * len(self.category_uses)
-            for category_use in self.category_uses:
+            conv_idx: int = idx * len(effective_category_uses)
+            for category_use in effective_category_uses:
                 conversations.append(Conversation(
                     question=question,
                     interactions=[],
@@ -47,15 +56,12 @@ class Benchmark:
                 ))
                 question_conversation_mapping[idx].append(conv_idx)
                 conv_idx += 1
-        
-        # Step 1: Classify all questions (only once per question)        
-        predicted_categories_per_question: list[Category] = self.system.get_category(
-            [conversations[question_conversation_mapping[idx][0]] for idx in range(len(questions))]
-        )
-        # Map predicted categories back to all conversations saving them in each conversation
-        for idx, conv_indices in question_conversation_mapping.items():
-            for conv_idx in conv_indices:
-                conversations[conv_idx].predicted_category = predicted_categories_per_question[idx]
+
+        # Map predicted categories back to all conversations (None if classification was skipped)
+        if predicted_categories_per_question is not None:
+            for idx, conv_indices in question_conversation_mapping.items():
+                for conv_idx in conv_indices:
+                    conversations[conv_idx].predicted_category = predicted_categories_per_question[idx]
 
         # Step 2: Run the interactions
         # Keep track of which conversation still hasn't received a final response (solution or feedback)
@@ -91,7 +97,7 @@ class Benchmark:
                 sys_resp = system_responses[i]
                 interaction = Interaction(system_response=sys_resp)
                 conv.interactions.append(interaction)
-            
+
             # Second we update the predicted SQL and the feedback if the system provided one
             # and stop the conversations that received a final response
             indices_to_remove: list[int] = []
@@ -101,25 +107,20 @@ class Benchmark:
                 if sys_resp.system_sql is not None:
                     conv.predicted_sql = sys_resp.system_sql
                     indices_to_remove.append(idx)
-            
+
                 if sys_resp.system_feedback is not None:
                     conv.predicted_feedback = sys_resp.system_feedback
                     indices_to_remove.append(idx)
-            
+
             # Remove finished conversations
             for idx in indices_to_remove:
                 if idx in unfinished_conversations:
                     unfinished_conversations.remove(idx)
 
-            # Now we add the relevancy labels and user answers for the remaining conversations 
-            # (those that have received a question and are still ongoing)
+            # Classify relevancy and generate user answers in a single step
+            # for conversations that received a clarification question
             if len(unfinished_conversations) > 0:
-                self.user.get_relevancy(
-                    [conversations[idx] for idx in unfinished_conversations]
-                )
-
-                # Now we get user answers
-                self.user.get_answers(
+                self.user.get_response(
                     [conversations[idx] for idx in unfinished_conversations]
                 )
 
@@ -133,12 +134,12 @@ class Benchmark:
             dataset_name=self.db_dataset.db_name,
             conversations=conversations
         )
-        
+
         # Run evaluators automatically
         self.evaluate(results)
-        
+
         return results
-    
+
     def evaluate(self, results: Results) -> None:
         for evaluator in self.evaluators:
             evaluator.evaluate(results.conversations)

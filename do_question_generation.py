@@ -1,5 +1,6 @@
 import argparse
 import logging
+import random
 from categories.category import Category
 from db_datasets.db_dataset import DBDataset
 from generators.chain import Chain
@@ -91,6 +92,9 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
+    # Set random seed for reproducibility
+    random.seed(42)
+
     # Configure logging
     logging.basicConfig(
         level=logging.INFO if args.verbose else logging.WARNING,
@@ -176,6 +180,6 @@ if __name__ == "__main__":
 
     questions = chain.generate()
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump([q.to_dict() for q in questions], f, indent=4)

@@ -1,3 +1,4 @@
+import random
 from pydantic import Field, BaseModel
 from typing import Annotated
 from categories.category import Category
@@ -49,9 +50,8 @@ class AnswerableWithEvidenceCategory(Category):
     @staticmethod
     def get_question(db_id: str, output: BaseModel, question_style: "QuestionStyle", question_difficulty: "QuestionDifficulty") -> list["Question"]:
         from dataset_dataclasses.question import Question
-        import random
         assert isinstance(output, AnswerableWithEvidenceCategory.AnswerableWithEvidenceOutput)
-        
+
         # Construct evidence string
         if output.evidence_unrelated is not None:
             # Both relevant and unrelated evidence - randomize order

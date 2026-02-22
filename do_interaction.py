@@ -1,6 +1,7 @@
 import argparse
 from copy import deepcopy
 import logging
+import random
 from typing import Type
 from dataset_dataclasses.question import Question, QuestionUnanswerable
 from dataset_dataclasses.benchmark import CategoryUse
@@ -31,9 +32,13 @@ if __name__ == "__main__":
     parser.add_argument("--db_ids", type=str, nargs='+', required=False, help="List of database IDs to use for interaction (if not specified, all database IDs will be used)", default=None)
     parser.add_argument("--max_steps", type=int, required=False, help="Maximum number of interaction steps", default=3)
     parser.add_argument("--tensor_parallel_size", type=int, required=False, help="Tensor parallel size for VLLM models", default=1)
+    parser.add_argument("--system_model", type=str, required=False, help="Path or name of the system agent model", default=None)
     parser.add_argument("--output_path", type=str, required=False, help="Path to save the results", default="results.json")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
+
+    # Set random seed for reproducibility
+    random.seed(42)
 
     # Configure logging
     logging.basicConfig(
@@ -83,7 +88,7 @@ if __name__ == "__main__":
     ################################################################################
     ### System and Model Initialization
     system_class: Type[System] = SystemLLM
-    model_system_name = "../models/Mistral-Small-3.2-24B-Instruct-2506"
+    model_system_name = args.system_model if args.system_model else "../models/Mistral-Small-3.2-24B-Instruct-2506"
 
     model_system = ModelVLLM(model_name=model_system_name,
                                 sampling_kwargs={
@@ -155,7 +160,7 @@ if __name__ == "__main__":
     for d in raw_questions:
         try:
             question = QuestionUnanswerable.from_dict(deepcopy(d))
-        except:
+        except (KeyError, TypeError, ValueError, AssertionError):
             question = Question.from_dict(deepcopy(d))
         questions.append(question)
     
@@ -164,6 +169,6 @@ if __name__ == "__main__":
         questions = [q for q in questions if q.db_id in db_ids]
 
     results = runner.run(questions=questions)
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, 'w') as f:
         f.write(json.dumps(results.to_dict(), indent=4))

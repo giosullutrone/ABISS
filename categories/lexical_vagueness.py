@@ -8,11 +8,11 @@ if TYPE_CHECKING:
 
 class LexicalVaguenessCategory(Category):
     class LexicalVaguenessOutput(BaseModel):
-        question: Annotated[str, Field(description="A natural language question containing a vague term whose meaning lacks a precise or objective boundary, requiring subjective interpretation for query generation. Examples include temporal expressions (recent, old), quantitative adjectives (many, few, high, low), or evaluative terms (good, popular, expensive).")]
-        hidden_knowledge_first_interpretation: Annotated[str, Field(description="The hidden user intent clarifying the first interpretation of the vague term (e.g., 'By recent, I mean courses from the last month').")]
-        hidden_knowledge_second_interpretation: Annotated[str, Field(description="The hidden user intent clarifying the second interpretation of the vague term (e.g., 'By recent, I mean courses from the last academic year').")]
-        sql_first_interpretation: Annotated[str, Field(description="The SQL query using the first reasonable interpretation of the vague term (e.g., 'recent' interpreted as within the last month).")]
-        sql_second_interpretation: Annotated[str, Field(description="The SQL query using the second reasonable interpretation of the vague term (e.g., 'recent' interpreted as within the last year).")]
+        question: Annotated[str, Field(description="A natural language question containing a vague term whose meaning lacks a precise or objective boundary — such as temporal expressions ('recent', 'old'), quantitative adjectives ('many', 'few', 'high', 'low'), or evaluative terms ('good', 'popular', 'expensive'). The ambiguity is about the THRESHOLD or CUTOFF for a gradable term, NOT about sentence structure, NOT about which column a word maps to, NOT about user identity, and NOT about conflicting evidence definitions.")]
+        hidden_knowledge_first_interpretation: Annotated[str, Field(description="A statement providing a concrete threshold or cutoff for the vague term. It should replace the vague expression with a specific, objective criterion. For example: 'The term recent means within the last month.'")]
+        hidden_knowledge_second_interpretation: Annotated[str, Field(description="A statement providing an alternative concrete threshold for the same vague term. It should offer a meaningfully different cutoff that is equally plausible. For example: 'The term recent means within the last academic year.'")]
+        sql_first_interpretation: Annotated[str, Field(description="A valid, executable SQL query using the first concrete threshold. The two SQL variants must differ in the WHERE clause threshold or HAVING condition value, reflecting different cutoff interpretations of the same vague term. The query must correctly answer the question under this interpretation. Use only the first threshold — do not include conditions from the alternative threshold.")]
+        sql_second_interpretation: Annotated[str, Field(description="A valid, executable SQL query using the second concrete threshold. The two SQL variants must differ in the WHERE clause threshold or HAVING condition value, reflecting different cutoff interpretations of the same vague term. The query must correctly answer the question under this interpretation. Use only the second threshold — do not include conditions from the alternative threshold.")]
 
     @staticmethod
     def get_name() -> str:
@@ -24,16 +24,27 @@ class LexicalVaguenessCategory(Category):
 
     @staticmethod
     def get_definition() -> str:
-        return "Lexical Vagueness arises when a question contains terms whose meaning lacks a precise or objective boundary, leading to indeterminate selection criteria during query generation. These vague terms require subjective interpretation to establish concrete thresholds or criteria. Such vagueness introduces variability that cannot be resolved solely from schema information, as it depends on the user's subjective understanding or context-specific conventions. The ambiguity is purely from the inherently vague terminology in the question itself (e.g., 'high', 'recent', 'many', 'popular')."
+        return (
+            "Lexical Vagueness arises when a question contains terms whose meaning lacks a precise or objective boundary, "
+            "leading to indeterminate selection criteria during query generation. "
+            "These are gradable terms — temporal ('recent', 'old'), quantitative ('many', 'few', 'high', 'low'), "
+            "or evaluative ('good', 'popular', 'expensive') — that require a subjective threshold or cutoff to become concrete. "
+            "The ambiguity is purely about where to draw the line for an inherently imprecise term, "
+            "not about which schema element to use or how the sentence is structured. "
+            "Important: This is NOT about how a modifier attaches in a conjunction (Attachment Ambiguity), "
+            "NOT about quantifier scope (Scope Ambiguity), "
+            "NOT about which database table or column a word maps to (Entity Ambiguity / Lexical Overlap), "
+            "NOT about user-specific references like 'my' or 'our' (Missing User Knowledge), "
+            "and NOT about conflicting evidence definitions from the knowledge base (Conflicting Knowledge)."
+        )
 
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List recent courses. (Temporal vagueness: 'recent' could mean last semester, last year, or last month)",
-            "Show employees with high salaries. (Quantitative vagueness: no clear threshold defines what 'high' means)",
-            "Find affordable products. (Quantitative vagueness: no clear price threshold defines what 'affordable' means)",
-            "Display old buildings on campus. (Temporal vagueness: no clear boundary for how old is 'old')",
-            "Show students with many course enrollments. (Quantitative vagueness: no clear threshold for how many is 'many')"
+            "List recent courses. (Lexical vagueness: 'recent' could mean within the last month or within the last academic year — no objective temporal boundary)",
+            "Show employees with high salaries. (Lexical vagueness: 'high' could mean above $100,000 or above the company median — no objective quantitative threshold)",
+            "Find popular products. (Lexical vagueness: 'popular' could mean top 10 by sales volume or those with more than 100 reviews — no objective evaluative criterion)",
+            "Display old buildings on campus. (Lexical vagueness: 'old' could mean built before 1950 or built more than 50 years ago — no objective temporal boundary)"
         ]
 
     @staticmethod

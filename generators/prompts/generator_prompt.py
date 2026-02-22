@@ -83,20 +83,25 @@ def get_generation_prompt(
         prompt += "- The question is **unambiguous and clear**: There is only one reasonable interpretation\n" \
                   "- The question sounds **natural and realistic**: Something a real user would ask\n" \
                   "- All information needed to answer the question is **available in the schema or evidence (if available)**\n" \
-                  "- The SQL query is **valid and executable** against the provided schema\n" 
+                  "- The SQL query is **valid and executable** against the provided schema (Use double quotes for identifiers with spaces or special characters)\n" 
     elif is_solvable:
         prompt += "- The ambiguity is **genuine and non-trivial**: Multiple interpretations should be reasonable\n" \
+                  "- The question MUST **strictly isolate the target category**: It should not exhibit traits or confusing overlaps with any other category in the taxonomy\n" \
                   "- The question sounds **natural and realistic**: Something a real user would ask\n" \
                   "- The SQL queries for different interpretations are **structurally different**, not just parameter changes\n" \
                   "- The hidden knowledge clearly **resolves the ambiguity** and leads to a specific SQL query\n" \
-                  "- All generated SQL is **valid and executable** against the provided schema\n" 
+                  "- All generated SQL is **valid and executable** against the provided schema (Use double quotes for identifiers with spaces or special characters)\n" \
+                  "- Each SQL query must be **semantically correct**: once the disambiguation is applied, the query must faithfully represent the user's intended interpretation — not just be syntactically valid, but actually answer the right question\n" \
+                  "- Each SQL query must be **self-contained for its interpretation**: include only the tables, columns, and JOINs necessary for that specific disambiguated intent — do not borrow schema elements that belong exclusively to the other interpretation\n"
     else:
         prompt += "- The question is **well-formed and natural**: Something a real user would reasonably ask\n" \
                   "- The question **clearly cannot be answered** with the current schema\n" \
+                  "- The question MUST **strictly isolate the target category**: It should not exhibit traits or confusing overlaps with any other category in the taxonomy\n" \
                   "- Avoid questions that are answerable with existing schema elements through creative joins or aggregations\n"
     
     prompt += "- The SQL complexity **matches the specified difficulty level**\n" \
-              "- The question style **matches the specified style requirements**\n"
+              "- The question style **matches the specified style requirements**\n" \
+              "- **Use explicit aliases** for all aggregated or calculated columns (e.g., `SELECT COUNT(*) AS count ...`) to facilitate result comparison\n"
     
     prompt += "\n## Generation Process\n" \
               "Develop your question through an iterative refinement process, moving back and forth between the output fields as needed to ensure coherence and quality. " \

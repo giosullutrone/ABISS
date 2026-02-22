@@ -30,26 +30,26 @@ class Feedback(Evaluator):
         evaluable_indices: list[int] = []
         for i, conversation in enumerate(conversations):
             question = conversation.question
-            
+
             # Check if question is unsolvable
-            if not isinstance(question, QuestionUnanswerable):
-                conversation.explained = False
+            is_unanswerable = isinstance(question, QuestionUnanswerable) and not question.category.is_solvable()
+
+            if not is_unanswerable:
+                # Non-unanswerable questions: explained is N/A when no feedback was generated
+                if conversation.predicted_feedback is None:
+                    conversation.explained = None
+                else:
+                    conversation.explained = False
                 continue
-            
-            if question.category.is_solvable():
-                conversation.explained = False
-                continue
-            
+
+            # At this point, question is guaranteed to be QuestionUnanswerable
+            assert isinstance(question, QuestionUnanswerable)
+
             # Check if system provided feedback
             if conversation.predicted_feedback is None:
                 conversation.explained = False
                 continue
-            
-            # Check if expected feedback exists
-            if question.hidden_knowledge is None:
-                conversation.explained = False
-                continue
-            
+
             # This conversation can be evaluated
             evaluable_indices.append(i)
         
@@ -79,7 +79,7 @@ class Feedback(Evaluator):
                 matches = get_feedback_evaluation_result(response)
                 votes[i].append(matches)
         
-        # Apply majority voting
+        # Apply majority voting (ties resolve conservatively: feedback not accepted)
         for i, idx in enumerate(evaluable_indices):
             yes_votes = sum(votes[i])
             no_votes = len(votes[i]) - yes_votes

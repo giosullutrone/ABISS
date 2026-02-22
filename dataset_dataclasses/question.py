@@ -49,9 +49,10 @@ class Question:
 
     def to_dict(self) -> dict:
         return generic_to_dict(self)
-    
+
     @classmethod
     def from_dict(cls, d: dict) -> "Question":
+        d = dict(d)  # Avoid mutating the caller's dict
         category_dict = d.pop("category")
         category = get_category_by_name_and_subname(category_dict["name"], category_dict.get("subname"))
 
@@ -80,13 +81,47 @@ class Question:
             self.question_difficulty == value.question_difficulty
         )
 
+    def __hash__(self) -> int:
+        return hash((
+            self.db_id,
+            self.question,
+            self.evidence,
+            self.sql,
+            self.category,
+            self.question_style,
+            self.question_difficulty,
+        ))
+
 @dataclass
 class QuestionUnanswerable(Question):
-    hidden_knowledge: str | None
+    hidden_knowledge: str
     is_solvable: bool
-    
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, QuestionUnanswerable):
+            return False
+        return (
+            super().__eq__(value) and
+            self.hidden_knowledge == value.hidden_knowledge and
+            self.is_solvable == value.is_solvable
+        )
+
+    def __hash__(self) -> int:
+        return hash((
+            self.db_id,
+            self.question,
+            self.evidence,
+            self.sql,
+            self.category,
+            self.question_style,
+            self.question_difficulty,
+            self.hidden_knowledge,
+            self.is_solvable,
+        ))
+
     @classmethod
     def from_dict(cls, d: dict) -> "QuestionUnanswerable":
+        d = dict(d)  # Avoid mutating the caller's dict
         category_dict = d.pop("category")
         category = get_category_by_name_and_subname(category_dict["name"], category_dict.get("subname"))
 
@@ -100,6 +135,6 @@ class QuestionUnanswerable(Question):
             category=category,
             question_style=QuestionStyle(d["question_style"]),
             question_difficulty=QuestionDifficulty(d["question_difficulty"]),
-            hidden_knowledge=d.get("hidden_knowledge"),
+            hidden_knowledge=d["hidden_knowledge"],
             is_solvable=d["is_solvable"],
         )

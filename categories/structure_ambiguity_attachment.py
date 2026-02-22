@@ -8,11 +8,11 @@ if TYPE_CHECKING:
 
 class StructureAmbiguityAttachmentCategory(Category):
     class StructureAmbiguityAttachmentOutput(BaseModel):
-        question: Annotated[str, Field(description="The generated natural language question containing attachment ambiguity, where a modifier or condition can attach to either only the nearest element or to multiple elements in a conjunction or list, leading to different scopes of filtering or constraint.")]
-        hidden_knowledge_last_only: Annotated[str, Field(description="The hidden user intent specifying that the modifier or condition applies only to the last element in the conjunction or list (e.g., 'I want all professors and only the students who are in engineering').")]
-        hidden_knowledge_all_elements: Annotated[str, Field(description="The hidden user intent specifying that the modifier or condition applies to all elements in the conjunction or list (e.g., 'I want both professors and students, but only those who are in engineering').")]
-        sql_last_only: Annotated[str, Field(description="The SQL query where the modifier applies only to the last element in the conjunction (e.g., in 'professors and students in engineering', the condition 'in engineering' filters only students, not professors).")]
-        sql_all_elements: Annotated[str, Field(description="The SQL query where the modifier applies to all elements in the conjunction (e.g., in 'professors and students in engineering', the condition 'in engineering' filters both professors and students).")]
+        question: Annotated[str, Field(description="A natural language question containing attachment ambiguity, where a modifier, condition, or clause syntactically follows a conjunction (e.g., 'A and B [modifier]') and it is unclear whether the modifier attaches only to the nearest element (low attachment) or to the entire conjunction (high attachment). The ambiguity must arise purely from sentence structure, NOT from user-specific references ('my', 'our'), NOT from which table/column a word maps to, and NOT from conflicting definitions.")]
+        hidden_knowledge_last_only: Annotated[str, Field(description="A statement clarifying that the modifier attaches only to the nearest element (low attachment). It should clearly identify which element(s) the modifier applies to and which it does not. For example: 'The condition in engineering applies only to students, not to professors.'")]
+        hidden_knowledge_all_elements: Annotated[str, Field(description="A statement clarifying that the modifier attaches to the entire conjunction (high attachment). It should clearly state that all elements are affected by the modifier. For example: 'The condition in engineering applies to both professors and students.'")]
+        sql_last_only: Annotated[str, Field(description="A valid, executable SQL query for the low-attachment interpretation, where the modifier filters only the nearest element. This often involves a UNION or subquery to separate filtered from unfiltered elements. The query must correctly answer the question under this interpretation. Ensure the filter scope is strictly limited to the low-attachment reading — do not apply the modifier to all elements.")]
+        sql_all_elements: Annotated[str, Field(description="A valid, executable SQL query for the high-attachment interpretation, where the modifier filters all elements equally. This often uses a straightforward WHERE clause applying the condition uniformly. The query must correctly answer the question under this interpretation. Ensure the filter scope covers all elements — do not restrict the modifier to only the nearest element.")]
 
     @staticmethod
     def get_name() -> str:
@@ -24,15 +24,30 @@ class StructureAmbiguityAttachmentCategory(Category):
 
     @staticmethod
     def get_definition() -> str:
-        return "Attachment Ambiguity occurs from uncertainty in how a modifier attaches within a sentence containing conjunctions or lists. The modifier (typically a prepositional phrase, clause, or condition) may attach to only the nearest element or to multiple elements in the conjunction, leading to distinct filtering conditions in the resulting query. For example, in 'List the professors and students in engineering', the phrase 'in engineering' may modify only 'students' (narrow attachment) or the entire conjunction 'professors and students' (wide attachment)."
+        return (
+            "Attachment Ambiguity occurs when it is unclear how a modifier, phrase, or clause syntactically attaches to the rest of the sentence. "
+            "The ambiguity is purely structural: it arises from the grammatical position of a modifier relative to a conjunction, "
+            "not from the meaning of individual words, user identity, or conflicting definitions. "
+            "Typically involving prepositional phrases (e.g., 'professors and students in engineering'), "
+            "relative clauses (e.g., 'suppliers and manufacturers who are certified'), "
+            "or participial phrases (e.g., 'managers and employees hired after 2020'), "
+            "the ambiguity has exactly two readings: "
+            "'high attachment' where the modifier applies to the entire conjunction (e.g., both professors and students must be in engineering), "
+            "versus 'low attachment' where it applies only to the nearest noun (e.g., only students must be in engineering). "
+            "These two readings produce structurally different SQL queries with different filtering scopes. "
+            "Important: This is NOT about which database table or column a word maps to (Entity Ambiguity / Lexical Overlap), "
+            "NOT about user-specific references like 'my' or 'our' (Missing User Knowledge), "
+            "NOT about quantifier scope like 'each' or 'every' (Scope Ambiguity), "
+            "and NOT about conflicting evidence definitions (Conflicting Knowledge)."
+        )
 
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List the professors and students in engineering.",
-            "Show me the cars and motorcycles manufactured in Japan.",
-            "Find the books and articles about machine learning.",
-            "Display the managers and employees in the sales department."
+            "List the professors and students in engineering. (Attachment ambiguity: does 'in engineering' modify only 'students' or both 'professors and students'?)",
+            "Find the suppliers and manufacturers who are certified organic. (Attachment ambiguity: does the relative clause 'who are certified organic' apply only to 'manufacturers' or to both 'suppliers and manufacturers'?)",
+            "Display the managers and employees hired after 2020. (Attachment ambiguity: does the participial phrase 'hired after 2020' filter only 'employees' or both 'managers and employees'?)",
+            "Show the songs and albums released in 2023. (Attachment ambiguity: does 'released in 2023' apply only to 'albums' or to both 'songs and albums'?)"
         ]
 
     @staticmethod

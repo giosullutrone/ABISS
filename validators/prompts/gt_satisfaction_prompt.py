@@ -83,12 +83,13 @@ def get_gt_satisfaction_prompt(db: DBDataset, question: Question) -> str:
     prompt += "- The query logic doesn't match the question's requirements\n"
     if has_hidden_knowledge:
         prompt += "- The hidden knowledge is ignored or incorrectly applied\n"
+        prompt += "- The query includes unnecessary columns, JOINs, or table references that belong to an alternative interpretation of the ambiguity rather than the one specified by the hidden knowledge\n"
     prompt += "- The query would return incorrect or incomplete results\n\n"
     
     prompt += "## Response Format\n"
     prompt += "Think step by step before answering, using the following as a guide: Step-by-step reasoning analyzing whether the SQL query correctly implements the "
     if has_hidden_knowledge:
-        prompt += "disambiguated intent. Consider: (1) whether the query uses the correct tables and columns from the schema, (2) whether the joins, filters, and aggregations match the question's requirements given the hidden knowledge, and (3) whether the query results align with what the question is asking for.\n\n"
+        prompt += "disambiguated intent. Consider: (1) whether the query uses the correct tables and columns from the schema, (2) whether the joins, filters, and aggregations match the question's requirements given the hidden knowledge, (3) whether the query results align with what the question is asking for, and (4) whether the query includes any unnecessary elements (columns, JOINs, or tables) that belong to an alternative interpretation rather than the one specified by the hidden knowledge.\n\n"
     else:
         prompt += "question's intent. Consider: (1) whether the query uses the correct tables and columns from the schema, (2) whether the joins, filters, and aggregations match the question's requirements, and (3) whether the query results align with what the question is asking for.\n\n"
     prompt += "Provide your evaluation as a JSON object with:\n"

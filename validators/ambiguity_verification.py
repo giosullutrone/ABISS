@@ -35,6 +35,7 @@ class AmbiguityVerification(Validator):
                     equivalent_count += 1
             
             # If majority generates equivalent SQL, mark as invalid
+            # (ties resolve conservatively: question kept as ambiguous)
             if equivalent_count > len(self.models) / 2:
                 valids[i] = False
         return valids

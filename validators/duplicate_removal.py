@@ -13,9 +13,10 @@ def mask_sql_values(sql: str) -> str:
         "SELECT name FROM school WHERE age > 18" -> "SELECT name FROM school WHERE age > [MASK]"
         "SELECT * FROM users WHERE name = 'John'" -> "SELECT * FROM users WHERE name = [MASK]"
     """    
-    # Mask string literals (single and double quotes)
-    masked_sql = re.sub(r"'[^']*'", "[MASK]", sql)
-    masked_sql = re.sub(r'"[^"]*"', "[MASK]", masked_sql)
+    # Mask single-quoted string literals only.
+    # Double quotes in SQLite are identifier quotes (like backticks in MySQL),
+    # not string delimiters, so we must NOT mask them.
+    masked_sql = re.sub(r"'(?:[^']|'')*'", "[MASK]", sql)
     
     # Mask numeric literals (integers and floats)
     # Match standalone numbers (not part of identifiers)
@@ -30,7 +31,7 @@ class DuplicateRemoval(Validator):
         # 1. Question text + hidden knowledge (if applicable)
         # 2. SQL template (masked values as per OMNI-SQL paper)
         seen_questions: set[tuple[str, str | None]] = set()
-        seen_sql_templates: set[str] = set()
+        seen_sql_templates: set[tuple[str, str | None]] = set()
         valids: list[bool] = []
         
         for question in tqdm(questions, desc="Check Duplicate Validation"):
@@ -41,10 +42,15 @@ class DuplicateRemoval(Validator):
             
             is_in_sql_templates = False
             # Check for duplicate SQL template if SQL is available
+            # Include hidden_knowledge in the key so that paired interpretations
+            # (e.g., ConflictingKnowledge) with the same SQL template but different
+            # disambiguation info are not removed as duplicates.
             if question.sql is not None:
                 sql_template = mask_sql_values(question.sql)
-                is_in_sql_templates = sql_template in seen_sql_templates
-                seen_sql_templates.add(sql_template)
+                hidden = question.hidden_knowledge if isinstance(question, QuestionUnanswerable) else None
+                sql_template_key = (sql_template, hidden)
+                is_in_sql_templates = sql_template_key in seen_sql_templates
+                seen_sql_templates.add(sql_template_key)
             
             # Mark as invalid if duplicate found in either check
             valids.append(not (is_in_questions or is_in_sql_templates))

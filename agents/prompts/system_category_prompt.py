@@ -2,7 +2,7 @@ from db_datasets.db_dataset import DBDataset
 from pydantic import BaseModel, Field
 from typing import Annotated
 from utils.prompt_utils import model_field_descriptions
-from dataset_dataclasses.benchmark import Conversation
+from dataset_dataclasses.question import Question
 from categories.category import Category
 
 
@@ -16,9 +16,8 @@ def get_category_result(response: BaseModel) -> tuple[str, str | None]:
     return (validated.category_name, validated.category_subname)
 
 
-def get_category_classification_prompt(db: DBDataset, conversation: Conversation, categories: list[Category]) -> str:
+def get_category_classification_prompt(db: DBDataset, question: Question, categories: list[Category]) -> str:
     """Generate a prompt for classifying a question into a category."""
-    question = conversation.question
     
     prompt = "You are an expert in analyzing natural language questions for text-to-SQL systems. " \
              "Your task is to classify a question into one of several categories based on whether it can be " \

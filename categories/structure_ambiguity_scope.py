@@ -8,11 +8,11 @@ if TYPE_CHECKING:
 
 class StructureAmbiguityScopeCategory(Category):
     class StructureAmbiguityScopeOutput(BaseModel):
-        question: Annotated[str, Field(description="The generated natural language question containing scope ambiguity, where quantifiers (e.g., 'each', 'every', 'all') can be interpreted either collectively (referring to all entities together) or distributively (treating each entity independently).")]
-        hidden_knowledge_collective: Annotated[str, Field(description="The hidden user intent specifying that the quantifier should be interpreted collectively, referring to all entities as a group rather than individually (e.g., 'I want all courses offered by any department' rather than 'courses per department').")]
-        hidden_knowledge_distributive: Annotated[str, Field(description="The hidden user intent specifying that the quantifier should be interpreted distributively, treating each entity separately and typically requiring grouping in the SQL query (e.g., 'I want to see which courses each individual department offers').")]
-        sql_collective: Annotated[str, Field(description="The SQL query for the collective interpretation, where the quantifier refers to all entities together, typically using aggregation over the entire group (e.g., 'What courses does each department offer?' interpreted as all courses offered across all departments).")]
-        sql_distributive: Annotated[str, Field(description="The SQL query for the distributive interpretation, where the quantifier treats each entity independently, typically using grouping or iteration (e.g., 'What courses does each department offer?' interpreted as courses grouped by individual departments).")]
+        question: Annotated[str, Field(description="A natural language question containing scope ambiguity, where a quantifier (e.g., 'each', 'every', 'all', 'any') can be read either collectively (all entities as one group) or distributively (each entity separately). The ambiguity must arise from quantifier scope, NOT from modifier attachment to a conjunction, NOT from which table/column a word maps to, NOT from user-specific references, and NOT from vague terms with imprecise boundaries.")]
+        hidden_knowledge_collective: Annotated[str, Field(description="A statement clarifying that the quantifier should be interpreted collectively (all entities as one group). It should specify that the entities are treated as a single combined pool. For example: 'Each department means all departments together — list all courses offered by any department.'")]
+        hidden_knowledge_distributive: Annotated[str, Field(description="A statement clarifying that the quantifier should be interpreted distributively (each entity separately). It should specify that results are expected per individual entity. For example: 'Each department means per individual department — list courses grouped by department.'")]
+        sql_collective: Annotated[str, Field(description="A valid, executable SQL query for the collective interpretation, treating all entities as one group. This often uses flat aggregation without GROUP BY, or a simple SELECT without partitioning. The query must correctly answer the question under this interpretation. Do not include GROUP BY or partitioning elements from the distributive interpretation.")]
+        sql_distributive: Annotated[str, Field(description="A valid, executable SQL query for the distributive interpretation, treating each entity independently. This often requires GROUP BY on the entity or a partitioned query structure. The query must correctly answer the question under this interpretation. Do not use flat aggregation from the collective interpretation — results must be partitioned per entity.")]
 
     @staticmethod
     def get_name() -> str:
@@ -24,15 +24,29 @@ class StructureAmbiguityScopeCategory(Category):
 
     @staticmethod
     def get_definition() -> str:
-        return "Scope Ambiguity arises from unclear quantifiers (e.g., 'each', 'every', 'all') in a question. The ambiguity stems from whether these quantifiers should be interpreted collectively, referring to all entities together, or distributively, treating each entity independently. These interpretations yield structurally different SQL queries: collective interpretations typically use simple aggregation over the entire dataset, while distributive interpretations require grouping or iteration to handle each entity separately."
+        return (
+            "Scope Ambiguity arises when it is unclear how broadly a quantifier — such as 'each', 'every', 'all', or 'any' — "
+            "ranges over the entities it refers to. The ambiguity is purely about quantifier scope, producing two readings: "
+            "a 'collective' interpretation where the quantifier treats all entities as a single group "
+            "(e.g., 'each department' meaning the set of all departments combined), "
+            "versus a 'distributive' interpretation where each entity is treated separately "
+            "(e.g., 'each department' meaning per individual department). "
+            "These readings yield structurally different SQL: collective typically uses flat aggregation, "
+            "while distributive requires GROUP BY or partitioning. "
+            "Important: This is NOT about which noun a modifier attaches to in a conjunction (Attachment Ambiguity), "
+            "NOT about which database table or column a word maps to (Entity Ambiguity / Lexical Overlap), "
+            "NOT about user-specific references like 'my' or 'our' (Missing User Knowledge), "
+            "NOT about conflicting evidence definitions (Conflicting Knowledge), "
+            "and NOT about vague terms with imprecise boundaries like 'recent' or 'high' (Lexical Vagueness)."
+        )
 
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "What courses does each department offer? (Scope ambiguity: all courses across departments collectively vs. courses grouped per department)",
-            "List all projects every employee worked on. (Scope ambiguity: all projects collectively vs. projects listed per individual employee)",
-            "What is the average salary of managers and engineers? (Scope ambiguity: one combined average across both roles vs. separate averages for each role)",
-            "What are all the books each author has written? (Scope ambiguity: all books collectively vs. books grouped by individual author)"
+            "What courses does each department offer? (Scope ambiguity: 'each department' could mean all courses across all departments combined, or courses grouped per individual department)",
+            "List all projects every employee worked on. (Scope ambiguity: 'every employee' could mean all projects collectively, or projects listed per individual employee)",
+            "Show the total revenue for every store. (Scope ambiguity: 'every store' could mean one grand total across all stores, or a separate total per individual store)",
+            "What are the books each author has written? (Scope ambiguity: 'each author' could mean all books collectively, or books grouped by individual author)"
         ]
 
     @staticmethod

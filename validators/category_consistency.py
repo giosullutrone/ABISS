@@ -3,7 +3,7 @@ from validators.validator import Validator
 from dataset_dataclasses.question import Question
 from models.model import Model
 from categories.category import Category
-from prompts.category_consistency_prompt import get_category_consistency_prompt, CategoryConsistencyResponse, get_category_consistency_result
+from validators.prompts.category_consistency_prompt import get_category_consistency_prompt, CategoryConsistencyResponse, get_category_consistency_result
 from pydantic import BaseModel
 from typing import cast
 
@@ -90,7 +90,7 @@ class CategoryConsistency(Validator):
                     votes = votes_per_question_other[key]
                     main_votes = sum(1 for v in votes if v == 0)
                     other_votes = len(votes) - main_votes
-                    if main_votes <= other_votes:  # Not majority for main
+                    if main_votes <= other_votes:  # Ties resolve conservatively: main category loses
                         main_wins_all = False
                         print(f"Question {q_idx} does not prefer main category over {self.categories[cat_idx].get_name()}.")
                         print(f"Question: {questions[q_idx].question}, Main: {questions[q_idx].category.get_name()}, Other: {self.categories[cat_idx].get_name()}, Main votes: {main_votes}, Other votes: {other_votes}")

@@ -11,8 +11,12 @@ from users.prompts.best_user_answer_prompt import (
 
 
 class BestUserAnswer:
-    """
-    Interaction that selects the best user answer generated among multiple candidates based on a 1vs1 comparison performed by a list of models on all candidates.
+    """Selects the best user answer among label-consistent candidates via
+    pairwise tournament evaluated by the model council.
+
+    Only called when there are 2+ candidates (single-candidate cases are
+    resolved upstream without a tournament).  Evaluation criteria prioritise
+    correctness over style — see the per-relevancy prompts for details.
     """
 
     def __init__(self, db: DBDataset, models: list[Model]) -> None:
@@ -20,8 +24,10 @@ class BestUserAnswer:
         self.models: list[Model] = models
 
     def select_best_user_answers(self, conversations: list[Conversation], answers: list[list[str]]) -> list[str]:
-        """
-        Given a dictionary of db ids and candidate user answers, select the best one (for each db) based on 1vs1 comparisons by the models.
+        """Run a pairwise tournament for each conversation's candidate answers.
+
+        Every pair (j, k) with j != k is evaluated by every council model.
+        The candidate with the most wins is selected.
         """
         # Do the operation one model at a time (this way we don't have to unload and load the weights multiple times)
         votes: list[list[int]] = [[0] * len(ans) for ans in answers]

@@ -23,7 +23,7 @@ def generate_comment_prompt(question, knowledge=None):
     question_prompt = "-- {}".format(question)
     knowledge_prompt = "-- External Knowledge: {}".format(knowledge)
 
-    if not knowledge_prompt:
+    if not knowledge:
         result_prompt = pattern_prompt_no_kg + '\n' + question_prompt
     else:
         result_prompt = knowledge_prompt + '\n' + pattern_prompt_kg + '\n' + question_prompt

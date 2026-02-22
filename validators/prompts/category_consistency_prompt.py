@@ -21,7 +21,7 @@ def get_category_consistency_result(response: BaseModel) -> int:
     raise ValueError("Invalid answer in CategoryConsistencyResponse: must contain 'A' or 'B'.")
 
 def get_category_consistency_prompt(db: DBDataset, category_a: Category, category_b: Category, question: Question) -> str:
-    is_ambiguous = isinstance(question, QuestionUnanswerable) and question.is_solvable
+    is_ambiguous = isinstance(question, QuestionUnanswerable) and question.category.is_solvable()
 
     prompt = "You are an expert in text-to-SQL ambiguity and unanswerability classification. " \
              "Your task is to perform a comparative analysis between two categories and determine which one " \
@@ -87,7 +87,7 @@ def get_category_consistency_prompt(db: DBDataset, category_a: Category, categor
               "core characteristics and defining features the question more strongly exhibits.\n\n"
     
     prompt += "**Evaluation Criteria (in order of importance):**\n"
-    prompt += "1. **Core Definition Alignment**: Which category's fundamental definition the question best exemplifies\n"
+    prompt += "1. **Core Definition Alignment**: Which category's fundamental definition the question best exemplifies. Pay close attention to subtle distinctions.\n"
     prompt += "2. **Distinctive Characteristics**: Which category's unique/specific features are present in the question\n"
     prompt += "3. **Problem Type Match**: Whether the underlying issue matches one category's problem type better\n"
 

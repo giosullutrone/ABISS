@@ -29,13 +29,12 @@ def clean_json_string(json_str: str) -> str:
     return json_str.replace('\n', ' ')\
         .replace('\r', ' ')\
         .replace('\t', ' ')\
-        .replace('`', "'")\
         .replace('“', '"')\
         .replace('”', '"')\
         .replace("‘", "'")\
         .replace("’", "'")\
         .replace("\\.", ".")\
-        .replace("\\\\", "")\
+        .replace("\\\\", "\\")\
         .replace("\\_", "_")\
         .replace("```json", "")\
         .replace("```", "")
@@ -76,16 +75,17 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
         
         return normalized_data
     
-    # Find the last '}' and then locate the matching opening '{'
-    # while ignoring any braces that occur inside JSON string literals.
+    # Find the last '}' and then locate its matching opening '{' by scanning
+    # backward.  This ensures we pick the *last* outermost JSON object rather
+    # than the first '{' that happens to pair with the last '}'.
     end_idx = text.rfind('}')
     if end_idx == -1:
         return None
 
     start_idx = -1
 
-    # Try each '{' before end_idx and attempt a forward, string-aware match
-    for i in range(0, end_idx + 1):
+    # Walk backward from end_idx to find the matching '{'.
+    for i in range(end_idx, -1, -1):
         if text[i] != '{':
             continue
 
@@ -145,7 +145,7 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
             return constraint.model_validate(normalized_data)
         else:
             return None
-    except:
+    except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
         try:
             # If first attempt fails, try to repair the JSON
             repaired = repair_json(json_str)
@@ -156,7 +156,7 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
                 return constraint.model_validate(normalized_data)
             else:
                 return None
-        except:
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e2:
             print(f"Failed to repair/validate JSON")
             traceback.print_exc()
             return None

@@ -8,11 +8,11 @@ if TYPE_CHECKING:
 
 class SemanticMappingLexicalOverlapCategory(Category):
     class SemanticMappingLexicalOverlapOutput(BaseModel):
-        question: Annotated[str, Field(description="A natural language question containing a term or expression that can map to multiple schema attributes with similar or identical names within the same entity or closely related entities. The ambiguity arises from lexical overlap where the same expression corresponds to different columns representing variants or types of the same concept (e.g., personal_email vs. institutional_email).")]
-        hidden_knowledge_first_mapping: Annotated[str, Field(description="The hidden user intent clarifying that the ambiguous term refers to the first schema mapping (e.g., 'I mean the students' personal email addresses, not their institutional ones').")]
-        hidden_knowledge_second_mapping: Annotated[str, Field(description="The hidden user intent clarifying that the ambiguous term refers to the second schema mapping (e.g., 'I mean the students' institutional email addresses, not their personal ones').")]
-        sql_first_mapping: Annotated[str, Field(description="The SQL query using the first plausible schema mapping for the ambiguous term (e.g., using students.personal_email to represent the students' personal email addresses).")]
-        sql_second_mapping: Annotated[str, Field(description="The SQL query using the second plausible schema mapping for the ambiguous term (e.g., using students.institutional_email to represent the students' institutional email addresses).")]
+        question: Annotated[str, Field(description="A natural language question where a term partially matches multiple columns or values with similar names within the SAME entity or closely related entities (e.g., 'email' mapping to personal_email vs. institutional_email in the same students table, or 'heart' matching 'heart failure' vs. 'heart attack' in the same conditions table). The ambiguity is about WHICH COLUMN VARIANT the term maps to, NOT about cross-table/cross-entity mapping, NOT about sentence structure, NOT about user identity, and NOT about vague terminology.")]
+        hidden_knowledge_first_mapping: Annotated[str, Field(description="A statement clarifying that the term maps to the first column variant. It should identify which specific column or value the term maps to and what it represents. For example: 'The term email refers to the column personal_email, meaning the students personal email addresses.'")]
+        hidden_knowledge_second_mapping: Annotated[str, Field(description="A statement clarifying that the term maps to the second column variant. It should identify which specific column or value the term maps to and what it represents. For example: 'The term email refers to the column institutional_email, meaning the students institutional email addresses.'")]
+        sql_first_mapping: Annotated[str, Field(description="A valid, executable SQL query using the first column variant. The two SQL variants must differ only in which column (or value substring) they select or filter on, NOT in which table they query. The query must correctly answer the question under this interpretation. Do not include columns from the other column variant's interpretation in the SELECT clause or filters.")]
+        sql_second_mapping: Annotated[str, Field(description="A valid, executable SQL query using the second column variant. The two SQL variants must differ only in which column (or value substring) they select or filter on, NOT in which table they query. The query must correctly answer the question under this interpretation. Do not include columns from the other column variant's interpretation in the SELECT clause or filters.")]
 
     @staticmethod
     def get_name() -> str:
@@ -24,15 +24,29 @@ class SemanticMappingLexicalOverlapCategory(Category):
 
     @staticmethod
     def get_definition() -> str:
-        return "Lexical Overlap arises when two or more schema attributes share similar or identical forms, making it unclear which specific variant or type of an attribute a term in the question refers to. These attributes typically exist within the same table or closely related tables and represent different variants of the same concept (e.g., personal_email vs. institutional_email, home_address vs. work_address). The same expression in natural language can correspond to multiple columns, each representing a distinct variant, and each interpretation yields a distinct SQL mapping."
+        return (
+            "Lexical Overlap Ambiguity arises when a term in the question partially matches multiple distinct columns or values "
+            "within the SAME entity or closely related entities, due to shared substrings or naming conventions. "
+            "This makes it unclear whether the term refers to a specific attribute variant "
+            "(e.g., 'email' mapping to 'personal_email' vs. 'institutional_email' in the same table) "
+            "or a specific value substring (e.g., 'heart' matching 'heart failure' vs. 'heart attack' in the same column). "
+            "The ambiguity stems from linguistic similarity between column names or data values. "
+            "Important: This is NOT about the same concept existing in DIFFERENT tables representing different entities "
+            "(e.g., enrollment_date in students vs. student_courses — that is Entity Ambiguity), "
+            "NOT about how a modifier attaches in a conjunction (Attachment Ambiguity), "
+            "NOT about quantifier scope (Scope Ambiguity), "
+            "NOT about user-specific references like 'my' or 'our' (Missing User Knowledge), "
+            "NOT about conflicting evidence definitions (Conflicting Knowledge), "
+            "and NOT about vague terms with imprecise boundaries like 'recent' or 'high' (Lexical Vagueness)."
+        )
 
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List the emails of the students of the 'database' course. (Ambiguous: 'emails' could map to students.personal_email or students.institutional_email)",
-            "Show the addresses of customers who ordered laptops. (Ambiguous: 'addresses' could map to customers.home_address, customers.billing_address, or customers.shipping_address)",
-            "What is the phone number for all employees? (Ambiguous: 'phone number' could map to employees.work_phone or employees.mobile_phone)",
-            "Find the start date for projects in the IT department. (Ambiguous: 'start date' could map to projects.planned_start_date or projects.actual_start_date)"
+            "List the emails of students in the 'database' course. (Lexical overlap: 'emails' could map to students.personal_email or students.institutional_email — variant columns within the same table)",
+            "Show the addresses of customers who ordered laptops. (Lexical overlap: 'addresses' could map to customers.home_address, customers.billing_address, or customers.shipping_address — variant columns within the same table)",
+            "What is the phone number for all employees? (Lexical overlap: 'phone number' could map to employees.work_phone or employees.mobile_phone — variant columns within the same table)",
+            "Find patients diagnosed with heart conditions. (Lexical overlap: 'heart conditions' could match 'heart failure' or 'heart attack' — substring overlap in data values within the same column)"
         ]
 
     @staticmethod

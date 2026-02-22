@@ -7,7 +7,11 @@ results
 *.tex
 *exp.py
 *.json
-
+*md
+intermediate_results
+tests
+example_results/*
+!example_results/dev_generated_question_v16_small_merged.json
 
 # C extensions
 *.so

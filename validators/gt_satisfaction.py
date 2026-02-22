@@ -4,7 +4,7 @@ from db_datasets.db_dataset import DBDataset
 from validators.validator import Validator
 from dataset_dataclasses.question import Question
 from models.model import Model
-from prompts.gt_satisfaction_prompt import get_gt_satisfaction_prompt, GTSatisfactionResponse, get_gt_satisfaction_result
+from validators.prompts.gt_satisfaction_prompt import get_gt_satisfaction_prompt, GTSatisfactionResponse, get_gt_satisfaction_result
 
 
 class GTSatisfaction(Validator):
@@ -53,7 +53,7 @@ class GTSatisfaction(Validator):
                     valids[i].append(False)
             model.close()
 
-        # Majority voting across models
+        # Majority voting across models (ties resolve conservatively: question rejected)
         final_valids: list[bool] = []
         for i, votes in enumerate(valids):
             if not valid_questions[i]:

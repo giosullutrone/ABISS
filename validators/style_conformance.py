@@ -37,7 +37,7 @@ class StyleConformance(Validator):
                 is_valid = get_style_conformance_result(response)
                 valids[i].append(is_valid)
 
-        # Majority voting across models
+        # Majority voting across models (ties resolve conservatively: question rejected)
         final_valids: list[bool] = []
         for votes in valids:
             yes_votes = sum(votes)

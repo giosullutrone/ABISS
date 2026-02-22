@@ -131,50 +131,74 @@ class DBDataset:
         results = self.execute_query(db_id=db_id, sql_query=sql_query)
         return results is not None and len(results) > 0
 
-    def _compare_results_relaxed(self, 
+    def _compare_results_relaxed(self,
                                   cols_generated: list[str],
-                                  result_generated: list[tuple[Any, ...]], 
+                                  result_generated: list[tuple[Any, ...]],
                                   cols_ground_truth: list[str],
                                   result_ground_truth: list[tuple[Any, ...]]) -> bool:
         """
-        Compare query results using relaxed semantic equivalence criteria from Floratou et al.
-        
+        Compare query results using relaxed semantic equivalence.
+
         Rules:
-        1. Row ordering is ignored
-        2. Generated query can return a superset of columns (column names must match)
-        3. Columns can be in any order, we match by name and reorder accordingly
-        
+        1. Row ordering must match (ORDER BY correctness is verified)
+        2. Row count must match (LIMIT correctness is verified)
+        3. Generated query can return a superset of columns
+        4. Columns are matched by their data content, not by name
+
         Returns:
-            True if results are semantically equivalent under relaxed criteria
+            True if results are semantically equivalent under these criteria
         """
-        # Handle empty results
+        from collections import Counter
+
+        # Handle row count mismatch (also catches LIMIT differences)
         if len(result_generated) != len(result_ground_truth):
             return False
-        
+
         if len(result_generated) == 0:
             return True
-        
-        # Check that all ground truth columns are present in generated columns
-        cols_gt_set = set(cols_ground_truth)
-        cols_gen_set = set(cols_generated)
-        
-        if not cols_gt_set.issubset(cols_gen_set):
+
+        n_gt = len(cols_ground_truth)
+        n_gen = len(cols_generated)
+
+        # Generated must have at least as many columns as ground truth
+        if n_gen < n_gt:
             return False
-        
-        # Build a mapping from ground truth column positions to generated column positions
-        column_mapping = [cols_generated.index(col) for col in cols_ground_truth]
-        
-        # Reorder generated results to match ground truth column order
-        projected_generated = [
-            tuple(row[i] for i in column_mapping) 
-            for row in result_generated
-        ]
-        
-        # Compare as unordered sets (ignoring row ordering)
-        set_generated = set(projected_generated)
-        set_ground_truth = set(result_ground_truth)
-        
-        return set_generated == set_ground_truth
+
+        # For each column, compute value multiset for fast candidate filtering
+        gt_counters = [Counter(row[i] for row in result_ground_truth) for i in range(n_gt)]
+        gen_counters = [Counter(row[j] for row in result_generated) for j in range(n_gen)]
+
+        # For each GT column, find candidate generated columns with matching value multisets
+        candidates = []
+        for i in range(n_gt):
+            cands = [j for j in range(n_gen) if gt_counters[i] == gen_counters[j]]
+            if not cands:
+                return False
+            candidates.append(cands)
+
+        # Try valid assignments using backtracking
+        # Compare as ordered lists to verify ORDER BY correctness
+        list_ground_truth = list(result_ground_truth)
+
+        def backtrack(gt_idx: int, used: set[int], mapping: list[int]) -> bool:
+            if gt_idx == n_gt:
+                projected = [
+                    tuple(row[mapping[i]] for i in range(n_gt))
+                    for row in result_generated
+                ]
+                return projected == list_ground_truth
+
+            for j in candidates[gt_idx]:
+                if j not in used:
+                    used.add(j)
+                    mapping.append(j)
+                    if backtrack(gt_idx + 1, used, mapping):
+                        return True
+                    mapping.pop()
+                    used.remove(j)
+            return False
+
+        return backtrack(0, set(), [])
 
     def compare_query_results(self, 
                               db_id: str, 

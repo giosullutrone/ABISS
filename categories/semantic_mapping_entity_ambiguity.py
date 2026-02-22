@@ -8,11 +8,11 @@ if TYPE_CHECKING:
 
 class SemanticMappingEntityAmbiguityCategory(Category):
     class SemanticMappingEntityAmbiguityOutput(BaseModel):
-        question: Annotated[str, Field(description="A natural language question where a term or expression can correspond to attributes from multiple different entities or tables in the schema. The ambiguity arises because the same concept could be represented in different tables representing different entities or contexts (e.g., enrollment_date in students table vs. student_courses table).")]
-        hidden_knowledge_first_entity: Annotated[str, Field(description="The hidden user intent clarifying that the term refers to the attribute from the first entity (e.g., 'I mean the date when students first enrolled at the university, not in specific courses').")]
-        hidden_knowledge_second_entity: Annotated[str, Field(description="The hidden user intent clarifying that the term refers to the attribute from the second entity (e.g., 'I mean the date when students enrolled in the specific course, not their university enrollment date').")]
-        sql_first_entity: Annotated[str, Field(description="The SQL query using the attribute from the first entity (e.g., using students.enrollment_date to represent when the student enrolled at the university).")]
-        sql_second_entity: Annotated[str, Field(description="The SQL query using the attribute from the second entity (e.g., using student_courses.enrollment_date to represent when the student enrolled in a specific course).")]
+        question: Annotated[str, Field(description="A natural language question where a term maps to semantically similar attributes in DIFFERENT tables representing distinct real-world entities (e.g., 'enrollment_date' in a students table vs. a student_courses table). The ambiguity is about WHICH ENTITY the term refers to, NOT about similar column names within the same table, NOT about sentence structure, NOT about user identity, and NOT about vague terminology.")]
+        hidden_knowledge_first_entity: Annotated[str, Field(description="A statement clarifying that the term refers to the attribute from the first entity. It should identify the specific table and column and explain the entity-specific meaning. For example: 'The term enrollment date refers to students.enrollment_date, meaning the date the student enrolled at the university.'")]
+        hidden_knowledge_second_entity: Annotated[str, Field(description="A statement clarifying that the term refers to the attribute from the second entity. It should identify the specific table and column and explain the entity-specific meaning. For example: 'The term enrollment date refers to student_courses.enrollment_date, meaning the date the student enrolled in a specific course.'")]
+        sql_first_entity: Annotated[str, Field(description="A valid, executable SQL query using the attribute from the first entity/table. The two SQL variants must differ in which table they source the ambiguous attribute from, reflecting different real-world entities. The query must correctly answer the question under this interpretation. Do not include columns, JOINs, or tables that are only needed by the other entity's interpretation.")]
+        sql_second_entity: Annotated[str, Field(description="A valid, executable SQL query using the attribute from the second entity/table. The two SQL variants must differ in which table they source the ambiguous attribute from, reflecting different real-world entities. The query must correctly answer the question under this interpretation. Do not include columns, JOINs, or tables that are only needed by the other entity's interpretation.")]
 
     @staticmethod
     def get_name() -> str:
@@ -24,15 +24,29 @@ class SemanticMappingEntityAmbiguityCategory(Category):
 
     @staticmethod
     def get_definition() -> str:
-        return "Entity Ambiguity occurs when a term or expression in the question can correspond to attributes from multiple different entities or tables in the schema. The same concept mentioned in natural language exists in different tables representing different entities or contexts (e.g., enrollment_date in both students and student_courses tables). The different entity interpretations typically require accessing different tables or following different join paths, as they refer to the same concept but in different relational contexts."
+        return (
+            "Entity Ambiguity occurs when a term or expression in the question corresponds to semantically similar attributes "
+            "belonging to multiple DISTINCT entities or tables in the schema. "
+            "The ambiguity arises because the same concept (e.g., 'date', 'location', 'price') exists in different tables "
+            "representing separate real-world objects or contexts "
+            "(e.g., 'enrollment date' in the students table for university admission vs. in the student_courses table for course registration). "
+            "Resolving this requires identifying the correct table or relational path that aligns with the user's intent. "
+            "Important: This is NOT about similar/variant column names within the SAME entity "
+            "(e.g., personal_email vs. institutional_email in a single students table — that is Lexical Overlap), "
+            "NOT about how a modifier attaches in a conjunction (Attachment Ambiguity), "
+            "NOT about quantifier scope (Scope Ambiguity), "
+            "NOT about user-specific references like 'my' or 'our' (Missing User Knowledge), "
+            "NOT about conflicting evidence definitions (Conflicting Knowledge), "
+            "and NOT about vague terms with imprecise boundaries like 'recent' or 'high' (Lexical Vagueness)."
+        )
 
     @staticmethod
     def get_examples() -> list[str] | None:
         return [
-            "List the enrollment date of the students of the 'database' course. (Ambiguous: 'enrollment date' exists in both the students table and the student_courses table, referring to different events)",
-            "Show the start date for all projects in the engineering department. (Ambiguous: 'start date' could come from projects.start_date, departments.start_date, or employees.start_date)",
-            "Find the location of employees working on the Mars project. (Ambiguous: 'location' could refer to employees.location, projects.location, or offices.location)",
-            "What is the price for items in the electronics category? (Ambiguous: 'price' could come from items.price or categories.base_price, which are different entities)"
+            "List the enrollment date of students in the 'database' course. (Entity ambiguity: 'enrollment date' exists in both the students table and the student_courses table — same concept representing different events in different entity tables)",
+            "Show the rating for restaurants in downtown. (Entity ambiguity: 'rating' could refer to restaurants.avg_rating or reviews.rating — same concept in different entity tables with different meanings)",
+            "Find the location of employees working on the Mars project. (Entity ambiguity: 'location' could refer to employees.location, projects.location, or offices.location — same concept across different entity tables)",
+            "What is the contact number for suppliers of electronic parts? (Entity ambiguity: 'contact number' could refer to suppliers.phone or supplier_contacts.phone — same concept in different entity tables)"
         ]
 
     @staticmethod
