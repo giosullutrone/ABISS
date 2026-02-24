@@ -39,42 +39,43 @@ def clean_json_string(json_str: str) -> str:
         .replace("```json", "")\
         .replace("```", "")
 
-def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseModel | None:
+def _normalize_key(key: str) -> str:
+    """Normalize a key by converting to lowercase and replacing '-' and ' ' with '_', and handling escaped underscores."""
+    return key.lower().replace('-', '_').replace(' ', '_').replace('\\_', '_')
+
+
+def _normalize_data_keys(data: dict, constraint: type[BaseModel]) -> dict:
+    """
+    Normalize data keys to match BaseModel field names.
+    Both sides are normalized for comparison, but the ORIGINAL BaseModel field names
+    are preserved in the output (e.g., if BaseModel has 'SQL-Query', it stays 'SQL-Query').
+    """
+    # Create mapping: normalized_key -> original_BaseModel_field_name
+    field_mapping = {}
+    for field_name in constraint.model_fields.keys():
+        normalized = _normalize_key(field_name)
+        # Store original field name exactly as defined in BaseModel
+        field_mapping[normalized] = field_name
+
+    # Map data keys to BaseModel field names via normalization
+    normalized_data = {}
+    for key, value in data.items():
+        normalized_key = _normalize_key(key)
+        if normalized_key in field_mapping:
+            # Use the ORIGINAL BaseModel field name (preserves case, hyphens, etc.)
+            normalized_data[field_mapping[normalized_key]] = value
+        else:
+            # Keep the original key if no match found
+            normalized_data[key] = value
+
+    return normalized_data
+
+
+def _extract_json_from_text(text: str, constraint: type[BaseModel]) -> BaseModel | None:
     """
     Finds the last outermost JSON object in a string and validates it against a Pydantic model.
     Handles malformed JSON by attempting repair using json_repair.
-    Also normalizes keys by converting to lowercase and replacing '-' and ' ' with '_'.
     """
-    def normalize_key(key: str) -> str:
-        """Normalize a key by converting to lowercase and replacing '-' and ' ' with '_', and handling escaped underscores."""
-        return key.lower().replace('-', '_').replace(' ', '_').replace('\\_', '_')
-    
-    def normalize_data_keys(data: dict, constraint: type[BaseModel]) -> dict:
-        """
-        Normalize data keys to match BaseModel field names.
-        Both sides are normalized for comparison, but the ORIGINAL BaseModel field names
-        are preserved in the output (e.g., if BaseModel has 'SQL-Query', it stays 'SQL-Query').
-        """
-        # Create mapping: normalized_key -> original_BaseModel_field_name
-        field_mapping = {}
-        for field_name in constraint.model_fields.keys():
-            normalized = normalize_key(field_name)
-            # Store original field name exactly as defined in BaseModel
-            field_mapping[normalized] = field_name
-        
-        # Map data keys to BaseModel field names via normalization
-        normalized_data = {}
-        for key, value in data.items():
-            normalized_key = normalize_key(key)
-            if normalized_key in field_mapping:
-                # Use the ORIGINAL BaseModel field name (preserves case, hyphens, etc.)
-                normalized_data[field_mapping[normalized_key]] = value
-            else:
-                # Keep the original key if no match found
-                normalized_data[key] = value
-        
-        return normalized_data
-    
     # Find the last '}' and then locate its matching opening '{' by scanning
     # backward.  This ensures we pick the *last* outermost JSON object rather
     # than the first '{' that happens to pair with the last '}'.
@@ -141,7 +142,7 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
         data = json.loads(json_str)
         # Only normalize if data is a dict, not a list or other type
         if isinstance(data, dict):
-            normalized_data = normalize_data_keys(data, constraint)
+            normalized_data = _normalize_data_keys(data, constraint)
             return constraint.model_validate(normalized_data)
         else:
             return None
@@ -152,7 +153,7 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
             data = json.loads(repaired)
             # Only normalize if data is a dict, not a list or other type
             if isinstance(data, dict):
-                normalized_data = normalize_data_keys(data, constraint)
+                normalized_data = _normalize_data_keys(data, constraint)
                 return constraint.model_validate(normalized_data)
             else:
                 return None
@@ -160,6 +161,25 @@ def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseMode
             print(f"Failed to repair/validate JSON")
             traceback.print_exc()
             return None
+
+
+def extract_last_json_object(text: str, constraint: type[BaseModel]) -> BaseModel | None:
+    """
+    Finds the last outermost JSON object in a string and validates it against a Pydantic model.
+    For thinking models: prefers JSON after the last </think> tag to avoid extracting
+    draft/incorrect JSON from within reasoning blocks.
+    """
+    # For thinking models: only extract JSON after the last </think> tag.
+    # Draft JSON inside <think> blocks is intentionally ignored — the model
+    # may have produced it as scratch work and decided against it.
+    # Returning None triggers the retry mechanism instead.
+    think_end_idx = text.rfind("</think>")
+    if think_end_idx != -1:
+        post_thinking_text = text[think_end_idx + len("</think>"):]
+        return _extract_json_from_text(post_thinking_text, constraint)
+
+    # No </think> tag — search full text (non-thinking models or unclosed thinking)
+    return _extract_json_from_text(text, constraint)
 
 def convert_nested_dicts_to_strings(data: list[list[dict[str, str]]]) -> list[str]:
     """

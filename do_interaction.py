@@ -7,7 +7,6 @@ from dataset_dataclasses.question import Question, QuestionUnanswerable
 from dataset_dataclasses.benchmark import CategoryUse
 from db_datasets.db_dataset import DBDataset
 from benchmarks.benchmark import Benchmark
-from enum import Enum
 from agents.system_llm import SystemLLM
 from agents.system import System
 import json
@@ -18,15 +17,12 @@ from categories import get_all_categories, get_category_by_class_name
 import os
 
 
-class Systems(Enum):
-    DEFAULT = SystemLLM
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run interaction runner")
-    parser.add_argument("--db_name", type=str, required=False, help="Name of the database to use")
+    parser.add_argument("--db_name", type=str, required=True, help="Name of the database to use")
     parser.add_argument("--db_root_path", type=str, required=True, help="Path to the database root")
     parser.add_argument("--question_path", type=str, required=True, help="Path to the questions file")
-    parser.add_argument("--model_names", type=str, nargs='+', required=False, help="List of model names to use")
+    parser.add_argument("--model_names", type=str, nargs='+', required=True, help="List of model names to use")
     parser.add_argument("--categories", type=str, nargs='+', required=False, help="List of category names to generate (if not specified, all categories will be used). Note: Use the same categories used to generate the dataset", default=None)
     parser.add_argument("--category_uses", type=str, nargs='+', required=False, help="List of category uses to test (ground_truth, predicted, no_category). If not specified, all uses will be used", default=None)
     parser.add_argument("--db_ids", type=str, nargs='+', required=False, help="List of database IDs to use for interaction (if not specified, all database IDs will be used)", default=None)
@@ -90,19 +86,19 @@ if __name__ == "__main__":
     system_class: Type[System] = SystemLLM
     model_system_name = args.system_model if args.system_model else "../models/Mistral-Small-3.2-24B-Instruct-2506"
 
+    # Load model's recommended sampling defaults, then override with our settings
+    system_sampling_kwargs = ModelVLLM.get_default_sampling_kwargs(model_system_name)
+    system_sampling_kwargs.update({"max_tokens": 2048, "seed": 42})
+
     model_system = ModelVLLM(model_name=model_system_name,
-                                sampling_kwargs={
-                                    "max_tokens": 2048,
-                                    "temperature": 0.15, # Suggested for Mistral-Small-3.2-24B-Instruct-2506
-                                    "seed": 42,
-                                },
+                                sampling_kwargs=system_sampling_kwargs,
                                 model_kwargs={
-                                    "max_model_len": 32000, 
+                                    "max_model_len": 32000,
                                     "max_num_batched_tokens": 32000,
-                                    "enable_prefix_caching": True, 
+                                    "enable_prefix_caching": True,
                                     "enforce_eager": True,
                                     "tensor_parallel_size": tensor_parallel_size,
-                                    "limit_mm_per_prompt": {"image": 0, "video": 0}, 
+                                    "limit_mm_per_prompt": {"image": 0, "video": 0},
                                 },
                                 max_batch_with_text_size=100000)
     ################################################################################
@@ -137,11 +133,14 @@ if __name__ == "__main__":
                 raise ValueError(f"Database ID '{db_id}' not found in dataset. Available IDs: {sorted(available_db_ids)}")
         db_ids = db_ids_arg
 
-    system_instance = system_class("LLM", model=model_system, db=db_dataset, categories=categories, max_steps=max_steps)
+    system_agent_name = os.path.basename(model_system_name)
+    user_agent_name = "+".join(os.path.basename(m) for m in model_names)
 
-    user_instance = User("test", 
-                         db_dataset, 
-                         models_validator, 
+    system_instance = system_class(system_agent_name, model=model_system, db=db_dataset, categories=categories, max_steps=max_steps)
+
+    user_instance = User(user_agent_name,
+                         db_dataset,
+                         models_validator,
                          db_ids)
 
     runner = Benchmark(

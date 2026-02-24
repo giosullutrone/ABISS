@@ -7,28 +7,38 @@ from categories.category import Category
 
 
 class SystemResponseModel(BaseModel):
-    system_question: Annotated[str | None, Field(description="A clear, concise clarification question to ask the user that will help resolve ambiguity or obtain missing information needed to generate a SQL query. Should be None if you're providing SQL or feedback instead.")]
-    system_sql: Annotated[str | None, Field(description="A valid SQLite query that correctly answers the user's question based on the database schema. Should be None if you're asking a question or providing feedback instead.")]
-    system_feedback: Annotated[str | None, Field(description="A clear, helpful explanation of why the question cannot be answered with the current database schema and what would be needed to answer it. Should be None if you're asking a question or providing SQL instead.")]
+    system_question: Annotated[str | None, Field(default=None, description="A clear, concise clarification question to ask the user that will help resolve ambiguity or obtain missing information needed to generate a SQL query. Should be None if you're providing SQL or feedback instead.")]
+    system_sql: Annotated[str | None, Field(default=None, description="A valid SQLite query that correctly answers the user's question based on the database schema. Should be None if you're asking a question or providing feedback instead.")]
+    system_feedback: Annotated[str | None, Field(default=None, description="A clear, helpful explanation of why the question cannot be answered with the current database schema and what would be needed to answer it. Should be None if you're asking a question or providing SQL instead.")]
 
     @model_validator(mode='after')
     def exactly_one_field(self) -> 'SystemResponseModel':
         fields = [self.system_question, self.system_sql, self.system_feedback]
         non_null = sum(1 for f in fields if f is not None)
-        if non_null != 1:
-            raise ValueError(f"Exactly one field must be non-null, got {non_null}")
+        if non_null == 0:
+            raise ValueError("At least one field must be non-null, got 0")
+        if non_null > 1:
+            # Priority: system_question > system_sql > system_feedback
+            if self.system_question is not None:
+                self.system_sql = None
+                self.system_feedback = None
+            elif self.system_sql is not None:
+                self.system_feedback = None
         return self
 
 class SystemResponseModelLimited(BaseModel):
-    system_sql: Annotated[str | None, Field(description="A valid SQLite query that correctly answers the user's question based on the database schema. Should be None if you're providing feedback instead.")]
-    system_feedback: Annotated[str | None, Field(description="A clear, helpful explanation of why the question cannot be answered with the current database schema and what would be needed to answer it. Should be None if you're providing SQL instead.")]
+    system_sql: Annotated[str | None, Field(default=None, description="A valid SQLite query that correctly answers the user's question based on the database schema. Should be None if you're providing feedback instead.")]
+    system_feedback: Annotated[str | None, Field(default=None, description="A clear, helpful explanation of why the question cannot be answered with the current database schema and what would be needed to answer it. Should be None if you're providing SQL instead.")]
 
     @model_validator(mode='after')
     def exactly_one_field(self) -> 'SystemResponseModelLimited':
         fields = [self.system_sql, self.system_feedback]
         non_null = sum(1 for f in fields if f is not None)
-        if non_null != 1:
-            raise ValueError(f"Exactly one field must be non-null, got {non_null}")
+        if non_null == 0:
+            raise ValueError("At least one field must be non-null, got 0")
+        if non_null > 1:
+            # Priority: system_sql > system_feedback
+            self.system_feedback = None
         return self
 
 

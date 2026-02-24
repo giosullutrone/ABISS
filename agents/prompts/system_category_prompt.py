@@ -8,7 +8,7 @@ from categories.category import Category
 
 class CategoryClassificationResponse(BaseModel):
     category_name: Annotated[str, Field(description="The name of the category that best describes this question. Must be one of the valid category names.")]
-    category_subname: Annotated[str | None, Field(description="The subname of the category if applicable, otherwise null.")]
+    category_subname: Annotated[str | None, Field(default=None, description="The subname of the category if applicable, otherwise null.")]
 
 
 def get_category_result(response: BaseModel) -> tuple[str, str | None]:

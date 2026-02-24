@@ -12,6 +12,9 @@ intermediate_results
 tests
 example_results/*
 !example_results/dev_generated_question_v16_small_merged.json
+.annotation_autosave/
+.claude/
+.vscode/
 
 # C extensions
 *.so
