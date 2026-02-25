@@ -104,6 +104,12 @@ class Benchmark:
             for i, idx in enumerate(unfinished_conversations):
                 conv = conversations[idx]
                 sys_resp = system_responses[i]
+
+                # If the system response is completely empty (all None), stop this conversation
+                if sys_resp.system_question is None and sys_resp.system_sql is None and sys_resp.system_feedback is None:
+                    indices_to_remove.append(idx)
+                    continue
+
                 if sys_resp.system_sql is not None:
                     conv.predicted_sql = sys_resp.system_sql
                     indices_to_remove.append(idx)

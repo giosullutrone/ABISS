@@ -1,0 +1,7 @@
+dataset,group,avg_turns,clar_pct,n
+BIRD,Answerable,1.24,11.3,33663
+BIRD,Ambiguous,2.00,67.9,101430
+BIRD,Unanswerable,1.51,21.6,151179
+Spider,Answerable,1.24,11.3,22932
+Spider,Ambiguous,1.98,68.1,63042
+Spider,Unanswerable,1.45,19.4,112707

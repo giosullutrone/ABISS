@@ -79,9 +79,9 @@ def load_generated(path: str, include_evidence: bool):
 def plot_semantic(ax, emb_orig, emb_gen, gen_types, title):
     """Plot UMAP projection on a given axis."""
     type_colors = {
-        "Answerable":   "#4CAF50",
-        "Ambiguous":    "#FF6B8A",
-        "Unanswerable": "#5B9BD5",
+        "Answerable":   "#457b9d",
+        "Ambiguous":    "#a8dadc",
+        "Unanswerable": "#e63946",
     }
 
     # Plot generated points first (background), colored by type
@@ -97,10 +97,10 @@ def plot_semantic(ax, emb_orig, emb_gen, gen_types, title):
     # Plot original points on top (foreground)
     ax.scatter(
         emb_orig[:, 0], emb_orig[:, 1],
-        c="black", s=10, alpha=0.7, marker="x", linewidths=0.6,
+        c="black", s=14, alpha=0.85, marker="x", linewidths=0.9,
         label="Original", rasterized=True,
     )
-    ax.set_title(title, fontsize=13, fontweight="bold")
+    ax.set_title(title, fontsize=16, fontweight="bold")
     ax.set_xticks([])
     ax.set_yticks([])
 
@@ -153,11 +153,11 @@ def main():
     # Shared legend
     handles = [
         mpatches.Patch(color="black", label="Original dataset"),
-        mpatches.Patch(color="#4CAF50", label="Generated — Answerable"),
-        mpatches.Patch(color="#FF6B8A", label="Generated — Ambiguous"),
-        mpatches.Patch(color="#5B9BD5", label="Generated — Unanswerable"),
+        mpatches.Patch(color="#457b9d", label="Generated — Answerable"),
+        mpatches.Patch(color="#a8dadc", label="Generated — Ambiguous"),
+        mpatches.Patch(color="#e63946", label="Generated — Unanswerable"),
     ]
-    fig.legend(handles=handles, loc="lower center", ncol=4, fontsize=10,
+    fig.legend(handles=handles, loc="lower center", ncol=4, fontsize=16,
                frameon=True, bbox_to_anchor=(0.5, -0.02))
 
     plt.tight_layout(rect=[0, 0.05, 1, 1])

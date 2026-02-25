@@ -1,7 +1,7 @@
 import json
 import re
 import traceback
-from typing import Any
+from typing import Any, get_args, get_origin, Literal
 from json_repair import repair_json
 from pydantic import BaseModel
 
@@ -57,13 +57,30 @@ def _normalize_data_keys(data: dict, constraint: type[BaseModel]) -> dict:
         # Store original field name exactly as defined in BaseModel
         field_mapping[normalized] = field_name
 
+    # Build a lookup for Literal fields: field_name -> {lowercase_option: original_option}
+    # Pydantic's model_fields already strips Annotated wrappers, so annotation
+    # is directly Literal[...] when applicable.
+    literal_lookup: dict[str, dict[str, str]] = {}
+    for field_name, field_info in constraint.model_fields.items():
+        annotation = field_info.annotation
+        if get_origin(annotation) is Literal:
+            options = get_args(annotation)
+            literal_lookup[field_name] = {
+                str(opt).lower(): str(opt) for opt in options
+            }
+
     # Map data keys to BaseModel field names via normalization
     normalized_data = {}
     for key, value in data.items():
         normalized_key = _normalize_key(key)
         if normalized_key in field_mapping:
-            # Use the ORIGINAL BaseModel field name (preserves case, hyphens, etc.)
-            normalized_data[field_mapping[normalized_key]] = value
+            field_name = field_mapping[normalized_key]
+            # Normalize Literal field values to their expected casing
+            if field_name in literal_lookup and isinstance(value, str):
+                lower_val = value.strip().lower()
+                if lower_val in literal_lookup[field_name]:
+                    value = literal_lookup[field_name][lower_val]
+            normalized_data[field_name] = value
         else:
             # Keep the original key if no match found
             normalized_data[key] = value

@@ -1,0 +1,15 @@
+model,model_display,size,dataset,recognition,classification,ex,fb,n
+Llama-3.3-70B-Instruct,Llama-3.3-70B,70B,BIRD,67.7,57.9,28.1,61.8,4809
+Llama-3.3-70B-Instruct,Llama-3.3-70B,70B,Spider,72.5,65.3,39.8,70.7,3276
+Qwen2.5-Coder-32B-Instruct,Qwen2.5-Coder-32B,32B,BIRD,69.1,56.5,28.2,62.3,4809
+Qwen2.5-Coder-32B-Instruct,Qwen2.5-Coder-32B,32B,Spider,72.0,59.1,38.4,69.7,3276
+Qwen2.5-32B-Instruct,Qwen2.5-32B,32B,BIRD,68.7,63.4,29.6,65.1,4809
+Qwen2.5-32B-Instruct,Qwen2.5-32B,32B,Spider,73.3,67.5,38.0,72.8,3276
+gemma-3-27b-it,Gemma-3-27B,27B,BIRD,62.0,45.0,23.2,61.3,4809
+gemma-3-27b-it,Gemma-3-27B,27B,Spider,64.7,46.5,33.2,68.6,3276
+Mistral-Small-3.2-24B-Instruct-2506,Mistral-Small-24B,24B,BIRD,69.1,63.7,29.9,65.4,4809
+Mistral-Small-3.2-24B-Instruct-2506,Mistral-Small-24B,24B,Spider,74.7,69.2,43.6,73.9,3276
+Llama-3.1-8B-Instruct,Llama-3.1-8B,8B,BIRD,41.3,20.6,14.1,21.5,4809
+Llama-3.1-8B-Instruct,Llama-3.1-8B,8B,Spider,42.9,20.1,21.8,26.1,3276
+Qwen2.5-7B-Instruct,Qwen2.5-7B,7B,BIRD,59.4,41.4,18.4,55.1,4809
+Qwen2.5-7B-Instruct,Qwen2.5-7B,7B,Spider,61.5,42.4,27.3,59.9,3276

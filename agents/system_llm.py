@@ -50,10 +50,16 @@ class SystemLLM(System):
         model_classes = [m for _, m in prompts_and_models]
         
         self.model.init()
-        responses = self.model.generate_batch_with_constraints(
+        responses = self.model.generate_batch_with_constraints_unsafe(
             prompts,
             model_classes
         )
         self.model.close()
-        
-        return [get_system_response_result(response) for response in responses]
+
+        results = []
+        for response in responses:
+            if response is None:
+                results.append(SystemResponse(system_question=None, system_sql=None, system_feedback=None))
+            else:
+                results.append(get_system_response_result(response))
+        return results

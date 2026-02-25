@@ -139,14 +139,15 @@ def generate_combined_bar_chart(bird_stats, spider_stats, output_dir):
     width = 0.35
 
     fig, ax = plt.subplots(figsize=(14, 6))
-    bars1 = ax.bar(x - width/2, bird_vals, width, label=f"BIRD ({bird_stats['total']})", color=sns.color_palette("husl")[0])
-    bars2 = ax.bar(x + width/2, spider_vals, width, label=f"Spider ({spider_stats['total']})", color=sns.color_palette("husl")[4])
+    bars1 = ax.bar(x - width/2, bird_vals, width, label=f"BIRD ({bird_stats['total']})", color="#1d3557")
+    bars2 = ax.bar(x + width/2, spider_vals, width, label=f"Spider ({spider_stats['total']})", color="#e63946")
 
-    ax.set_ylabel('Number of Questions', fontsize=12)
-    ax.set_title('Category Distribution: BIRD vs Spider', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Number of Questions', fontsize=15)
+    ax.set_title('Category Distribution: BIRD vs Spider', fontsize=17, fontweight='bold')
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=9)
-    ax.legend(fontsize=11)
+    ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=16)
+    ax.tick_params(axis='y', labelsize=14)
+    ax.legend(fontsize=17)
     ax.grid(axis='y', alpha=0.3)
 
     plt.tight_layout()
@@ -160,9 +161,9 @@ def generate_group_pie_charts(bird_stats, spider_stats, output_dir):
     sns.set_style("whitegrid")
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
-    colors = {'Answerable': sns.color_palette("husl")[2],
-              'Ambiguous': sns.color_palette("husl")[0],
-              'Unanswerable': sns.color_palette("husl")[4]}
+    colors = {'Answerable': '#457b9d',
+              'Ambiguous': '#a8dadc',
+              'Unanswerable': '#e63946'}
     order = ['Answerable', 'Ambiguous', 'Unanswerable']
 
     for ax, stats, title in [(ax1, bird_stats, f"BIRD (n={bird_stats['total']})"),
@@ -172,8 +173,8 @@ def generate_group_pie_charts(bird_stats, spider_stats, output_dir):
         cols = [colors[g] for g in order]
         total = sum(sizes)
         labels_pct = [f"{g}\n({s}, {s/total*100:.1f}%)" for g, s in zip(order, sizes)]
-        ax.pie(sizes, labels=labels_pct, colors=cols, startangle=90, textprops={'fontsize': 10})
-        ax.set_title(title, fontsize=13, fontweight='bold')
+        ax.pie(sizes, labels=labels_pct, colors=cols, startangle=90, textprops={'fontsize': 14})
+        ax.set_title(title, fontsize=17, fontweight='bold')
 
     plt.tight_layout()
     plt.savefig(f"{output_dir}/question_type_distribution.png", dpi=300, bbox_inches='tight')
@@ -193,14 +194,20 @@ def generate_difficulty_style_heatmap(questions, output_path, title):
         di = diff_order.index(q.question_difficulty.value)
         matrix[di][si] += 1
 
+    from matplotlib.colors import LinearSegmentedColormap
+    palette_cmap = LinearSegmentedColormap.from_list("palette", ["#f1faee", "#a8dadc", "#457b9d", "#1d3557"])
+
     fig, ax = plt.subplots(figsize=(9, 5))
-    sns.heatmap(matrix, annot=True, fmt='d', cmap='YlOrRd',
+    sns.heatmap(matrix, annot=True, fmt='d', cmap=palette_cmap,
+                annot_kws={'fontsize': 14},
                 xticklabels=[s.capitalize() for s in style_order],
                 yticklabels=[d.replace('_', ' ').capitalize() for d in diff_order],
                 ax=ax)
-    ax.set_title(title, fontsize=13, fontweight='bold')
-    ax.set_xlabel('Question Style', fontsize=11)
-    ax.set_ylabel('SQL Difficulty', fontsize=11)
+    ax.set_title(title, fontsize=16, fontweight='bold')
+    ax.set_xlabel('Question Style', fontsize=17)
+    ax.set_ylabel('SQL Difficulty', fontsize=17)
+    ax.tick_params(axis='x', labelsize=14)
+    ax.tick_params(axis='y', labelsize=14)
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
@@ -218,7 +225,7 @@ def generate_per_db_category_chart(questions, output_path, title):
 
     dbs = sorted(db_cat.keys(), key=lambda d: sum(db_cat[d].values()), reverse=True)
     order = ['Answerable', 'Ambiguous', 'Unanswerable']
-    colors_list = [sns.color_palette("husl")[2], sns.color_palette("husl")[0], sns.color_palette("husl")[4]]
+    colors_list = ['#457b9d', '#a8dadc', '#e63946']
 
     fig, ax = plt.subplots(figsize=(12, 5))
     x = np.arange(len(dbs))
@@ -229,13 +236,14 @@ def generate_per_db_category_chart(questions, output_path, title):
         ax.bar(x, vals, bottom=bottoms, label=g, color=col, width=0.6)
         bottoms += np.array(vals)
 
-    ax.set_ylabel('Number of Questions', fontsize=11)
-    ax.set_title(title, fontsize=13, fontweight='bold')
+    ax.set_ylabel('Number of Questions', fontsize=17)
+    ax.set_title(title, fontsize=16, fontweight='bold')
     ax.set_xticks(x)
     # Shorten db names
     short_dbs = [d.replace('_', ' ').title()[:18] for d in dbs]
-    ax.set_xticklabels(short_dbs, rotation=45, ha='right', fontsize=8)
-    ax.legend(fontsize=10)
+    ax.set_xticklabels(short_dbs, rotation=45, ha='right', fontsize=15)
+    ax.tick_params(axis='y', labelsize=14)
+    ax.legend(fontsize=16)
     ax.grid(axis='y', alpha=0.3)
 
     plt.tight_layout()

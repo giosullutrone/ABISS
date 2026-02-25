@@ -30,6 +30,9 @@ if __name__ == "__main__":
     parser.add_argument("--tensor_parallel_size", type=int, required=False, help="Tensor parallel size for VLLM models", default=1)
     parser.add_argument("--system_model", type=str, required=False, help="Path or name of the system agent model", default=None)
     parser.add_argument("--output_path", type=str, required=False, help="Path to save the results", default="results.json")
+    parser.add_argument("--balanced", action="store_true", help="Balance the dataset so each category/group has equal samples")
+    parser.add_argument("--balance_by", type=str, choices=["category", "group"], default="group",
+                        help="Balance by 13 fine-grained categories or 3 groups (Answerable/Ambiguous/Unanswerable). Default: group")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
@@ -166,6 +169,14 @@ if __name__ == "__main__":
     # Filter questions by db_id if specified
     if db_ids_arg is not None:
         questions = [q for q in questions if q.db_id in db_ids]
+
+    # Balance questions if requested
+    if args.balanced:
+        from utils.balancing import balance_questions, category_key_from_dataclass, group_key_from_dataclass
+        key_fn = category_key_from_dataclass if args.balance_by == "category" else group_key_from_dataclass
+        pre_balance = len(questions)
+        questions = balance_questions(questions, key_fn, seed=42)
+        print(f"Balanced {pre_balance} -> {len(questions)} questions ({args.balance_by}-level)")
 
     results = runner.run(questions=questions)
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)

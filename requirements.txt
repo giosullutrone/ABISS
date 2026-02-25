@@ -1,0 +1,11 @@
+json_repair
+matplotlib
+numpy
+pydantic
+seaborn
+sentence_transformers
+streamlit
+torch
+tqdm
+umap-learn
+vllm
