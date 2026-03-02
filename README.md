@@ -266,10 +266,7 @@ If you use this code or dataset in your research, please cite:
 @article{Sullutrone2026ABISS,
   author    = {Sullutrone, Giovanni and Bergamaschi, Sonia},
   title     = {{ABISS}: Evaluating Text-to-{SQL} Systems Through Agent Interaction},
-  journal   = {Proceedings of the VLDB Endowment},
-  year      = {2026},
-  volume    = {14},
-  number    = {1}
+  year      = {2026}
 }
 ```
 
