@@ -190,7 +190,7 @@ The generation pipeline produced two datasets: **ABISS-BIRD** (13,632 questions 
 
 ### Overall Benchmark Results
 
-Seven open-source models (7B to 70B parameters) were evaluated under the Predicted and Ground Truth (in parentheses) category modes on balanced subsets (BIRD: 4,809 questions; Spider: 3,276 questions):
+Seven open-source models (7B to 80B parameters) were evaluated under the Predicted and Ground Truth (in parentheses) category modes on balanced subsets (BIRD: 4,809 questions; Spider: 3,276 questions):
 
 | Model | Size | | ABISS-BIRD | | | | ABISS-Spider | | |
 |-------|------|---|---|---|---|---|---|---|---|
