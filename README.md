@@ -7,10 +7,6 @@ A comprehensive framework for evaluating text-to-SQL systems on ambiguous and un
 
 <!-- [Paper Link](#) -->
 
-<p align="center">
-  <img src="charts/combined_v16/category_comparison.png" alt="Category distribution of generated questions across ABISS-BIRD and ABISS-Spider" width="100%"/>
-</p>
-
 ## Overview
 
 Large Language Models demonstrate high performance on curated text-to-SQL benchmarks, yet real-world users frequently pose ambiguous or unanswerable questions that current systems handle poorly. This repository provides three interconnected contributions:
@@ -38,10 +34,6 @@ The taxonomy organizes questions into three groups based on answerability:
 | | | Missing Relationship | No linkage exists between relevant entities |
 | | Missing External Knowledge | | Domain-specific facts or policies not in database or knowledge base |
 | | Improper Question | | Unrelated to the domain, or not a database query |
-
-<p align="center">
-  <img src="charts/combined_v16/semantic_distribution.png" alt="UMAP projection of sentence embeddings showing semantic distribution of generated vs. original questions" width="100%"/>
-</p>
 
 ## Installation
 
@@ -144,10 +136,6 @@ python do_interaction.py \
 | `--balance_by` | Balance by `category` (13-way) or `group` (3-way: answerable, ambiguous, unanswerable) |
 | `--db_ids` | Specific database IDs to use (omit for all) |
 
-<p align="center">
-  <img src="charts/results_v16_balanced_group/per_category_performance.png" alt="Per-category performance under Ground Truth and Predicted category modes" width="100%"/>
-</p>
-
 ## Key Features
 
 ### Multi-Dimensional Question Generation
@@ -185,6 +173,61 @@ The framework leverages vLLM for high-performance inference with batched generat
 | **Feedback Accuracy** | Unanswerable | Does the system's explanation match the question's hidden knowledge? Assessed by council voting. |
 | **Turns to Relevant (TTR)** | Ambiguous (with clarifications) | Number of system turns before the first relevant clarification question |
 | **Turns to Stop (TTS)** | Ambiguous (with clarifications) | Number of turns from the first relevant clarification to the terminal response |
+
+## Results
+
+### Generated Datasets
+
+The generation pipeline produced two datasets: **ABISS-BIRD** (13,632 questions across 11 databases) and **ABISS-Spider** (9,461 questions across 11 databases), totaling 23,093 validated questions.
+
+<p align="center">
+  <img src="charts/combined_v16/category_comparison.png" alt="Category distribution of generated questions across ABISS-BIRD and ABISS-Spider" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="charts/combined_v16/semantic_distribution.png" alt="UMAP projection of sentence embeddings for original questions (black) and generated questions (colored by type)" width="100%"/>
+</p>
+
+### Overall Benchmark Results
+
+Seven open-source models (7B to 70B parameters) were evaluated under the Predicted and Ground Truth (in parentheses) category modes on balanced subsets (BIRD: 4,809 questions; Spider: 3,276 questions):
+
+| Model | Size | | ABISS-BIRD | | | | ABISS-Spider | | |
+|-------|------|---|---|---|---|---|---|---|---|
+| | | **Rec.** | **Cls.** | **EX** | **FB** | **Rec.** | **Cls.** | **EX** | **FB** |
+| Llama-3.3-70B | 70B | 67.7 | 57.9 | 28.1 (40.0) | 61.8 (93.0) | 72.5 | 65.3 | 39.8 (51.5) | 70.7 (90.7) |
+| Qwen2.5-Coder-32B | 32B | 69.1 | 56.5 | 28.2 (39.0) | 62.3 (90.5) | 72.0 | 59.1 | 38.4 (49.2) | 69.7 (91.0) |
+| Qwen2.5-32B | 32B | 68.7 | 63.4 | 29.6 (40.9) | 65.1 (94.1) | 73.3 | 67.5 | 38.0 (49.4) | 72.8 (94.7) |
+| Gemma-3-27B | 27B | 62.0 | 45.0 | 23.2 (33.3) | 61.3 (95.0) | 64.7 | 46.5 | 33.2 (44.1) | 68.6 (93.6) |
+| **Mistral-Small-24B** | **24B** | **69.1** | **63.7** | **29.9 (41.6)** | **65.4 (95.3)** | **74.7** | **69.2** | **43.6 (56.0)** | **73.9 (95.9)** |
+| Llama-3.1-8B | 8B | 41.3 | 20.6 | 14.1 (26.2) | 21.5 (89.3) | 42.9 | 20.1 | 21.8 (36.3) | 26.1 (92.0) |
+| Qwen2.5-7B | 7B | 59.4 | 41.4 | 18.4 (29.3) | 55.1 (89.9) | 61.5 | 42.4 | 27.3 (39.7) | 59.9 (91.1) |
+
+### Impact of Category Knowledge
+
+Average performance across all seven models under each category usage mode:
+
+| | Mode | EX | FB |
+|------|------|------|------|
+| BIRD | Ground Truth | 35.8 | 92.4 |
+| | Predicted | 24.2 | 56.2 |
+| | No Category | 25.1 | 49.2 |
+| Spider | Ground Truth | 46.6 | 92.7 |
+| | Predicted | 34.1 | 63.2 |
+| | No Category | 34.2 | 55.0 |
+
+### Per-Category Performance
+
+<p align="center">
+  <img src="charts/results_v16_balanced_group/per_category_performance.png" alt="Per-category performance under Ground Truth and Predicted category modes" width="100%"/>
+</p>
+
+### Key Findings
+
+- **Subcategory classification is the bottleneck**: models reliably detect that a question is problematic (Recognition) yet struggle to pinpoint the specific subcategory (Classification), with a 5 to 23 percentage-point gap.
+- **Feedback is classification-bounded**: feedback accuracy jumps from 49.2% to 92.4% on BIRD when ground truth categories are provided, indicating that models can almost always generate correct explanations once they know the exact problem type.
+- **SQL integration remains fundamentally difficult**: even under oracle conditions (ground truth category, relevant clarifications received), the best execution accuracy reaches only 41.6% on BIRD and 56.0% on Spider.
+- **Model size does not predict performance**: Mistral-Small-24B (24B) achieves the highest scores despite being smaller than Llama-3.3-70B and both 32B models, suggesting that training data composition matters more than scale.
 
 ## Extending ABISS
 
