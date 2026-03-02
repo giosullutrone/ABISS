@@ -2,7 +2,7 @@
 __pycache__/
 *.py[codz]
 *$py.class
-*.job
+jobs/
 results
 *.tex
 *exp.py

@@ -139,51 +139,63 @@ def build_confusion_matrices(balanced_cache):
 def plot_confusion_matrix(confusion, dataset, output_dir):
     """Plot and save confusion matrix heatmap."""
     ds_name = "BIRD" if "bird" in dataset else "Spider"
+    category_order_set = set(CATEGORY_ORDER)
 
-    # Build matrix
+    # Build matrix (row-normalized percentages)
     n = len(CATEGORY_ORDER)
     matrix = np.zeros((n, n))
     labels = [SHORT_NAMES[c] for c in CATEGORY_ORDER]
 
     for i, gt_cat in enumerate(CATEGORY_ORDER):
-        row_total = sum(confusion[(dataset, gt_cat)].values())
+        # Only count predictions that fall within standard categories
+        row_total = sum(
+            count for pred_cat, count in confusion[(dataset, gt_cat)].items()
+            if pred_cat in category_order_set
+        )
         if row_total > 0:
             for j, pred_cat in enumerate(CATEGORY_ORDER):
                 count = confusion[(dataset, gt_cat)].get(pred_cat, 0)
                 matrix[i, j] = 100 * count / row_total
 
-    # Plot
-    fig, ax = plt.subplots(figsize=(12, 10))
+    # Build custom annotation: show integer %, blank for values that round to 0
+    annot_array = np.empty_like(matrix, dtype=object)
+    for i in range(n):
+        for j in range(n):
+            val = matrix[i, j]
+            rounded = round(val)
+            if rounded == 0:
+                annot_array[i, j] = ""
+            else:
+                annot_array[i, j] = str(rounded)
 
-    # Use a mask for zero values to keep them white
-    mask = matrix == 0
+    # Plot (compact size for paper at \textwidth)
+    fig, ax = plt.subplots(figsize=(8, 7))
 
     sns.heatmap(
         matrix,
-        annot=True,
-        fmt=".1f",
+        annot=annot_array,
+        fmt="",
         cmap="Blues",
         xticklabels=labels,
         yticklabels=labels,
         ax=ax,
-        mask=mask,
+        mask=(matrix < 0.5),
         vmin=0,
         vmax=100,
         linewidths=0.5,
         linecolor="lightgray",
-        cbar_kws={"label": "Percentage (%)"},
-        annot_kws={"size": 7},
+        cbar_kws={"label": "%", "shrink": 0.8},
+        annot_kws={"size": 8},
     )
 
-    # Add group separators
-    # Groups: Answerable (0-1), Ambiguous (2-8), Unanswerable (9-12)
+    # Group separators: Answerable (0-1), Ambiguous (2-8), Unanswerable (9-12)
     for pos in [2, 9]:
         ax.axhline(y=pos, color="black", linewidth=2)
         ax.axvline(x=pos, color="black", linewidth=2)
 
-    ax.set_xlabel("Predicted Subcategory", fontsize=12)
-    ax.set_ylabel("Ground Truth Subcategory", fontsize=12)
-    ax.set_title(f"Classification Confusion Matrix ({ds_name})", fontsize=14)
+    ax.set_xlabel("Predicted Subcategory", fontsize=11)
+    ax.set_ylabel("Ground Truth Subcategory", fontsize=11)
+    # No title (the paper caption serves this purpose)
 
     plt.xticks(rotation=45, ha="right", fontsize=9)
     plt.yticks(rotation=0, fontsize=9)

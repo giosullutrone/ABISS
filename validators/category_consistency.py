@@ -6,6 +6,7 @@ from categories.category import Category
 from validators.prompts.category_consistency_prompt import get_category_consistency_prompt, CategoryConsistencyResponse, get_category_consistency_result
 from pydantic import BaseModel
 from typing import cast
+from dataset_dataclasses.council_tracking import ValidationStageResult, QuestionVotes, ModelVote
 
 
 class CategoryConsistency(Validator):
@@ -14,7 +15,7 @@ class CategoryConsistency(Validator):
         self.models: list[Model] = models
         self.categories: list[Category] = categories
 
-    def validate(self, questions: list[Question]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> ValidationStageResult:
         # For each question, compare its main category against all other categories
         # Use pairwise comparisons, testing both orders
         
@@ -79,23 +80,43 @@ class CategoryConsistency(Validator):
         
         # For each question, check if main category wins majority against all other categories
         final_valids: list[bool] = []
+        question_votes: list[QuestionVotes] = []
         for q_idx in range(len(questions)):
             main_wins_all = True
+            per_comparison_votes: list[ModelVote] = []
             for cat_idx in range(len(self.categories)):
                 if self.categories[cat_idx] == questions[q_idx].category:
                     continue
-                
+
                 key = (q_idx, cat_idx)
                 if key in votes_per_question_other:
                     votes = votes_per_question_other[key]
                     main_votes = sum(1 for v in votes if v == 0)
                     other_votes = len(votes) - main_votes
-                    if main_votes <= other_votes:  # Ties resolve conservatively: main category loses
+                    for vidx, v in enumerate(votes):
+                        model_idx = vidx // 2
+                        model_name = self.models[model_idx].model_name if model_idx < len(self.models) else f"model_{model_idx}"
+                        per_comparison_votes.append(ModelVote(
+                            model_name=f"{model_name}_vs_{self.categories[cat_idx].get_name()}",
+                            vote=v,
+                        ))
+                    if main_votes <= other_votes:
                         main_wins_all = False
                         print(f"Question {q_idx} does not prefer main category over {self.categories[cat_idx].get_name()}.")
                         print(f"Question: {questions[q_idx].question}, Main: {questions[q_idx].category.get_name()}, Other: {self.categories[cat_idx].get_name()}, Main votes: {main_votes}, Other votes: {other_votes}")
                         break
-            
+
             final_valids.append(main_wins_all)
-        
-        return final_valids
+            question_votes.append(QuestionVotes(
+                question_index=q_idx,
+                question_text=questions[q_idx].question,
+                votes=per_comparison_votes,
+                aggregate_result=main_wins_all,
+                removed=not main_wins_all,
+            ))
+
+        return ValidationStageResult(
+            stage_name="category_consistency",
+            validities=final_valids,
+            question_votes=question_votes,
+        )

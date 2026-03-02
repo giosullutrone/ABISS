@@ -9,9 +9,13 @@ from models.model import Model
 
 
 class DBDataset:
-    def __init__(self, db_root_path: str, db_name: str) -> None:
+    def __init__(self, db_root_path: str, db_name: str, max_execution_time: float=3) -> None:
         self.db_root_path: str = db_root_path
         self.db_name = db_name
+        self.max_execution_time = max_execution_time
+        self._schema_cache: dict[tuple[str, int | None], str] = {}
+        self._query_cache: dict[tuple[str, str], tuple[list[str], list[tuple[Any, ...]]]] = {}
+        self._connections: dict[str, sqlite3.Connection] = {}
 
     ### Database interaction methods ###
     def _get_db_path(self, db_id: str) -> str:
@@ -20,12 +24,26 @@ class DBDataset:
     def get_db_ids(self) -> list[str]:
         return [name for name in os.listdir(self.db_root_path) if os.path.isdir(os.path.join(self.db_root_path, name))]
 
+    def _get_connection(self, db_id: str) -> sqlite3.Connection:
+        if db_id not in self._connections:
+            db_path = self._get_db_path(db_id)
+            self._connections[db_id] = sqlite3.connect(f'file:{db_path}?immutable=1', uri=True)
+        return self._connections[db_id]
+
+    def close_connections(self) -> None:
+        for conn in self._connections.values():
+            conn.close()
+        self._connections.clear()
+
     ### Generation methods ###
     def get_schema_prompt(self, db_id: str, rows: int | None) -> str:
-        return generate_schema_prompt(
-            db_path=self._get_db_path(db_id),
-            num_rows=rows
-        )
+        cache_key = (db_id, rows)
+        if cache_key not in self._schema_cache:
+            self._schema_cache[cache_key] = generate_schema_prompt(
+                db_path=self._get_db_path(db_id),
+                num_rows=rows
+            )
+        return self._schema_cache[cache_key]
 
     def generate_sqls(self, model: Model, questions: list[Question]) -> list[str]:
         # Generate the SQL generation prompts
@@ -74,42 +92,45 @@ class DBDataset:
         self,
         db_id: str,
         sql_query: str,
-        max_seconds: float | None = 30.0,
     ) -> tuple[list[str], list[tuple[Any, ...]]]:
         """
         Execute the given SQL query on the specified database and return column names and results.
-        If max_seconds is provided, the query will be aborted if it runs longer than that.
-        
+        If max_execution_time is provided, the query will be aborted if it runs longer than that.
+        Results are cached by (db_id, sql_query) to avoid redundant executions.
+
         Returns:
             Tuple of (column_names, results)
         """
-        # Open in immutable mode to avoid locking issues on network filesystems
-        db_path = self._get_db_path(db_id)
-        conn = sqlite3.connect(f'file:{db_path}?immutable=1', uri=True)
+        cache_key = (db_id, sql_query)
+        if cache_key in self._query_cache:
+            return self._query_cache[cache_key]
+
+        conn = self._get_connection(db_id)
         cursor = conn.cursor()
 
         # Set up timeout via progress handler
-        if max_seconds is not None:
+        if self.max_execution_time is not None:
             start = time.monotonic()
 
             def progress_handler() -> int:
                 # Called every N VM steps; return non-zero to abort
-                if time.monotonic() - start > max_seconds:
+                if time.monotonic() - start > self.max_execution_time:
                     return 1  # abort query -> raises sqlite3.OperationalError
                 return 0
 
             # Call handler every 1000 "virtual machine" steps (tune as needed)
             conn.set_progress_handler(progress_handler, 1000)
-        
+
         try:
             cursor.execute(sql_query)
             results = cursor.fetchall()
             # Get column names from cursor description
             column_names = [desc[0] for desc in cursor.description] if cursor.description else []
         finally:
-            # Always clear handler and close connection
+            # Always clear handler
             conn.set_progress_handler(None, 0)
-            conn.close()
+
+        self._query_cache[cache_key] = (column_names, results)
         return column_names, results
 
     def execute_query(self, db_id: str, sql_query: str) -> list[tuple] | None:

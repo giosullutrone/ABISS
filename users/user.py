@@ -2,6 +2,7 @@ from models.model import Model
 from users.user_response import UserResponse
 from db_datasets.db_dataset import DBDataset
 from dataset_dataclasses.benchmark import Conversation
+from dataset_dataclasses.council_tracking import RelevancyVotes, TournamentVotes
 
 
 class User:
@@ -18,6 +19,6 @@ class User:
 
         self.user_response_interaction = UserResponse(self.db, self.models)
 
-    def get_response(self, conversations: list[Conversation]) -> None:
+    def get_response(self, conversations: list[Conversation]) -> tuple[list[RelevancyVotes], list[TournamentVotes]]:
         """Unified step: classifies relevancy AND generates user answer."""
-        self.user_response_interaction.get_response(conversations)
+        return self.user_response_interaction.get_response(conversations)

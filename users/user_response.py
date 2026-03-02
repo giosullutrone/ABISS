@@ -15,6 +15,7 @@ from db_datasets.db_dataset import DBDataset
 from models.model import Model
 from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.council_tracking import RelevancyVotes, TournamentVotes
 from users.best_user_answer import BestUserAnswer
 from users.prompts.user_response_prompt import (
     get_user_response_prompt_solvable,
@@ -35,7 +36,7 @@ class UserResponse:
         self.models = models
         self.best_user_answer = BestUserAnswer(db, models)
 
-    def get_response(self, conversations: list[Conversation]) -> None:
+    def get_response(self, conversations: list[Conversation]) -> tuple[list[RelevancyVotes], list[TournamentVotes]]:
         """Classify relevancy AND generate answer for each conversation in one step.
 
         Unsolvable questions are short-circuited (IRRELEVANT + canned refusal).
@@ -74,7 +75,7 @@ class UserResponse:
                 result_extractors.append(get_user_response_solvable_result)
 
         if not prompts:
-            return  # all unsolvable
+            return [], []  # all unsolvable
 
         # ---- generate (relevancy, answer) pairs from every model ----
         # relevancy_votes[prompt_idx] = {label: count}
@@ -108,23 +109,44 @@ class UserResponse:
             else:
                 final_labels.append(top_label)
 
+        # ---- build relevancy tracking ----
+        relevancy_tracking: list[RelevancyVotes] = []
+        for pidx, conv_idx in enumerate(to_classify):
+            per_model_labels = [
+                (self.models[midx].model_name, per_model_results[pidx][midx][0].value)
+                for midx in range(len(self.models))
+            ]
+            all_same = len(set(label for _, label in per_model_labels)) == 1
+            relevancy_tracking.append(RelevancyVotes(
+                question_index=conv_idx,
+                interaction_step=len(conversations[conv_idx].interactions) - 1,
+                per_model_labels=per_model_labels,
+                winning_label=final_labels[pidx].value,
+                unanimous=all_same,
+            ))
+
         # ---- assign relevancy labels ----
         for pidx, conv_idx in enumerate(to_classify):
             conversations[conv_idx].interactions[-1].relevance = final_labels[pidx]
 
         # ---- filter to label-consistent answers only ----
         consistent_answers: list[list[str]] = []
+        consistent_model_indices: list[list[int]] = []
         for pidx in range(len(prompts)):
             winning_label = final_labels[pidx]
-            filtered = [
-                answer for label, answer in per_model_results[pidx]
-                if label == winning_label
-            ]
+            filtered: list[str] = []
+            filtered_indices: list[int] = []
+            for midx, (label, answer) in enumerate(per_model_results[pidx]):
+                if label == winning_label:
+                    filtered.append(answer)
+                    filtered_indices.append(midx)
             # If tie resolved to IRRELEVANT and no model actually voted IRRELEVANT,
             # fall back to all answers (the tournament will pick the best refusal).
             if not filtered:
                 filtered = [answer for _, answer in per_model_results[pidx]]
+                filtered_indices = list(range(len(per_model_results[pidx])))
             consistent_answers.append(filtered)
+            consistent_model_indices.append(filtered_indices)
 
         # ---- select best answer ----
         # If only one label-consistent answer, use it directly (skip tournament).
@@ -132,6 +154,7 @@ class UserResponse:
         needs_tournament_indices: list[int] = []
         needs_tournament_convs: list[Conversation] = []
         needs_tournament_answers: list[list[str]] = []
+        needs_tournament_model_indices: list[list[int]] = []
 
         for pidx in range(len(prompts)):
             if len(consistent_answers[pidx]) == 1:
@@ -141,13 +164,17 @@ class UserResponse:
                 needs_tournament_indices.append(pidx)
                 needs_tournament_convs.append(conversations[to_classify[pidx]])
                 needs_tournament_answers.append(consistent_answers[pidx])
+                needs_tournament_model_indices.append(consistent_model_indices[pidx])
 
+        tournament_tracking: list[TournamentVotes] = []
         if needs_tournament_convs:
-            tournament_results = self.best_user_answer.select_best_user_answers(
-                needs_tournament_convs, needs_tournament_answers
+            tournament_results, tournament_tracking = self.best_user_answer.select_best_user_answers(
+                needs_tournament_convs, needs_tournament_answers, needs_tournament_model_indices
             )
             for i, pidx in enumerate(needs_tournament_indices):
                 best_answers[pidx] = tournament_results[i]
 
         for pidx, conv_idx in enumerate(to_classify):
             conversations[conv_idx].interactions[-1].user_response = best_answers[pidx]
+
+        return relevancy_tracking, tournament_tracking

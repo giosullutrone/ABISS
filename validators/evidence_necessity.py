@@ -1,7 +1,9 @@
+from tqdm import tqdm
 from validators.validator import Validator
 from dataset_dataclasses.question import Question
 from models.model import Model
 from db_datasets.db_dataset import DBDataset
+from dataset_dataclasses.council_tracking import ValidationStageResult, QuestionVotes, ModelVote
 
 
 class EvidenceNecessity(Validator):
@@ -19,7 +21,7 @@ class EvidenceNecessity(Validator):
         self.db: DBDataset = db
         self.models: list[Model] = models
 
-    def validate(self, questions: list[Question]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> ValidationStageResult:
         valids: list[bool] = [True for _ in questions]
 
         # Generate SQLs for each question WITHOUT evidence using all models
@@ -29,27 +31,41 @@ class EvidenceNecessity(Validator):
         ]
 
         # For each question, check if a majority of models can produce equivalent SQL without evidence
-        for i, question in enumerate(questions):
+        question_votes: list[QuestionVotes] = []
+        for i, question in tqdm(enumerate(questions), total=len(questions), desc="Comparing SQL results (evidence necessity)"):
             gt_sql = question.sql
             assert gt_sql is not None, "GT SQL query is None for answerable question."
 
+            per_model_votes: list[ModelVote] = []
             equivalent_count = 0
-            for model_sqls in sqls_per_model:
+            for midx, model_sqls in enumerate(sqls_per_model):
                 sql = model_sqls[i]
                 if sql is None:
+                    per_model_votes.append(ModelVote(model_name=self.models[midx].model_name, vote=False))
                     continue
 
-                if self.db.compare_query_results(
+                is_equivalent = self.db.compare_query_results(
                     db_id=question.db_id,
                     predicted_sql=sql,
                     ground_truth_sql=gt_sql
-                ):
+                )
+                per_model_votes.append(ModelVote(model_name=self.models[midx].model_name, vote=is_equivalent))
+                if is_equivalent:
                     equivalent_count += 1
 
-            # If a majority of models can produce equivalent SQL without evidence,
-            # the evidence is not necessary — mark as invalid
-            # (ties resolve conservatively: evidence is deemed necessary)
             if equivalent_count > len(self.models) / 2:
                 valids[i] = False
 
-        return valids
+            question_votes.append(QuestionVotes(
+                question_index=i,
+                question_text=question.question,
+                votes=per_model_votes,
+                aggregate_result=valids[i],
+                removed=not valids[i],
+            ))
+
+        return ValidationStageResult(
+            stage_name="evidence_necessity",
+            validities=valids,
+            question_votes=question_votes,
+        )

@@ -1,6 +1,7 @@
 from evaluators.evaluator import Evaluator
 from dataset_dataclasses.benchmark import Conversation
 from dataset_dataclasses.question import QuestionUnanswerable
+from dataset_dataclasses.council_tracking import QuestionVotes, ModelVote
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
 from evaluators.prompts.feedback_evaluation_prompt import (
@@ -16,7 +17,7 @@ class Feedback(Evaluator):
         self.db: DBDataset = db
         self.models: list[Model] = models
 
-    def evaluate(self, conversations: list[Conversation]) -> None:
+    def evaluate(self, conversations: list[Conversation]) -> list[QuestionVotes]:
         """
         Set the explained flag to True if the system's feedback matches the expected feedback
         for unsolvable questions. Uses majority voting across multiple models.
@@ -55,7 +56,7 @@ class Feedback(Evaluator):
         
         # If no conversations are evaluable, we're done
         if not evaluable_indices:
-            return
+            return []
         
         # Generate prompts for evaluable conversations
         prompts: list[str] = []
@@ -65,8 +66,9 @@ class Feedback(Evaluator):
             prompts.append(prompt)
         
         # Collect votes from each model
+        model_names: list[str] = [m.model_name for m in self.models]
         votes: list[list[bool]] = [[] for _ in evaluable_indices]
-        
+
         for model in self.models:
             model.init()
             responses: list[BaseModel] = model.generate_batch_with_constraints(
@@ -80,7 +82,21 @@ class Feedback(Evaluator):
                 votes[i].append(matches)
         
         # Apply majority voting (ties resolve conservatively: feedback not accepted)
+        feedback_tracking: list[QuestionVotes] = []
         for i, idx in enumerate(evaluable_indices):
             yes_votes = sum(votes[i])
             no_votes = len(votes[i]) - yes_votes
-            conversations[idx].explained = yes_votes > no_votes
+            passed = yes_votes > no_votes
+            conversations[idx].explained = passed
+            feedback_tracking.append(QuestionVotes(
+                question_index=idx,
+                question_text=conversations[idx].question.question,
+                votes=[
+                    ModelVote(model_name=model_names[j], vote=votes[i][j])
+                    for j in range(len(votes[i]))
+                ],
+                aggregate_result=passed,
+                removed=False,
+            ))
+
+        return feedback_tracking

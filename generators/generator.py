@@ -1,8 +1,10 @@
 from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
+from dataset_dataclasses.council_tracking import ValidationStageResult, GenerationTrackingReport
 from categories.category import Category
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
 import json
+import logging
 import os
 from generators.prompts.generator_prompt import get_generation_prompt
 from pydantic import BaseModel
@@ -18,6 +20,22 @@ from validators.feedback_quality_check import FeedbackQualityCheck
 from validators.evidence_necessity import EvidenceNecessity
 from categories.answerable_with_evidence import AnswerableWithEvidenceCategory
 from validators.validator import Validator
+
+logger = logging.getLogger(__name__)
+
+
+def load_questions_from_file(path: str) -> list[Question]:
+    """Load questions from an intermediate results JSON file."""
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    questions: list[Question] = []
+    for d in data:
+        if "hidden_knowledge" in d:
+            from dataset_dataclasses.question import QuestionUnanswerable
+            questions.append(QuestionUnanswerable.from_dict(d))
+        else:
+            questions.append(Question.from_dict(d))
+    return questions
 
 
 class Generator:
@@ -103,14 +121,14 @@ class Generator:
             all_questions.extend(questions)
         return all_questions
     
-    def apply_validator(self, 
-                        questions: list[Question], 
-                        validator: Validator, 
+    def apply_validator(self,
+                        questions: list[Question],
+                        validator: Validator,
                         intermediate_results_label: str,
                         check_if_amb_solvable: bool=False,
                         check_if_amb_unsolvable: bool=False,
                         check_if_answerable: bool=False,
-                        check_if_answerable_with_evidence: bool=False) -> list[Question]:
+                        check_if_answerable_with_evidence: bool=False) -> tuple[list[Question], ValidationStageResult | None]:
         questions_to_check: list[Question] = []
         # Determine which questions to validate based on their category properties and flags
         if check_if_amb_solvable:
@@ -123,61 +141,89 @@ class Generator:
             questions_to_check.extend([q for q in questions if isinstance(q.category, AnswerableWithEvidenceCategory)])
         if not check_if_amb_solvable and not check_if_amb_unsolvable and not check_if_answerable and not check_if_answerable_with_evidence:
             questions_to_check = questions
-        
+
         if len(questions_to_check) == 0:
-            return questions  # Nothing to validate
+            return questions, None  # Nothing to validate
 
         # Remove from the original list the questions that need to be validated
-        questions = [q for q in questions if q not in questions_to_check]
-        
-        validities: list[bool] = validator.validate(questions=questions_to_check)
-        questions_to_check = [q for i, q in enumerate(questions_to_check) if validities[i]]
+        # Use dict keyed by id() for O(1) lookup while preserving insertion order
+        check_ids = {id(q): True for q in questions_to_check}
+        questions = [q for q in questions if id(q) not in check_ids]
+
+        result: ValidationStageResult = validator.validate(questions=questions_to_check)
+        questions_to_check = [q for i, q in enumerate(questions_to_check) if result.validities[i]]
 
         # Combine validated questions with those that didn't need validation
         questions.extend(questions_to_check)
 
         self.save_intermediate_results(questions, intermediate_results_label)
-        return questions
+        return questions, result
 
-    def validate(self, questions: list[Question]) -> list[Question]:
-        self.save_intermediate_results(questions, "initial")
+    def try_load_checkpoint(self, stage_label: str) -> list[Question] | None:
+        """Try to load questions from an existing intermediate results checkpoint."""
+        if self.intermediate_results_folder is None:
+            return None
+        path = os.path.join(self.intermediate_results_folder, f"intermediate_{stage_label}.json")
+        if not os.path.isfile(path):
+            return None
+        try:
+            questions = load_questions_from_file(path)
+            if len(questions) == 0:
+                return None
+            logger.info(
+                "Loaded checkpoint '%s' with %d questions (skipping generation, duplicate_removal, sql_executability)",
+                stage_label, len(questions),
+            )
+            return questions
+        except Exception as e:
+            logger.warning("Failed to load checkpoint '%s': %s", stage_label, e)
+            return None
 
-        # Step 1: Duplicate Removal (remove duplicates)
-        questions = self.apply_validator(questions, self.duplicate_removal_validator, "after_duplicate_removal")
+    def validate(self, questions: list[Question], skip_through_sql_executability: bool = False) -> tuple[list[Question], GenerationTrackingReport]:
+        tracking_stages: list[ValidationStageResult] = []
 
-        # Step 2: SQL Executability Validation if answerable or amb solvable
-        # Must check SQL is valid before checking if it satisfies requirements
-        questions = self.apply_validator(questions, self.sql_executability_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
+        if not skip_through_sql_executability:
+            self.save_intermediate_results(questions, "initial")
 
-        # Step 3: GT Satisfaction Validation if answerable or amb solvable
-        # Check that SQL actually answers the question correctly before checking other properties
-        questions = self.apply_validator(questions, self.gt_satisfaction_validator, "after_gt_satisfaction_check", check_if_amb_solvable=True, check_if_answerable=True)
+            questions, result = self.apply_validator(questions, self.duplicate_removal_validator, "after_duplicate_removal")
+            if result is not None:
+                tracking_stages.append(result)
 
-        # Step 4: Evidence Necessity Validation if answerable with evidence
-        # Verify that evidence is truly needed — models should NOT be able to produce equivalent SQL without it
-        questions = self.apply_validator(questions, self.evidence_necessity_validator, "after_evidence_necessity_check", check_if_answerable_with_evidence=True)
+            questions, result = self.apply_validator(questions, self.sql_executability_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
+            if result is not None:
+                tracking_stages.append(result)
 
-        # Step 5: Ambiguity Verification if amb solvable
-        # After confirming SQL is valid and correct, check if question is actually ambiguous
-        questions = self.apply_validator(questions, self.ambiguity_verification_validator, "after_ambiguity_verification", check_if_amb_solvable=True)
+        questions, result = self.apply_validator(questions, self.gt_satisfaction_validator, "after_gt_satisfaction_check", check_if_amb_solvable=True, check_if_answerable=True)
+        if result is not None:
+            tracking_stages.append(result)
 
-        # Step 6: Unsolvability Verification if amb unsolvable
-        # Check if unsolvable questions are truly unsolvable
-        questions = self.apply_validator(questions, self.unsolvability_verification_validator, "after_unsolvability_verification", check_if_amb_unsolvable=True)
-        
-        # Step 7: Feedback Quality Check if amb unsolvable
-        # After confirming unsolvability, check that feedback correctly explains why
-        questions = self.apply_validator(questions, self.feedback_quality_check_validator, "after_feedback_quality_check", check_if_amb_unsolvable=True)
+        questions, result = self.apply_validator(questions, self.evidence_necessity_validator, "after_evidence_necessity_check", check_if_answerable_with_evidence=True)
+        if result is not None:
+            tracking_stages.append(result)
 
-        # Step 8: Category Consistency Check Validation
-        # Verify question doesn't fit better in a different category
-        questions = self.apply_validator(questions, self.category_consistency_validator, "after_category_consistency_check", check_if_amb_solvable=True, check_if_amb_unsolvable=True)
+        questions, result = self.apply_validator(questions, self.ambiguity_verification_validator, "after_ambiguity_verification", check_if_amb_solvable=True)
+        if result is not None:
+            tracking_stages.append(result)
 
-        # Step 9: Difficulty Conformance check (automated keyword-based SQL analysis)
-        # Verify SQL complexity matches the specified difficulty level
-        questions = self.apply_validator(questions, self.difficulty_conformance_validator, "after_difficulty_conformance")
+        questions, result = self.apply_validator(questions, self.unsolvability_verification_validator, "after_unsolvability_verification", check_if_amb_unsolvable=True)
+        if result is not None:
+            tracking_stages.append(result)
 
-        # Step 10: Style Conformance check (LLM-based)
-        # Verify question matches the intended style
-        questions = self.apply_validator(questions, self.style_conformance_validator, "after_style_conformance")
-        return questions
+        questions, result = self.apply_validator(questions, self.feedback_quality_check_validator, "after_feedback_quality_check", check_if_amb_unsolvable=True)
+        if result is not None:
+            tracking_stages.append(result)
+
+        questions, result = self.apply_validator(questions, self.category_consistency_validator, "after_category_consistency_check", check_if_amb_solvable=True, check_if_amb_unsolvable=True)
+        if result is not None:
+            tracking_stages.append(result)
+
+        questions, result = self.apply_validator(questions, self.difficulty_conformance_validator, "after_difficulty_conformance")
+        if result is not None:
+            tracking_stages.append(result)
+
+        questions, result = self.apply_validator(questions, self.style_conformance_validator, "after_style_conformance")
+        if result is not None:
+            tracking_stages.append(result)
+
+        report = GenerationTrackingReport(stages=tracking_stages)
+        return questions, report

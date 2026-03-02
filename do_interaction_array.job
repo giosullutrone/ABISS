@@ -1,0 +1,97 @@
+#!/bin/bash
+#SBATCH -A IscrC_PD
+#SBATCH -p boost_usr_prod
+#SBATCH --qos=normal
+#SBATCH --time=24:00:00        # Max is 24h for boost_usr_prod
+#SBATCH -N 1                   # 1 node
+#SBATCH --ntasks-per-node=1    # 1 task per node
+#SBATCH --cpus-per-task=16      # 16 CPUs per task
+#SBATCH --gres=gpu:2           # 2 GPUs per node
+#SBATCH --array=0-65           # 66 jobs: 2 datasets × 3 models × 11 db_ids
+#SBATCH --job-name=interaction_array
+#SBATCH --output=/leonardo_work/IscrC_ADM/taxonomy/logs/interaction_%A_%a.out
+
+VERSION="v16"
+
+# System models (3)
+SYSTEM_MODELS=(
+    "../models/Qwen2.5-32B-Instruct"
+    "../models/Mistral-Small-3.2-24B-Instruct-2506"
+    "../models/gemma-3-27b-it"
+)
+
+# bird_dev db_ids (11)
+BIRD_DB_IDS=(
+    "california_schools"
+    "codebase_community"
+    "european_football_2"
+    "formula_1"
+    "superhero"
+    "toxicology"
+    "card_games"
+    "debit_card_specializing"
+    "financial"
+    "student_club"
+    "thrombosis_prediction"
+)
+
+# spider_test db_ids (11)
+SPIDER_DB_IDS=(
+    "company_1"
+    "company_employee"
+    "company_office"
+    "hr_1"
+    "customer_complaints"
+    "customer_deliveries"
+    "customers_and_orders"
+    "customers_card_transactions"
+    "department_store"
+    "e_commerce"
+    "store_product"
+)
+
+# Calculate indices: 2 datasets × 3 models × 11 db_ids = 66 total
+# Layout: [bird_dev: model0×11dbs, model1×11dbs, model2×11dbs | spider_test: same]
+DATASET_IDX=$((SLURM_ARRAY_TASK_ID / 33))
+WITHIN_DATASET=$((SLURM_ARRAY_TASK_ID % 33))
+MODEL_IDX=$((WITHIN_DATASET / 11))
+DB_ID_IDX=$((WITHIN_DATASET % 11))
+
+# Get the system model
+SYSTEM_MODEL=${SYSTEM_MODELS[$MODEL_IDX]}
+SYSTEM_MODEL_NAME=$(basename ${SYSTEM_MODEL})
+
+# Set dataset-specific variables
+if [ $DATASET_IDX -eq 0 ]; then
+    DB_NAME="bird_dev"
+    DB_ROOT_PATH="../datasets/bird_dev/dev_databases"
+    DB_ID=${BIRD_DB_IDS[$DB_ID_IDX]}
+    QUESTION_PATH="results/question_generation/dev_generated_question_${VERSION}_merged.json"
+else
+    DB_NAME="spider_test"
+    DB_ROOT_PATH="../datasets/spider_test/test_databases"
+    DB_ID=${SPIDER_DB_IDS[$DB_ID_IDX]}
+    QUESTION_PATH="results/question_generation/spider_test_generated_question_${VERSION}_merged.json"
+fi
+
+# Change to the working directory
+cd /leonardo_work/IscrC_ADM/taxonomy
+
+# Skip if output file already exists
+OUTPUT_FILE="results/interaction/${DB_NAME}_${VERSION}_interactions_${SYSTEM_MODEL_NAME}_${DB_ID}.json"
+if [ -f "${OUTPUT_FILE}" ]; then
+    echo "Output file ${OUTPUT_FILE} already exists, skipping."
+    exit 0
+fi
+
+# Run the Python script with the desired arguments for this specific db_id
+srun /leonardo_work/IscrC_ADM/taxonomy_env/bin/python3.11 do_interaction.py \
+    --db_name ${DB_NAME} \
+    --db_root_path ${DB_ROOT_PATH} \
+    --model_names ../models/Qwen2.5-32B-Instruct ../models/Mistral-Small-3.2-24B-Instruct-2506 ../models/gemma-3-27b-it \
+    --system_model ${SYSTEM_MODEL} \
+    --tensor_parallel_size 2 \
+    --question_path ${QUESTION_PATH} \
+    --output_path results/interaction/${DB_NAME}_${VERSION}_interactions_${SYSTEM_MODEL_NAME}_${DB_ID}.json \
+    --db_ids ${DB_ID} \
+    --verbose

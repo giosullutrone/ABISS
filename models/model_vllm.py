@@ -75,8 +75,16 @@ class ModelVLLM(Model):
         self.sampling_params = SamplingParams(**self.sampling_kwargs) if self.sampling_kwargs is not None else None
     
     def get_token_lengths(self, prompts: list[str] | list[list[dict[str, str]]]) -> list[int]:
-        prompts_tokens = self.model.preprocess_chat(self.convert_prompt_to_conversation_if_needed(prompts)) # type: ignore        
-        return [len(pt.get("prompt_token_ids")) for pt in prompts_tokens]
+        max_model_len = self.model.llm_engine.model_config.max_model_len
+        converted = self.convert_prompt_to_conversation_if_needed(prompts)
+        lengths: list[int] = []
+        for prompt in converted:
+            try:
+                tokens = self.model.preprocess_chat([prompt])  # type: ignore
+                lengths.append(len(tokens[0].get("prompt_token_ids")))
+            except Exception:
+                lengths.append(max_model_len + 1)
+        return lengths
     
     def _generate_batch(self, prompts: list[list[dict[str, str]]], sampling_params: SamplingParams | None, continue_final_message: bool=False, use_tqdm: bool=True, disable_thinking: bool=False) -> list[str]:
         responses: list[str] = []

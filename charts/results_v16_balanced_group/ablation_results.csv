@@ -1,7 +1,0 @@
-dataset,category_mode,ex,fb
-BIRD,ground_truth,35.8,92.4
-BIRD,predicted,24.2,56.2
-BIRD,no_category,25.1,49.2
-Spider,ground_truth,46.6,92.7
-Spider,predicted,34.1,63.2
-Spider,no_category,34.2,55.0

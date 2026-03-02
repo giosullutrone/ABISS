@@ -1,43 +1,54 @@
-# ABISS: Evaluating Text-to-SQL Systems Through Interactive Ambiguity Resolution
+# ABISS: Evaluating Text-to-SQL Systems Through Agent Interaction
 
-This repository contains the code and benchmarking framework for our VLDB 2026 paper on evaluating text-to-SQL systems with a comprehensive taxonomy of unanswerable and ambiguous questions.
+![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
+
+A comprehensive framework for evaluating text-to-SQL systems on ambiguous and unanswerable questions through multi-turn agent interaction.
+
+<!-- [Paper Link](#) -->
+
+<p align="center">
+  <img src="charts/combined_v16/category_comparison.png" alt="Category distribution of generated questions across ABISS-BIRD and ABISS-Spider" width="100%"/>
+</p>
 
 ## Overview
 
-Modern text-to-SQL systems struggle with questions that are unanswerable, ambiguous, or require clarification. This work introduces:
+Large Language Models demonstrate high performance on curated text-to-SQL benchmarks, yet real-world users frequently pose ambiguous or unanswerable questions that current systems handle poorly. This repository provides three interconnected contributions:
 
-1. **A comprehensive taxonomy** of 12 question categories that characterize different types of answerable and unanswerable questions
-2. **An automated generation pipeline** for creating diverse, high-quality benchmark questions across multiple categories, styles, and difficulty levels
-3. **An interactive benchmarking framework** for evaluating how text-to-SQL systems handle clarification dialogues with users
+1. **A unified taxonomy** of 8 categories (13 subcategories) covering ambiguous and unanswerable questions for knowledge-augmented text-to-SQL systems
+2. **A multi-agent generation pipeline** that produces natural language questions from arbitrary databases, validated by a council of local open-source models
+3. **ABISS** (Ambiguity Benchmark using Interaction-Simulated Sessions), a dynamic simulation environment where text-to-SQL agents interact with style-aware simulated users across multi-turn dialogues
 
-### Question Categories
+## Taxonomy
 
-Our taxonomy includes:
+The taxonomy organizes questions into three groups based on answerability:
 
-**Answerable Questions:**
-- **Answerable**: Questions that can be directly answered from the database schema
+| Group | Category | Subcategory | Description |
+|-------|----------|-------------|-------------|
+| **Answerable** | Answerable | Without Evidence | Directly answerable from the database schema |
+| | | With Evidence | Answerable using provided external evidence |
+| **Ambiguous** | Structural Ambiguity | Scope Ambiguity | Unclear quantifier scope ("each", "every", "all") |
+| | | Attachment Ambiguity | Unclear modifier attachment in conjunctions |
+| | Semantic Mapping Ambiguity | Lexical Overlap | Two or more schema attributes share similar or identical forms |
+| | | Entity Ambiguity | Terms map to attributes in different entities |
+| | Lexical Vagueness | | Vague terms lacking precise boundaries ("recent", "high") |
+| | Missing User Knowledge | | User-specific context required ("my department") |
+| | Conflicting Knowledge | | Non-equivalent pieces of evidence in the knowledge base |
+| **Unanswerable** | Missing Schema Elements | Missing Entities or Attributes | Required tables or columns absent from schema |
+| | | Missing Relationship | No linkage exists between relevant entities |
+| | Missing External Knowledge | | Domain-specific facts or policies not in database or knowledge base |
+| | Improper Question | | Unrelated to the domain, or not a database query |
 
-**Unanswerable-Solvable Questions** (can be resolved through clarification):
-- **Lexical Vagueness**: Terms used are vague or imprecise (e.g., "recent", "high", "popular")
-- **Semantic Mapping - Entity Ambiguity**: Terms map to attributes from multiple different entities or tables
-- **Semantic Mapping - Lexical Overlap**: Natural language terms overlap with multiple schema attributes within the same entity
-- **Structure Ambiguity - Attachment**: Unclear which entity a modifier attaches to in conjunctions
-- **Structure Ambiguity - Scope**: Unclear scope of quantifiers (e.g., "each", "every", "all")
-- **Conflicting Knowledge**: Multiple contradictory definitions exist in the knowledge base
-- **Missing User Knowledge**: User-specific context is required but not available
-
-**Unanswerable-Unsolvable Questions** (cannot be resolved):
-- **Improper Question**: Question is nonsensical, malformed, or unrelated to the database domain
-- **Missing External Knowledge**: Question requires domain-specific facts, conventions, or policies not in the database
-- **Missing Schema Entities**: Required entities or attributes are completely absent from the schema
-- **Missing Schema Relationships**: Required entities exist but lack foreign keys or relationships to connect them
+<p align="center">
+  <img src="charts/combined_v16/semantic_distribution.png" alt="UMAP projection of sentence embeddings showing semantic distribution of generated vs. original questions" width="100%"/>
+</p>
 
 ## Installation
 
 ### Requirements
 
 - Python 3.10+
-- CUDA-capable GPU (for VLLM models)
+- CUDA-capable GPU (for vLLM inference)
 - Sufficient disk space for model weights
 
 ### Setup
@@ -56,186 +67,172 @@ pip install vllm
 
 ## Quick Start
 
-### 1. Question Generation
+### Question Generation
 
-Generate a dataset of questions across different categories, styles, and difficulty levels:
+Generate benchmark questions across all categories, styles, and difficulty levels:
 
 ```bash
+# Generate questions for BIRD
 python do_question_generation.py \
     --db_name bird_dev \
-    --db_root_path ../datasets/bird_dev/dev_databases \
-    --model_names ../models/Qwen2.5-32B-Instruct ../models/Mistral-Small-3.2-24B-Instruct-2506 ../models/gemma-3-27b-it \
-    --n_samples 5 \
+    --db_root_path datasets/bird_dev/dev_databases \
+    --model_names models/Qwen2.5-32B-Instruct models/Mistral-Small-3.2-24B-Instruct-2506 models/gemma-3-27b-it \
+    --n_samples 3 \
     --tensor_parallel_size 2 \
-    --question_path ../datasets/bird_dev/dev.json \
-    --intermediate_results_folder ./intermediate_results \
-    --output_path results/question_generation/dev_generated_questions.json \
-    --categories Answerable LexicalVagueness MissingSchemaEntities \
+    --intermediate_results_folder results/intermediate_results \
+    --output_path results/question_generation/generated_questions.json \
+    --verbose
+
+# Generate questions for Spider
+python do_question_generation.py \
+    --db_name spider_test \
+    --db_root_path datasets/spider_test/test_databases \
+    --model_names models/Qwen2.5-32B-Instruct models/Mistral-Small-3.2-24B-Instruct-2506 models/gemma-3-27b-it \
+    --n_samples 3 \
+    --tensor_parallel_size 2 \
+    --intermediate_results_folder results/intermediate_results \
+    --output_path results/question_generation/spider_questions.json \
     --verbose
 ```
 
-**Key Parameters:**
-- `--db_root_path`: Root directory containing database files
-- `--db_name`: Name of the database to use (e.g., spider, bird_dev)
-- `--model_names`: List of LLM model paths for generation (space-separated)
-- `--n_samples`: Number of questions to generate per category per model
-- `--categories`: Specific categories to generate (omit to use all 12 categories)
-  - Available: `Answerable`, `ConflictingKnowledge`, `ImproperQuestion`, `LexicalVagueness`, `MissingExternalKnowledge`, `MissingSchemaEntities`, `MissingSchemaRelationships`, `MissingUserKnowledge`, `SemanticMappingEntityAmbiguity`, `SemanticMappingLexicalOverlap`, `StructureAmbiguityAttachment`, `StructureAmbiguityScope`
-- `--styles`: Question styles (formal, colloquial, imperative, interrogative, descriptive, concise)
-- `--difficulties`: Question difficulties (simple, moderate, complex, highly_complex)
-- `--limit_categories`: Only use specified categories for validation (not all categories)
-- `--intermediate_results_folder`: Save intermediate results for debugging
+**Generation Parameters:**
 
-### 2. Interactive Benchmarking
+| Parameter | Description |
+|-----------|-------------|
+| `--db_name` | Name identifier for the database set |
+| `--db_root_path` | Root directory containing database folders |
+| `--model_names` | LLM model paths for generation (space-separated, used as council) |
+| `--n_samples` | Number of questions to generate per category per model |
+| `--tensor_parallel_size` | Number of GPUs for tensor parallelism |
+| `--categories` | Specific categories to generate (omit for all). See [Custom Taxonomy Guide](CUSTOM_TAXONOMY.md) for the full list |
+| `--styles` | Question styles: `formal`, `colloquial`, `imperative`, `interrogative`, `descriptive`, `concise` |
+| `--difficulties` | Difficulty levels: `simple`, `moderate`, `complex`, `highly_complex` |
+| `--db_ids` | Specific database IDs to use (omit for all databases in root) |
+| `--quantization` | Quantization method: `bitsandbytes`, `fp8`, `awq`, `gptq` |
+| `--limit_categories` | Only use specified categories for validation (not the full taxonomy) |
+| `--intermediate_results_folder` | Save intermediate results for debugging |
 
-Evaluate a text-to-SQL system on generated questions with simulated user interactions:
+### Interactive Benchmarking
+
+Evaluate text-to-SQL systems on generated questions with simulated user interactions:
 
 ```bash
 python do_interaction.py \
     --db_name bird_dev \
-    --db_root_path ../datasets/bird_dev/dev_databases \
-    --model_names ../models/Qwen2.5-32B-Instruct ../models/Mistral-Small-3.2-24B-Instruct-2506 ../models/gemma-3-27b-it \
+    --db_root_path datasets/bird_dev/dev_databases \
+    --model_names models/Qwen2.5-32B-Instruct models/Mistral-Small-3.2-24B-Instruct-2506 models/gemma-3-27b-it \
+    --system_model models/Qwen2.5-32B-Instruct \
     --tensor_parallel_size 2 \
-    --question_path results/question_generation/dev_generated_questions.json \
-    --output_path results/interaction/dev_interactions.json \
-    --max_steps 5 \
+    --question_path results/question_generation/generated_questions.json \
+    --output_path results/interaction/bird_interactions.json \
     --verbose
 ```
 
-**Key Parameters:**
-- `--question_path`: Path to the JSON file with generated questions
-- `--model_names`: List of LLM model paths to evaluate (space-separated)
-- `--max_steps`: Maximum number of interaction turns between system and user (default: 5)
-- `--categories`: Specific categories to benchmark (should match generation categories)
-- `--output_path`: Where to save benchmark results
+**Interaction Parameters:**
 
-The benchmark simulates user interactions with different:
-- **User knowledge levels**: FULL (knows schema), NL (natural language only), NONE (minimal knowledge)
-- **Category usage modes**: GROUND_TRUTH (give the true category to the text-to-sql system), PREDICTED (use system's classification), NO_CATEGORY (no category information given to the system)
+| Parameter | Description |
+|-----------|-------------|
+| `--db_name` | Name identifier for the database set |
+| `--db_root_path` | Root directory containing database folders |
+| `--question_path` | Path to JSON file with generated questions |
+| `--model_names` | LLM model paths for the user simulation council (space-separated) |
+| `--system_model` | Model to evaluate as the text-to-SQL system (if not specified, each model in `--model_names` is evaluated) |
+| `--tensor_parallel_size` | Number of GPUs for tensor parallelism |
+| `--max_steps` | Maximum clarification turns before forced final response (default: 3) |
+| `--category_uses` | Category usage modes to test: `ground_truth`, `predicted`, `no_category` |
+| `--balanced` | Balance the evaluation dataset for equal group representation |
+| `--balance_by` | Balance by `category` (13-way) or `group` (3-way: answerable, ambiguous, unanswerable) |
+| `--db_ids` | Specific database IDs to use (omit for all) |
 
-## Project Structure
-
-The codebase is organized into modular components:
-
-- **`agents/`** - System agents for question classification and SQL generation
-- **`benchmarks/`** - Interactive benchmarking framework
-- **`categories/`** - Question category definitions (12 categories implementing the taxonomy)
-- **`dataset_dataclasses/`** - Data structures for questions and benchmark results
-- **`db_datasets/`** - Database interface supporting Spider, BIRD, and other benchmarks
-- **`evaluators/`** - Evaluation metrics (recognition, classification, generation, feedback)
-- **`generators/`** - Question generation pipeline with validation
-- **`models/`** - LLM model interfaces (vLLM implementation)
-- **`users/`** - Simulated user behavior for benchmarking
-- **`validators/`** - Question validation checks
-- **`utils/`** - Utility functions
-
-**Entry Point Scripts:**
-- `do_question_generation.py` - Generate questions
-- `do_interaction.py` - Run interactive benchmarking
-- `*.job` files - SLURM job scripts for HPC clusters
-
-For detailed descriptions of each file and module, see [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).
+<p align="center">
+  <img src="charts/results_v16_balanced_group/per_category_performance.png" alt="Per-category performance under Ground Truth and Predicted category modes" width="100%"/>
+</p>
 
 ## Key Features
 
 ### Multi-Dimensional Question Generation
+Questions are generated with fine-grained control over category (13 subcategories), linguistic style (6 styles), and difficulty level (4 levels), producing a diverse benchmark across any database.
 
-Questions are generated with fine-grained control over:
-- **Category**: Type of answerability/ambiguity (12 categories in taxonomy)
-- **Style**: Linguistic formulation
-  - Formal: "Retrieve the names of students enrolled in the database course."
-  - Colloquial: "Who's taking the database class?"
-  - Imperative: "Show me the database students."
-  - Interrogative: "Which students are enrolled in the database course?"
-  - Descriptive: "The students enrolled in the database course."
-  - Concise: "Database students."
-- **Difficulty**: Complexity of reasoning required
-  - Simple: Single table, basic conditions
-  - Moderate: Multiple tables, simple joins
-  - Complex: Multiple joins, aggregations, subqueries
-  - Highly Complex: Nested subqueries, complex aggregations, multiple conditions
-- **Database**: Target database schema (Spider, BIRD, etc.)
+### Council-Based Validation
+Generated questions pass through a 10-stage validation pipeline where a council of LLMs votes on quality decisions via majority voting, reducing single-model bias:
+1. Duplicate Removal
+2. SQL Executability
+3. Ground Truth Satisfaction
+4. Evidence Necessity
+5. Ambiguity Verification
+6. Unsolvability Verification
+7. Feedback Quality Check
+8. Category Consistency
+9. Difficulty Conformance
+10. Style Conformance
 
-### Robust Validation Pipeline
-
-Generated questions undergo comprehensive validation:
-- ✅ **SQL executability**: For answerable questions, verify SQL is syntactically correct and executes successfully
-- ✅ **Category correctness**: Validate that ambiguity/unanswerability matches the specified category
-- ✅ **Duplicate detection**: Ensure questions are unique and non-redundant
-- ✅ **Ground truth verification**: Confirm SQL produces expected results
-- ✅ **Style and difficulty consistency**: Verify questions match their specified style and difficulty
-- ✅ **Unsolvability check**: For unsolvable questions, confirm they cannot be resolved
-- ✅ **Feedback quality**: Validate that clarification feedback is informative and actionable
-
-### Interactive Evaluation Framework
-
-The benchmark provides sophisticated interaction simulation:
-- **Multi-turn dialogues**: Systems can ask clarification questions across multiple turns (configurable max_steps)
-- **User knowledge level simulation**:
-  - FULL: User understands database schema and can reference schema elements
-  - NL: User uses natural language only, no schema knowledge
-  - NONE: Minimal user knowledge, may not provide useful clarifications
-- **Category usage modes**:
-  - GROUND_TRUTH: System uses the true category from ground truth
-  - PREDICTED: System must predict the category from the question
-  - NO_CATEGORY: System operates without category information
-- **Comprehensive metrics**: Recognition accuracy, classification accuracy, SQL correctness, interaction efficiency, feedback quality
+### Interactive Simulation
+The benchmark simulates realistic multi-turn dialogues where:
+- The **system agent** classifies questions, generates SQL, asks clarifications, or provides feedback
+- The **user agent** (council of LLMs) responds with style-aware answers, assessed for relevancy via majority voting
+- Three **category usage modes** isolate different capabilities: ground truth (interaction only), predicted (end-to-end), no category (fully autonomous)
 
 ### Efficient Batched Inference
-
-The framework leverages vLLM for high-performance inference:
-- Batched generation across multiple questions and categories
-- Prefix caching to reduce redundant computation
-- Tensor parallelism for multi-GPU scaling
-- Configurable batch sizes to optimize memory usage
+The framework leverages vLLM for high-performance inference with batched generation, prefix caching, tensor parallelism, and configurable quantization.
 
 ## Evaluation Metrics
 
-The framework provides four key evaluators accessible through the `evaluators/` module:
+| Metric | Scope | Description |
+|--------|-------|-------------|
+| **Recognition** | All questions | Does the system correctly identify the question type (answerable, ambiguous, or unanswerable)? |
+| **Classification** | All questions | Exact subcategory matching between the ground truth and the system's prediction |
+| **Execution Accuracy** | Answerable and ambiguous | Does the generated SQL produce semantically equivalent results to the ground truth? |
+| **Feedback Accuracy** | Unanswerable | Does the system's explanation match the question's hidden knowledge? Assessed by council voting. |
+| **Turns to Relevant (TTR)** | Ambiguous (with clarifications) | Number of system turns before the first relevant clarification question |
+| **Turns to Stop (TTS)** | Ambiguous (with clarifications) | Number of turns from the first relevant clarification to the terminal response |
 
-1. **Recognition Evaluator** (`recognition.py`): 
-   - Measures whether the system correctly identifies questions as answerable vs. unanswerable
-   - Binary classification accuracy across all questions
+## Extending ABISS
 
-2. **Classification Evaluator** (`classification.py`): 
-   - Measures whether the system identifies the specific category of unanswerable questions
-   - Multi-class classification accuracy (12 categories)
-   - Confusion matrix analysis
+ABISS is designed to be extended with custom question categories and new databases:
 
-3. **Generation Evaluator** (`generation.py`): 
-   - Assesses SQL quality for answerable questions
-   - Execution accuracy (does SQL run without errors?)
-   - Semantic correctness (does SQL return correct results?)
-   - Comparison with ground truth SQL
+- **[Custom Taxonomy Guide](CUSTOM_TAXONOMY.md)**: How to create new question categories, define their output schemas, and plug them into the generation and interaction pipelines
+- **[Database Setup Guide](DATABASE_SETUP.md)**: How to organize and add new databases for question generation and benchmarking
 
-4. **Feedback Evaluator** (`feedback.py`): 
-   - Evaluates the quality of clarification questions asked by the system
-   - Relevance: Does the clarification question address the ambiguity?
-   - Informativeness: Does it help resolve the question?
-   - Specificity: Is it concrete and actionable?
+## Project Structure
+
+```
+├── agents/              # System agent for classification and response generation
+├── benchmarks/          # Interactive benchmarking orchestrator
+├── categories/          # 13 question category definitions (taxonomy)
+├── dataset_dataclasses/ # Data structures for questions and results
+├── db_datasets/         # Database interface and schema management
+├── evaluators/          # Evaluation metrics (recognition, classification, execution, feedback)
+├── generators/          # Question generation pipeline
+├── models/              # LLM interfaces (vLLM)
+├── users/               # Simulated user agent for benchmarking
+├── validators/          # 10-stage validation pipeline
+├── utils/               # Utility functions
+├── do_question_generation.py  # Entry point: question generation
+├── do_interaction.py          # Entry point: interactive benchmarking
+├── generate_result_charts.py  # Analysis: performance charts
+└── generate_confusion_matrix.py # Analysis: confusion matrices
+```
+
+For detailed file-by-file documentation, see [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).
 
 ## Citation
 
 If you use this code or dataset in your research, please cite:
 
 ```bibtex
-@inproceedings{taxonomy2026,
-  title={},
-  author={[Authors]},
-  booktitle={},
-  year={2026},
-  volume={XX},
-  number={XX}
+@article{Sullutrone2026ABISS,
+  author    = {Sullutrone, Giovanni and Bergamaschi, Sonia},
+  title     = {{ABISS}: Evaluating Text-to-{SQL} Systems Through Agent Interaction},
+  journal   = {Proceedings of the VLDB Endowment},
+  year      = {2026},
+  volume    = {14},
+  number    = {1}
 }
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-We welcome contributions! Please feel free to submit issues or pull requests.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Contact
 

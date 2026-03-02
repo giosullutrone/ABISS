@@ -9,6 +9,7 @@ from validators.prompts.feedback_quality_check_prompt import (
     get_feedback_quality_check_result
 )
 from typing import cast
+from dataset_dataclasses.council_tracking import ValidationStageResult, QuestionVotes, ModelVote
 
 
 class FeedbackQualityCheck(Validator):
@@ -23,7 +24,7 @@ class FeedbackQualityCheck(Validator):
         self.db: DBDataset = db
         self.models: list[Model] = models
 
-    def validate(self, questions: list[Question]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> ValidationStageResult:
         """
         Validate that feedback for unsolvable questions is correct and clear.
         
@@ -38,7 +39,8 @@ class FeedbackQualityCheck(Validator):
         
         # Collect votes from each model (only for questions that need validation)
         valids: list[list[bool]] = [[] for _ in questions]
-        
+        model_names: list[str] = [m.model_name for m in self.models]
+
         for model in self.models:
             model.init()
             
@@ -59,14 +61,35 @@ class FeedbackQualityCheck(Validator):
         # Apply majority voting for questions that were checked
         # Questions that weren't checked (empty prompts) automatically pass
         final_valids: list[bool] = []
+        question_votes: list[QuestionVotes] = []
         for i, votes in enumerate(valids):
             if len(votes) == 0:
-                # No validation needed (answerable or solvable question, or no feedback)
                 final_valids.append(True)
+                question_votes.append(QuestionVotes(
+                    question_index=i,
+                    question_text=questions[i].question,
+                    votes=[],
+                    aggregate_result=True,
+                    removed=False,
+                ))
             else:
-                # Majority voting (ties resolve conservatively: question rejected)
                 yes_votes = sum(votes)
                 no_votes = len(votes) - yes_votes
-                final_valids.append(yes_votes > no_votes)
-        
-        return final_valids
+                passed = yes_votes > no_votes
+                final_valids.append(passed)
+                question_votes.append(QuestionVotes(
+                    question_index=i,
+                    question_text=questions[i].question,
+                    votes=[
+                        ModelVote(model_name=model_names[j], vote=votes[j])
+                        for j in range(len(votes))
+                    ],
+                    aggregate_result=passed,
+                    removed=not passed,
+                ))
+
+        return ValidationStageResult(
+            stage_name="feedback_quality_check",
+            validities=final_valids,
+            question_votes=question_votes,
+        )

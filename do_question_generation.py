@@ -89,6 +89,8 @@ if __name__ == "__main__":
     parser.add_argument("--styles", type=str, nargs='+', required=False, help="List of question styles to generate (formal, colloquial, imperative, interrogative, descriptive, concise)", default=None)
     parser.add_argument("--difficulties", type=str, nargs='+', required=False, help="List of question difficulties to generate (simple, moderate, complex, highly_complex)", default=None)
     parser.add_argument("--db_ids", type=str, nargs='+', required=False, help="List of database IDs to use for generation (if not specified, all database IDs will be used)", default=None)
+    parser.add_argument("--quantization", type=str, required=False, help="Quantization method for VLLM models (e.g. bitsandbytes, fp8, awq, gptq)", default=None)
+    parser.add_argument("--gpu_memory_utilization", type=float, required=False, help="GPU memory utilization for VLLM (0.0 to 1.0)", default=0.9)
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
@@ -113,6 +115,8 @@ if __name__ == "__main__":
     style_names: list[str] | None = args.styles
     difficulty_names: list[str] | None = args.difficulties
     db_ids_arg: list[str] | None = args.db_ids
+    quantization: str | None = args.quantization
+    gpu_memory_utilization: float = args.gpu_memory_utilization
 
     db_dataset = DBDataset(db_root_path=db_root_path, db_name=db_name)
 
@@ -125,12 +129,14 @@ if __name__ == "__main__":
                                    "frequency_penalty": 0.2,
                                },
                                model_kwargs={
-                                   "max_model_len": 18000, 
-                                   "max_num_batched_tokens": 18000,
-                                   "enable_prefix_caching": True, 
+                                   "max_model_len": 32000,
+                                   "max_num_batched_tokens": 32000,
+                                   "enable_prefix_caching": True,
                                    "enforce_eager": True,
                                    "tensor_parallel_size": tensor_parallel_size,
-                                   "limit_mm_per_prompt": {"image": 0, "video": 0}, 
+                                   "gpu_memory_utilization": gpu_memory_utilization,
+                                   "limit_mm_per_prompt": {"image": 0, "video": 0},
+                                   **({"quantization": quantization} if quantization else {}),
                                },
                                max_batch_with_text_size=100000) for model in model_names]
 
@@ -141,12 +147,14 @@ if __name__ == "__main__":
                                    "seed": 42,
                                },
                                model_kwargs={
-                                   "max_model_len": 24000, 
-                                   "max_num_batched_tokens": 24000,
-                                   "enable_prefix_caching": True, 
+                                   "max_model_len": 32000,
+                                   "max_num_batched_tokens": 32000,
+                                   "enable_prefix_caching": True,
                                    "enforce_eager": True,
                                    "tensor_parallel_size": tensor_parallel_size,
-                                   "limit_mm_per_prompt": {"image": 0, "video": 0}, 
+                                   "gpu_memory_utilization": gpu_memory_utilization,
+                                   "limit_mm_per_prompt": {"image": 0, "video": 0},
+                                   **({"quantization": quantization} if quantization else {}),
                                },
                                max_batch_with_text_size=100000) for model in model_names]
 
@@ -164,7 +172,7 @@ if __name__ == "__main__":
         models_validator=models_validator,
         categories=categories if limit_categories else get_all_categories(),
         n_samples=n_samples,
-        max_tokens=24000,
+        max_tokens=32000,
         max_gen_tokens=2048,
         intermediate_results_folder=intermediate_results_folder
     )
@@ -178,8 +186,12 @@ if __name__ == "__main__":
         db_ids=db_ids
     )
 
-    questions = chain.generate()
+    questions, generation_report = chain.generate()
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump([q.to_dict() for q in questions], f, indent=4)
+
+    # Save council tracking data
+    tracking_path = os.path.splitext(output_path)[0] + "_council_tracking.json"
+    generation_report.save(tracking_path)

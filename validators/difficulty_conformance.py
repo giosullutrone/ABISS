@@ -1,6 +1,7 @@
 import re
 from validators.validator import Validator
 from dataset_dataclasses.question import Question, QuestionDifficulty
+from dataset_dataclasses.council_tracking import ValidationStageResult
 
 
 def classify_sql_difficulty(sql: str) -> QuestionDifficulty:
@@ -180,16 +181,17 @@ class DifficultyConformance(Validator):
     For unanswerable questions without SQL, validation is skipped (assumed valid).
     """
 
-    def validate(self, questions: list[Question]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> ValidationStageResult:
         results: list[bool] = []
         for question in questions:
             if question.sql is None:
-                # Unanswerable questions without SQL — cannot verify difficulty 
-                # automatically, so we consider them valid
                 results.append(True)
                 continue
-            
+
             detected_difficulty = classify_sql_difficulty(question.sql)
             results.append(detected_difficulty == question.question_difficulty)
-        
-        return results
+
+        return ValidationStageResult(
+            stage_name="difficulty_conformance",
+            validities=results,
+        )

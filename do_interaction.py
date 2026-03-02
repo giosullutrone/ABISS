@@ -178,7 +178,11 @@ if __name__ == "__main__":
         questions = balance_questions(questions, key_fn, seed=42)
         print(f"Balanced {pre_balance} -> {len(questions)} questions ({args.balance_by}-level)")
 
-    results = runner.run(questions=questions)
+    results, benchmark_report = runner.run(questions=questions)
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, 'w') as f:
         f.write(json.dumps(results.to_dict(), indent=4))
+
+    # Save council tracking data
+    tracking_path = os.path.splitext(output_path)[0] + "_council_tracking.json"
+    benchmark_report.save(tracking_path)

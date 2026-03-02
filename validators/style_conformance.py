@@ -9,6 +9,7 @@ from validators.prompts.style_conformance_prompt import (
 )
 from pydantic import BaseModel
 from typing import cast
+from dataset_dataclasses.council_tracking import ValidationStageResult, QuestionVotes, ModelVote
 
 
 class StyleConformance(Validator):
@@ -16,7 +17,7 @@ class StyleConformance(Validator):
         self.db: DBDataset = db
         self.models: list[Model] = models
 
-    def validate(self, questions: list[Question]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> ValidationStageResult:
         prompts: list[str] = []
         
         for question in questions:
@@ -24,6 +25,7 @@ class StyleConformance(Validator):
             prompts.append(prompt)
         
         valids: list[list[bool]] = [[] for _ in questions]
+        model_names: list[str] = [m.model_name for m in self.models]
 
         for model in self.models:
             model.init()
@@ -39,9 +41,25 @@ class StyleConformance(Validator):
 
         # Majority voting across models (ties resolve conservatively: question rejected)
         final_valids: list[bool] = []
-        for votes in valids:
+        question_votes: list[QuestionVotes] = []
+        for i, votes in enumerate(valids):
             yes_votes = sum(votes)
             no_votes = len(votes) - yes_votes
-            final_valids.append(yes_votes > no_votes)
-        
-        return final_valids
+            passed = yes_votes > no_votes
+            final_valids.append(passed)
+            question_votes.append(QuestionVotes(
+                question_index=i,
+                question_text=questions[i].question,
+                votes=[
+                    ModelVote(model_name=model_names[j], vote=votes[j])
+                    for j in range(len(votes))
+                ],
+                aggregate_result=passed,
+                removed=not passed,
+            ))
+
+        return ValidationStageResult(
+            stage_name="style_conformance",
+            validities=final_valids,
+            question_votes=question_votes,
+        )

@@ -10,6 +10,10 @@ from evaluators.recognition import Recognition
 from evaluators.classification import Classification
 from evaluators.generation import Generation
 from evaluators.feedback import Feedback
+from dataset_dataclasses.council_tracking import (
+    RelevancyVotes, TournamentVotes, QuestionVotes,
+    BenchmarkTrackingReport,
+)
 
 
 class Benchmark:
@@ -33,7 +37,7 @@ class Benchmark:
             Feedback(self.db_dataset, self.user.models)
         ]
 
-    def run(self, questions: list[Question]) -> Results:
+    def run(self, questions: list[Question]) -> tuple[Results, BenchmarkTrackingReport]:
         # Step 1: Classify all questions (only once per question, not per category_use)
         predicted_categories_per_question: list[Category] | None = self.system.get_category(questions)
 
@@ -67,6 +71,9 @@ class Benchmark:
         # Keep track of which conversation still hasn't received a final response (solution or feedback)
         unfinished_conversations: list[int] = list(range(len(conversations)))
         # We run the loop until all conversations are finished or we reach max steps + 1 (to allow for final feedback)
+        all_relevancy: list[RelevancyVotes] = []
+        all_tournament: list[TournamentVotes] = []
+
         step = 0
         while len(unfinished_conversations) > 0 and step < self.max_steps + 1:
             # Get system responses for unfinished conversations
@@ -126,9 +133,11 @@ class Benchmark:
             # Classify relevancy and generate user answers in a single step
             # for conversations that received a clarification question
             if len(unfinished_conversations) > 0:
-                self.user.get_response(
+                relevancy_tracking, tournament_tracking = self.user.get_response(
                     [conversations[idx] for idx in unfinished_conversations]
                 )
+                all_relevancy.extend(relevancy_tracking)
+                all_tournament.extend(tournament_tracking)
 
             # Increment step
             step += 1
@@ -142,10 +151,20 @@ class Benchmark:
         )
 
         # Run evaluators automatically
-        self.evaluate(results)
+        all_feedback: list[QuestionVotes] = self.evaluate(results)
 
-        return results
+        report = BenchmarkTrackingReport(
+            relevancy_votes=all_relevancy,
+            tournament_votes=all_tournament,
+            feedback_votes=all_feedback,
+        )
 
-    def evaluate(self, results: Results) -> None:
+        return results, report
+
+    def evaluate(self, results: Results) -> list[QuestionVotes]:
+        all_feedback: list[QuestionVotes] = []
         for evaluator in self.evaluators:
-            evaluator.evaluate(results.conversations)
+            result = evaluator.evaluate(results.conversations)
+            if isinstance(result, list):
+                all_feedback.extend(result)
+        return all_feedback

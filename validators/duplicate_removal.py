@@ -1,5 +1,6 @@
 from validators.validator import Validator
 from dataset_dataclasses.question import Question, QuestionUnanswerable
+from dataset_dataclasses.council_tracking import ValidationStageResult
 from tqdm import tqdm
 import re
 
@@ -25,7 +26,7 @@ def mask_sql_values(sql: str) -> str:
 
 
 class DuplicateRemoval(Validator):
-    def validate(self, questions: list[Question]) -> list[bool]:
+    def validate(self, questions: list[Question]) -> ValidationStageResult:
         # Check if any questions is a copy of another question in the dataset.
         # Deduplication based on:
         # 1. Question text + hidden knowledge (if applicable)
@@ -54,4 +55,7 @@ class DuplicateRemoval(Validator):
             
             # Mark as invalid if duplicate found in either check
             valids.append(not (is_in_questions or is_in_sql_templates))
-        return valids
+        return ValidationStageResult(
+            stage_name="duplicate_removal",
+            validities=valids,
+        )
