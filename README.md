@@ -15,6 +15,13 @@ Large Language Models demonstrate high performance on curated text-to-SQL benchm
 2. **A multi-agent generation pipeline** that produces natural language questions from arbitrary databases, validated by a council of local open-source models
 3. **ABISS** (Ambiguity Benchmark using Interaction-Simulated Sessions), a dynamic simulation environment where text-to-SQL agents interact with style-aware simulated users across multi-turn dialogues
 
+## Extending ABISS
+
+ABISS is designed to be extended with custom question categories and new databases:
+
+- **[Custom Taxonomy Guide](CUSTOM_TAXONOMY.md)**: How to create new question categories, define their output schemas, and plug them into the generation and interaction pipelines
+- **[Database Setup Guide](DATABASE_SETUP.md)**: How to organize and add new databases for question generation and benchmarking
+
 ## Taxonomy
 
 The taxonomy organizes questions into three groups based on answerability:
@@ -228,13 +235,6 @@ Average performance across all seven models under each category usage mode:
 - **Feedback is classification-bounded**: feedback accuracy jumps from 49.2% to 92.4% on BIRD when ground truth categories are provided, indicating that models can almost always generate correct explanations once they know the exact problem type.
 - **SQL integration remains fundamentally difficult**: even under oracle conditions (ground truth category, relevant clarifications received), the best execution accuracy reaches only 41.6% on BIRD and 56.0% on Spider.
 - **Model size does not predict performance**: Mistral-Small-24B (24B) achieves the highest scores despite being smaller than Llama-3.3-70B and both 32B models, suggesting that training data composition matters more than scale.
-
-## Extending ABISS
-
-ABISS is designed to be extended with custom question categories and new databases:
-
-- **[Custom Taxonomy Guide](CUSTOM_TAXONOMY.md)**: How to create new question categories, define their output schemas, and plug them into the generation and interaction pipelines
-- **[Database Setup Guide](DATABASE_SETUP.md)**: How to organize and add new databases for question generation and benchmarking
 
 ## Project Structure
 
