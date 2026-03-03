@@ -7,7 +7,6 @@ results
 *.tex
 *exp.py
 *.json
-*md
 intermediate_results
 tests
 example_results/*
