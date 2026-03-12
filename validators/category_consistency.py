@@ -19,10 +19,10 @@ class CategoryConsistency(Validator):
         # For each question, compare its main category against all other categories
         # Use pairwise comparisons, testing both orders
         
-        # Build prompts for all comparisons
+        # Build prompts for all comparisons (main category as A, other as B)
         prompts: list[str] = []
-        prompt_metadata: list[tuple[int, int, bool]] = []  # (question_idx, other_cat_idx, is_main_first)
-        
+        prompt_metadata: list[tuple[int, int]] = []  # (question_idx, other_cat_idx)
+
         for q_idx, question in enumerate(questions):
             main_cat = question.category
             for cat_idx, other_cat in enumerate(self.categories):
@@ -34,45 +34,26 @@ class CategoryConsistency(Validator):
                 # Answerable questions are excluded upstream (generator.py).
                 if other_cat.is_answerable() or main_cat.is_solvable() != other_cat.is_solvable():
                     continue
-                
-                # Prompt with main as A, other as B
+
                 prompt = get_category_consistency_prompt(self.db, main_cat, other_cat, question)
                 prompts.append(prompt)
-                prompt_metadata.append((q_idx, cat_idx, True))
-                
-                # Prompt with other as A, main as B
-                prompt = get_category_consistency_prompt(self.db, other_cat, main_cat, question)
-                prompts.append(prompt)
-                prompt_metadata.append((q_idx, cat_idx, False))
+                prompt_metadata.append((q_idx, cat_idx))
         
         # Collect votes from all models
-        votes_per_question_other: dict[tuple[int, int], list[int]] = {}  # key: (q_idx, cat_idx), value: list of 0 (main wins) or 1 (other wins)
-        
+        # key: (q_idx, cat_idx), value: list of 0 (main wins) or 1 (other wins)
+        votes_per_question_other: dict[tuple[int, int], list[int]] = {}
+
         for model in self.models:
             model.init()
             responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(prompts, cast(list[type[BaseModel]], [CategoryConsistencyResponse] * len(prompts)))
             model.close()
-            
-            # Process responses
+
             for i, response in enumerate(responses):
                 if response is None:
-                    winner = 1  # Assume other wins if response is None
+                    vote = 1  # Assume other wins if response is None
                 else:
-                    winner = get_category_consistency_result(response)  # 0 for A, 1 for B
-                q_idx, cat_idx, is_main_first = prompt_metadata[i]
-                if is_main_first:
-                    # A is main, B is other
-                    if winner == 0:
-                        vote = 0  # main wins
-                    else:
-                        vote = 1  # other wins
-                else:
-                    # A is other, B is main
-                    if winner == 0:
-                        vote = 1  # other wins
-                    else:
-                        vote = 0  # main wins
-                
+                    vote = get_category_consistency_result(response)  # 0 for A (main), 1 for B (other)
+                q_idx, cat_idx = prompt_metadata[i]
                 key = (q_idx, cat_idx)
                 if key not in votes_per_question_other:
                     votes_per_question_other[key] = []
@@ -94,8 +75,7 @@ class CategoryConsistency(Validator):
                     main_votes = sum(1 for v in votes if v == 0)
                     other_votes = len(votes) - main_votes
                     for vidx, v in enumerate(votes):
-                        model_idx = vidx // 2
-                        model_name = self.models[model_idx].model_name if model_idx < len(self.models) else f"model_{model_idx}"
+                        model_name = self.models[vidx].model_name if vidx < len(self.models) else f"model_{vidx}"
                         per_comparison_votes.append(ModelVote(
                             model_name=f"{model_name}_vs_{self.categories[cat_idx].get_name()}",
                             vote=v,
