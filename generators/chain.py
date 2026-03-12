@@ -22,11 +22,6 @@ class Chain:
         self.db_ids: list[str] = db_ids
 
     def generate(self) -> tuple[list[Question], GenerationTrackingReport]:
-        # Skip generation entirely if a checkpoint exists
-        checkpoint = self.generator.try_load_checkpoint("after_sql_executability_check")
-        if checkpoint is not None:
-            questions, report = self.generator.validate(checkpoint, skip_through_sql_executability=True)
-        else:
-            generated_questions = self.generator.generate(self.db_ids, self.categories, self.styles, self.difficulties)
-            questions, report = self.generator.validate(generated_questions)
+        generated_questions = self.generator.generate(self.db_ids, self.categories, self.styles, self.difficulties)
+        questions, report = self.generator.validate(generated_questions)
         return questions, report

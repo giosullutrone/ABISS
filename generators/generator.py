@@ -18,6 +18,7 @@ from validators.style_conformance import StyleConformance
 from validators.difficulty_conformance import DifficultyConformance
 from validators.feedback_quality_check import FeedbackQualityCheck
 from validators.evidence_necessity import EvidenceNecessity
+from validators.category_conformance import CategoryConformance
 from categories.answerable_with_evidence import AnswerableWithEvidenceCategory
 from validators.validator import Validator
 
@@ -63,6 +64,7 @@ class Generator:
         self.difficulty_conformance_validator = DifficultyConformance()
         self.feedback_quality_check_validator = FeedbackQualityCheck(db, models_validator)
         self.evidence_necessity_validator = EvidenceNecessity(db, models_validator)
+        self.category_conformance_validator = CategoryConformance(db, models_validator, max_tokens, max_gen_tokens)
 
     def save_intermediate_results(self, questions: list[Question], stage: str) -> None:
         if self.intermediate_results_folder is not None:
@@ -179,19 +181,22 @@ class Generator:
             logger.warning("Failed to load checkpoint '%s': %s", stage_label, e)
             return None
 
-    def validate(self, questions: list[Question], skip_through_sql_executability: bool = False) -> tuple[list[Question], GenerationTrackingReport]:
+    def validate(self, questions: list[Question]) -> tuple[list[Question], GenerationTrackingReport]:
         tracking_stages: list[ValidationStageResult] = []
 
-        if not skip_through_sql_executability:
-            self.save_intermediate_results(questions, "initial")
+        self.save_intermediate_results(questions, "initial")
 
-            questions, result = self.apply_validator(questions, self.duplicate_removal_validator, "after_duplicate_removal")
-            if result is not None:
-                tracking_stages.append(result)
+        questions, result = self.apply_validator(questions, self.duplicate_removal_validator, "after_duplicate_removal")
+        if result is not None:
+            tracking_stages.append(result)
 
-            questions, result = self.apply_validator(questions, self.sql_executability_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
-            if result is not None:
-                tracking_stages.append(result)
+        questions, result = self.apply_validator(questions, self.sql_executability_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
+        if result is not None:
+            tracking_stages.append(result)
+
+        questions, result = self.apply_validator(questions, self.category_conformance_validator, "after_category_conformance_check")
+        if result is not None:
+            tracking_stages.append(result)
 
         questions, result = self.apply_validator(questions, self.gt_satisfaction_validator, "after_gt_satisfaction_check", check_if_amb_solvable=True, check_if_answerable=True)
         if result is not None:
