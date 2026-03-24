@@ -1,4 +1,6 @@
-from typing import cast, Callable
+from typing import Callable
+from itertools import combinations
+import random
 from pydantic import BaseModel
 from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from dataset_dataclasses.council_tracking import TournamentVotes
@@ -12,53 +14,65 @@ from users.prompts.best_user_answer_prompt import (
 
 
 class BestUserAnswer:
-    """Selects the best user answer among label-consistent candidates via
-    pairwise tournament evaluated by the model council.
+    """Selects the best user answer among candidates via pairwise tournament
+    evaluated by the model council.
 
-    Only called when there are 2+ candidates (single-candidate cases are
-    resolved upstream without a tournament).  Evaluation criteria prioritise
-    correctness over style — see the per-relevancy prompts for details.
+    Uses combinations (not permutations) with randomized A/B ordering
+    to halve comparison count while mitigating positional bias.
     """
 
     def __init__(self, db: DBDataset, models: list[Model]) -> None:
         self.db: DBDataset = db
         self.models: list[Model] = models
 
-    def select_best_user_answers(self, conversations: list[Conversation], answers: list[list[str]], candidate_model_indices: list[list[int]] | None = None) -> tuple[list[str], list[TournamentVotes]]:
+    def select_best_user_answers(
+        self,
+        conversations: list[Conversation],
+        answers: list[list[str]],
+        candidate_model_indices: list[list[int]] | None = None,
+        sql_fragments_per_conv: list[list[str]] | None = None,
+    ) -> tuple[list[str], list[TournamentVotes]]:
         """Run a pairwise tournament for each conversation's candidate answers.
 
-        Every pair (j, k) with j != k is evaluated by every council model.
-        The candidate with the most wins is selected.
+        Uses combinations (A-vs-B once, not A-vs-B and B-vs-A) with
+        randomized candidate ordering to mitigate positional bias.
         """
-        # Do the operation one model at a time (this way we don't have to unload and load the weights multiple times)
         votes: list[list[int]] = [[0] * len(ans) for ans in answers]
 
-        # Generate all the pairwise comparison prompts with appropriate prompt for each relevancy type
+        # Generate pairwise comparison prompts using combinations
         pairwise_prompts: dict[int, list[tuple[int, int, str, type[BaseModel], Callable]]] = {}
         for i, gens in enumerate(answers):
             pairwise_prompts[i] = []
-            assert conversations[i].interactions[-1].relevance is not None, "Relevancy label must be set for the last interaction."
-            relevance = cast(RelevancyLabel, conversations[i].interactions[-1].relevance)
-            
-            for j in range(len(gens)):
-                for k in range(len(gens)):
-                    if j != k:
-                        if relevance == RelevancyLabel.RELEVANT:
-                            prompt = get_best_user_answer_relevant_prompt(self.db, conversations[i], gens[j], gens[k])
-                            model_class = BestUserAnswerRelevantResponse
-                            extractor = get_best_user_answer_relevant_result
-                        elif relevance == RelevancyLabel.TECHNICAL:
-                            prompt = get_best_user_answer_technical_prompt(self.db, conversations[i], gens[j], gens[k])
-                            model_class = BestUserAnswerTechnicalResponse
-                            extractor = get_best_user_answer_technical_result
-                        else:  # IRRELEVANT
-                            prompt = get_best_user_answer_irrelevant_prompt(self.db, conversations[i], gens[j], gens[k])
-                            model_class = BestUserAnswerIrrelevantResponse
-                            extractor = get_best_user_answer_irrelevant_result
-                        
-                        pairwise_prompts[i].append((j, k, prompt, model_class, extractor))
+            assert conversations[i].interactions[-1].relevance is not None
+            relevance = conversations[i].interactions[-1].relevance
 
-        # Now flatten the prompts into a single list
+            for j, k in combinations(range(len(gens)), 2):
+                # Randomize A/B ordering to mitigate positional bias
+                if random.random() < 0.5:
+                    a_idx, b_idx = j, k
+                else:
+                    a_idx, b_idx = k, j
+
+                if relevance == RelevancyLabel.RELEVANT:
+                    prompt = get_best_user_answer_relevant_prompt(
+                        self.db, conversations[i], gens[a_idx], gens[b_idx])
+                    model_class = BestUserAnswerRelevantResponse
+                    extractor = get_best_user_answer_relevant_result
+                elif relevance == RelevancyLabel.TECHNICAL:
+                    frags = sql_fragments_per_conv[i] if sql_fragments_per_conv else None
+                    prompt = get_best_user_answer_technical_prompt(
+                        self.db, conversations[i], gens[a_idx], gens[b_idx], frags)
+                    model_class = BestUserAnswerTechnicalResponse
+                    extractor = get_best_user_answer_technical_result
+                else:  # IRRELEVANT
+                    prompt = get_best_user_answer_irrelevant_prompt(
+                        self.db, conversations[i], gens[a_idx], gens[b_idx])
+                    model_class = BestUserAnswerIrrelevantResponse
+                    extractor = get_best_user_answer_irrelevant_result
+
+                pairwise_prompts[i].append((a_idx, b_idx, prompt, model_class, extractor))
+
+        # Flatten prompts into a single batch
         prompts: list[str] = []
         model_classes: list[type[BaseModel]] = []
         extractors: list[Callable] = []
@@ -74,8 +88,8 @@ class BestUserAnswer:
             responses = model.generate_batch_with_constraints(prompts, model_classes)
             model.close()
             responses_per_model.append(responses)
-        
-        # Now aggregate the votes
+
+        # Aggregate votes
         for model_responses in responses_per_model:
             response_idx = 0
             for i in range(len(answers)):
@@ -90,7 +104,7 @@ class BestUserAnswer:
                         votes[i][b_idx] += 1
                     response_idx += 1
 
-        # Now select the best generation for each db based on the votes
+        # Select best generation per conversation
         best_generations: list[str] = []
         tournament_tracking: list[TournamentVotes] = []
         for i, gens in enumerate(answers):
@@ -111,7 +125,6 @@ class BestUserAnswer:
                         "winner": winner,
                     })
 
-            # Determine which model generated the winning answer
             if candidate_model_indices is not None:
                 original_model_idx = candidate_model_indices[i][best_idx]
                 winning_model = self.models[original_model_idx].model_name

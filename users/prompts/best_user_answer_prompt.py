@@ -118,24 +118,22 @@ def get_best_user_answer_relevant_prompt(db: DBDataset,
 def get_best_user_answer_technical_prompt(db: DBDataset,
                                           conversation: Conversation,
                                           generation_a: str,
-                                          generation_b: str) -> str:
+                                          generation_b: str,
+                                          sql_fragments: list[str] | None = None) -> str:
     """Evaluate pairs of answers to TECHNICAL clarification questions.
 
-    NOTE: GT SQL is intentionally NOT shown here to prevent ground-truth
-    leakage.  Only secondary preferences (ORDER BY, LIMIT, DISTINCT) are
-    provided — the same information the answer generators received.
+    Uses matched SQL fragments from AST-based retrieval as the correctness
+    reference, rather than the old secondary preferences.
     """
-    from users.sql_preferences import extract_secondary_preferences
-
     prompt = _get_best_user_answer_prompt_common(db, conversation, generation_a, generation_b, RelevancyLabel.TECHNICAL)
 
-    question = conversation.question
-
-    secondary = extract_secondary_preferences(question.sql)
-    if secondary:
-        prompt += f"\n**User's Secondary Preferences:** {secondary}\n"
+    if sql_fragments:
+        prompt += "\n**Source Information (What the User Wants):**\n"
+        for frag in sql_fragments:
+            prompt += f"- {frag}\n"
+        prompt += "\n"
     else:
-        prompt += f"\n**Note:** No specific technical preferences defined — user may express uncertainty.\n"
+        prompt += "\n**Note:** No specific technical preferences defined -- user may express uncertainty.\n"
 
     prompt += "\n## Candidate Answers\n"
     prompt += f"**Answer A:**\n{generation_a}\n\n"
@@ -146,28 +144,23 @@ def get_best_user_answer_technical_prompt(db: DBDataset,
     prompt += "Both candidates were classified as TECHNICAL. "
     prompt += "Select the one that is more **correct** and, as a tiebreaker, more natural.\n\n"
 
-    prompt += "**Technical Questions Ask About:**\n"
-    prompt += "- Ordering: Sort order, which field to order by (ASC/DESC)\n"
-    prompt += "- Limits: How many results, top N\n"
-    prompt += "- Formatting: Output format requirements\n\n"
-
-    if secondary:
-        prompt += "**Correctness Criteria (Primary — decide the winner):**\n"
-        prompt += "1. **Preference Accuracy:** Does the answer correctly convey the user's secondary preferences listed above? An answer that states the wrong ordering, wrong limit, or invents preferences not listed is worse.\n"
-        prompt += "2. **No Fabrication:** Does NOT add information beyond the stated preferences. Inventing extra preferences is incorrect.\n"
-        prompt += "3. **No Information Leakage:** Avoids revealing SQL details (table names, column names, query structure) that a real user wouldn't know.\n\n"
+    if sql_fragments:
+        prompt += "**Correctness Criteria (Primary -- decide the winner):**\n"
+        prompt += "1. **Intent Accuracy:** Does the answer accurately convey the intent behind the source information in natural language?\n"
+        prompt += "2. **No Fabrication:** Does NOT add information beyond what the source material implies.\n"
+        prompt += "3. **No Information Leakage:** Avoids revealing SQL syntax, column names, table aliases, or query structure.\n\n"
     else:
-        prompt += "**Correctness Criteria (Primary — decide the winner):**\n"
-        prompt += "1. **Appropriate Uncertainty:** Since no preferences are defined, the answer should express genuine uncertainty ('I'm not sure', 'Either way is fine') or reasonable defaults.\n"
-        prompt += "2. **No Fabrication:** Does NOT invent specific preferences that aren't defined. Stating a specific ordering/limit when none exists is incorrect.\n"
-        prompt += "3. **No Information Leakage:** Avoids revealing SQL details that a real user wouldn't know.\n\n"
+        prompt += "**Correctness Criteria (Primary -- decide the winner):**\n"
+        prompt += "1. **Appropriate Uncertainty:** Since no preferences are defined, the answer should express genuine uncertainty.\n"
+        prompt += "2. **No Fabrication:** Does NOT invent specific preferences.\n"
+        prompt += "3. **No Information Leakage:** Avoids revealing SQL details.\n\n"
 
-    prompt += "**Style Criteria (Secondary — only used to break ties in correctness):**\n"
+    prompt += "**Style Criteria (Secondary -- only used to break ties in correctness):**\n"
     prompt += "- **Naturalness:** Sounds like a user stating preferences, not SQL code\n"
-    prompt += "- **Style Consistency:** Maintains the style, register, formality, and vocabulary of the original question\n\n"
+    prompt += "- **Style Consistency:** Maintains the style and vocabulary of the original question\n\n"
 
     prompt += "## Response Format\n"
-    prompt += "Provide concise analysis (approximately 256 characters) comparing the answers, focusing first on correctness then on style if needed.\n\n"
+    prompt += "Provide concise analysis (approximately 256 characters) comparing the answers.\n\n"
     prompt += "Then provide your final selection as a JSON object with:\n"
     prompt += model_field_descriptions(BestUserAnswerTechnicalResponse) + "\n\n"
     prompt += "In case of a tie, select Answer A."
