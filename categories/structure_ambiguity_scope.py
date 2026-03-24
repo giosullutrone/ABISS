@@ -11,8 +11,6 @@ class StructureAmbiguityScopeCategory(Category):
         question: Annotated[str, Field(description="A natural language question containing scope ambiguity, where a quantifier (e.g., 'each', 'every', 'all', 'any') can be read either collectively (all entities as one group) or distributively (each entity separately). The ambiguity must arise from quantifier scope, NOT from modifier attachment to a conjunction, NOT from which table/column a word maps to, NOT from user-specific references, and NOT from vague terms with imprecise boundaries.")]
         hidden_knowledge_collective: Annotated[str, Field(description="A statement clarifying that the quantifier should be interpreted collectively (all entities as one group). It should specify that the entities are treated as a single combined pool. For example: 'Each department means all departments together — list all courses offered by any department.'")]
         hidden_knowledge_distributive: Annotated[str, Field(description="A statement clarifying that the quantifier should be interpreted distributively (each entity separately). It should specify that results are expected per individual entity. For example: 'Each department means per individual department — list courses grouped by department.'")]
-        sql_collective: Annotated[str, Field(description="A valid, executable SQL query for the collective interpretation, treating all entities as one group. This often uses flat aggregation without GROUP BY, or a simple SELECT without partitioning. The query must correctly answer the question under this interpretation. Do not include GROUP BY or partitioning elements from the distributive interpretation.")]
-        sql_distributive: Annotated[str, Field(description="A valid, executable SQL query for the distributive interpretation, treating each entity independently. This often requires GROUP BY on the entity or a partitioned query structure. The query must correctly answer the question under this interpretation. Do not use flat aggregation from the collective interpretation — results must be partitioned per entity.")]
 
     @staticmethod
     def get_name() -> str:
@@ -70,12 +68,12 @@ class StructureAmbiguityScopeCategory(Category):
             category=StructureAmbiguityScopeCategory(),
             question=output.question,
             evidence=None,
-            sql=sql,
+            sql=None,
             hidden_knowledge=hk,
             is_solvable=StructureAmbiguityScopeCategory.is_solvable(),
             question_style=question_style,
             question_difficulty=question_difficulty
-        ) for sql, hk in [
-            (output.sql_collective, output.hidden_knowledge_collective),
-            (output.sql_distributive, output.hidden_knowledge_distributive)
+        ) for hk in [
+            output.hidden_knowledge_collective,
+            output.hidden_knowledge_distributive
         ]]

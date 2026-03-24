@@ -9,7 +9,6 @@ if TYPE_CHECKING:
 class AnswerableWithoutEvidenceCategory(Category):
     class AnswerableOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question that can be directly answered using the database schema and available data without any ambiguity or missing information.")]
-        sql: Annotated[str, Field(description="The SQL query that correctly answers the question based on the database schema.")]
 
     @staticmethod
     def get_name() -> str:
@@ -53,7 +52,7 @@ class AnswerableWithoutEvidenceCategory(Category):
             category=AnswerableWithoutEvidenceCategory(),
             question=output.question,
             evidence=None,
-            sql=output.sql,
+            sql=None,
             question_style=question_style,
             question_difficulty=question_difficulty
         )]

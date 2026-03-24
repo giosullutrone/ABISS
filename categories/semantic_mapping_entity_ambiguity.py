@@ -11,8 +11,6 @@ class SemanticMappingEntityAmbiguityCategory(Category):
         question: Annotated[str, Field(description="A natural language question where a term maps to semantically similar attributes in DIFFERENT tables representing distinct real-world entities (e.g., 'enrollment_date' in a students table vs. a student_courses table). The ambiguity is about WHICH ENTITY the term refers to, NOT about similar column names within the same table, NOT about sentence structure, NOT about user identity, and NOT about vague terminology.")]
         hidden_knowledge_first_entity: Annotated[str, Field(description="A statement clarifying that the term refers to the attribute from the first entity. It should identify the specific table and column and explain the entity-specific meaning. For example: 'The term enrollment date refers to students.enrollment_date, meaning the date the student enrolled at the university.'")]
         hidden_knowledge_second_entity: Annotated[str, Field(description="A statement clarifying that the term refers to the attribute from the second entity. It should identify the specific table and column and explain the entity-specific meaning. For example: 'The term enrollment date refers to student_courses.enrollment_date, meaning the date the student enrolled in a specific course.'")]
-        sql_first_entity: Annotated[str, Field(description="A valid, executable SQL query using the attribute from the first entity/table. The two SQL variants must differ in which table they source the ambiguous attribute from, reflecting different real-world entities. The query must correctly answer the question under this interpretation. Do not include columns, JOINs, or tables that are only needed by the other entity's interpretation.")]
-        sql_second_entity: Annotated[str, Field(description="A valid, executable SQL query using the attribute from the second entity/table. The two SQL variants must differ in which table they source the ambiguous attribute from, reflecting different real-world entities. The query must correctly answer the question under this interpretation. Do not include columns, JOINs, or tables that are only needed by the other entity's interpretation.")]
 
     @staticmethod
     def get_name() -> str:
@@ -70,13 +68,13 @@ class SemanticMappingEntityAmbiguityCategory(Category):
             category=SemanticMappingEntityAmbiguityCategory(),
             question=output.question,
             evidence=None,
-            sql=sql,
+            sql=None,
             hidden_knowledge=hk,
             is_solvable=SemanticMappingEntityAmbiguityCategory.is_solvable(),
             question_style=question_style,
             question_difficulty=question_difficulty
-        ) for sql, hk in [
-            (output.sql_first_entity, output.hidden_knowledge_first_entity),
-            (output.sql_second_entity, output.hidden_knowledge_second_entity)
+        ) for hk in [
+            output.hidden_knowledge_first_entity,
+            output.hidden_knowledge_second_entity
         ]]
 

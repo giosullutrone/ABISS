@@ -4,6 +4,7 @@ from utils.prompt_utils import model_field_descriptions
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from db_datasets.db_dataset import DBDataset
+    from dataset_dataclasses.question import QuestionDifficulty
 
 
 class SQLGenerationResponse(BaseModel):
@@ -15,37 +16,70 @@ def get_sql_result(response: BaseModel) -> str:
     return response.sql
 
 
-# From: https://github.com/AlibabaResearch/DAMO-ConvAI/blob/main/bird/llm/src/gpt_request.py#L99
-def generate_comment_prompt(question, knowledge=None):
-    pattern_prompt_no_kg = "-- Using valid SQLite, answer the following questions for the tables provided above."
-    pattern_prompt_kg = "-- Using valid SQLite and understading External Knowledge, answer the following questions for the tables provided above."
-    # question_prompt = "-- {}".format(question) + '\n SELECT '
-    question_prompt = "-- {}".format(question)
-    knowledge_prompt = "-- External Knowledge: {}".format(knowledge)
+def get_sql_generation_prompt(
+    db: "DBDataset",
+    db_id: str,
+    question: str,
+    evidence: str | None = None,
+    hidden_knowledge: str | None = None,
+    question_difficulty: "QuestionDifficulty | None" = None
+) -> str:
+    """Generate a DIN-SQL-inspired prompt for SQL generation with chain-of-thought reasoning."""
+    from dataset_dataclasses.question import QuestionDifficulty
 
-    if not knowledge:
-        result_prompt = pattern_prompt_no_kg + '\n' + question_prompt
-    else:
-        result_prompt = knowledge_prompt + '\n' + pattern_prompt_kg + '\n' + question_prompt
+    prompt = "You are an expert SQL developer specializing in text-to-SQL systems.\n\n"
 
-    return result_prompt
-
-def get_sql_generation_prompt(db: "DBDataset", db_id: str, question: str, evidence: str | None = None) -> str:
-    """Generate a prompt for SQL generation with JSON output format."""
-    prompt = "You are an expert in converting natural language questions to SQL queries.\n\n"
-    
+    # Database schema
     prompt += "## Database Schema\n"
     prompt += db.get_schema_prompt(db_id, rows=5) + "\n\n"
-    
-    prompt += "## Task\n"
-    prompt += generate_comment_prompt(question, evidence) + "\n\n"
-    
-    prompt += "## Instructions\n"
+
+    # Question and context
+    prompt += "## Question\n"
+    prompt += f"{question}\n"
+    if evidence:
+        prompt += f"\n**Evidence:** {evidence}\n"
+    if hidden_knowledge:
+        prompt += f"\n**Hidden Knowledge:** {hidden_knowledge}\n"
+    prompt += "\n"
+
+    # Difficulty hint
+    if question_difficulty is not None:
+        prompt += "## Difficulty Hint\n"
+        if question_difficulty == QuestionDifficulty.SIMPLE:
+            prompt += "Write a simple query. No JOINs or nested queries should be needed.\n\n"
+        elif question_difficulty == QuestionDifficulty.MODERATE:
+            prompt += "The query may require JOINs across multiple tables.\n\n"
+        else:
+            prompt += ("The query requires nested subqueries, set operations "
+                       "(UNION/INTERSECT/EXCEPT), or complex aggregations. "
+                       "Decompose the question into sub-questions first.\n\n")
+
+    # Chain-of-thought instructions
+    prompt += "## Chain-of-Thought Instructions\n"
+    prompt += "Follow these steps to generate the SQL query:\n\n"
+
+    is_hard = question_difficulty in (QuestionDifficulty.COMPLEX, QuestionDifficulty.HIGHLY_COMPLEX) if question_difficulty else False
+
+    prompt += "**Step 1 - Schema Linking:**\n"
+    prompt += ("Identify the relevant tables, columns, and foreign key relationships "
+               "for this question. List them explicitly.\n\n")
+
+    if is_hard:
+        prompt += "**Step 2 - Sub-question Decomposition:**\n"
+        prompt += ("Break the question into simpler sub-questions. For each sub-question, "
+                   "identify the SQL operation needed.\n\n")
+
+    prompt += f"**Step {'3' if is_hard else '2'} - SQL Generation:**\n"
+    prompt += "Write the final SQL query following these rules:\n"
     prompt += "- Use valid SQLite syntax\n"
-    prompt += "- Ensure the query correctly uses tables and columns from the schema\n"
-    prompt += "- Apply appropriate joins, filters, and aggregations as needed\n"
-    prompt += "- The query should be executable and return the correct results\n\n"
-    
+    prompt += "- Use double quotes for identifiers with spaces or special characters\n"
+    prompt += "- Use explicit aliases for aggregated or calculated columns (e.g., `SELECT COUNT(*) AS count ...`)\n"
+    prompt += "- The query must be executable and return the correct results\n"
+    if hidden_knowledge:
+        prompt += "- The SQL must faithfully represent the interpretation described in the hidden knowledge\n"
+    prompt += "\n"
+
+    # Output format
     prompt += "## Output Format\n"
     prompt += "Provide your SQL query as a JSON object with:\n"
     prompt += model_field_descriptions(SQLGenerationResponse) + "\n\n"

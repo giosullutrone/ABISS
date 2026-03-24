@@ -91,6 +91,7 @@ if __name__ == "__main__":
     parser.add_argument("--db_ids", type=str, nargs='+', required=False, help="List of database IDs to use for generation (if not specified, all database IDs will be used)", default=None)
     parser.add_argument("--quantization", type=str, required=False, help="Quantization method for VLLM models (e.g. bitsandbytes, fp8, awq, gptq)", default=None)
     parser.add_argument("--gpu_memory_utilization", type=float, required=False, help="GPU memory utilization for VLLM (0.0 to 1.0)", default=0.9)
+    parser.add_argument("--resume", action="store_true", help="Resume from the latest checkpoint (skips completed model generations and validation stages)")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
@@ -186,7 +187,7 @@ if __name__ == "__main__":
         db_ids=db_ids
     )
 
-    questions, generation_report = chain.generate()
+    questions, generation_report = chain.generate(resume=args.resume)
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, 'w') as f:

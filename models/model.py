@@ -42,6 +42,10 @@ class Model(ABC):
     def close(self):
         raise NotImplementedError("This method should be implemented in a subclass.")
 
+    def rebuild_sampling_params(self):
+        """Rebuild internal sampling parameters from sampling_kwargs. Override in subclasses."""
+        pass
+
     def convert_prompt_to_conversation_if_needed(self, prompts: list[str] | list[list[dict[str, str]]]) -> list[list[dict[str, str]]]:
         """
         Converts a single string prompt into a conversation format expected by the model if needed.

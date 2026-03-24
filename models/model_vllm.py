@@ -11,6 +11,25 @@ from pydantic import BaseModel
 from utils.prompt_utils import model_field_descriptions
 import torch
 
+# Register vLLM custom model configs with transformers' AutoConfig so that
+# model types like qwen3_5_moe are resolved before ModelConfig validation.
+try:
+    from transformers import AutoConfig as _AutoConfig
+    from vllm.transformers_utils import configs as _vllm_configs
+    import inspect as _inspect
+    for _cls in (
+        getattr(_vllm_configs, _name)
+        for _name in dir(_vllm_configs)
+        if not _name.startswith("_")
+    ):
+        if _inspect.isclass(_cls) and hasattr(_cls, "model_type"):
+            try:
+                _AutoConfig.register(_cls.model_type, _cls)
+            except Exception:
+                pass
+except Exception:
+    pass
+
 logger = logging.getLogger(__name__)
 
 
@@ -73,15 +92,19 @@ class ModelVLLM(Model):
 
         # Prepare sampling parameters
         self.sampling_params = SamplingParams(**self.sampling_kwargs) if self.sampling_kwargs is not None else None
-    
+
+    def rebuild_sampling_params(self):
+        self.sampling_params = SamplingParams(**self.sampling_kwargs) if self.sampling_kwargs is not None else None
+
     def get_token_lengths(self, prompts: list[str] | list[list[dict[str, str]]]) -> list[int]:
         max_model_len = self.model.llm_engine.model_config.max_model_len
+        tokenizer = self.model.get_tokenizer()
         converted = self.convert_prompt_to_conversation_if_needed(prompts)
         lengths: list[int] = []
         for prompt in converted:
             try:
-                tokens = self.model.preprocess_chat([prompt])  # type: ignore
-                lengths.append(len(tokens[0].get("prompt_token_ids")))
+                text = tokenizer.apply_chat_template(prompt, tokenize=False, add_generation_prompt=True)
+                lengths.append(len(tokenizer.encode(text)))
             except Exception:
                 lengths.append(max_model_len + 1)
         return lengths

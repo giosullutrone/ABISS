@@ -66,14 +66,6 @@ class TemporalAmbiguityCategory(Category):
             "an alternative interpretation. For instance: 'Last year refers "
             "to the rolling 12-month period ending today.'"
         )]
-        sql_first_interpretation: Annotated[str, Field(
-            description="A valid SQL query answering the question under the "
-            "first temporal interpretation."
-        )]
-        sql_second_interpretation: Annotated[str, Field(
-            description="A valid SQL query answering the question under the "
-            "second temporal interpretation."
-        )]
 
     @staticmethod
     def get_name() -> str:
@@ -132,20 +124,20 @@ class TemporalAmbiguityCategory(Category):
                 category=TemporalAmbiguityCategory(),
                 question=output.question,
                 evidence=None,
-                sql=sql,
+                sql=None,
                 hidden_knowledge=hk,
                 is_solvable=TemporalAmbiguityCategory.is_solvable(),
                 question_style=question_style,
                 question_difficulty=question_difficulty,
             )
-            for sql, hk in [
-                (output.sql_first_interpretation, output.hidden_knowledge_first_interpretation),
-                (output.sql_second_interpretation, output.hidden_knowledge_second_interpretation),
+            for hk in [
+                output.hidden_knowledge_first_interpretation,
+                output.hidden_knowledge_second_interpretation,
             ]
         ]
 ```
 
-Note that ambiguous categories (where `is_solvable()` returns `True`) typically return **multiple `Question` objects** from `get_question()`, one per valid interpretation. Each interpretation has its own SQL and hidden knowledge. Unanswerable categories instead return a single `Question` with feedback explaining why the question cannot be answered:
+Note that ambiguous categories (where `is_solvable()` returns `True`) typically return **multiple `Question` objects** from `get_question()`, one per valid interpretation. Each interpretation has its own hidden knowledge, while SQL is generated separately in a second phase. All `get_question()` methods set `sql=None`. Unanswerable categories instead return a single `Question` with feedback explaining why the question cannot be answered:
 
 ```python
 # Unanswerable category pattern (single Question, no SQL)
@@ -242,13 +234,13 @@ The `is_answerable()` and `is_solvable()` flags on your category control which v
 |-------|-----------|--------------|
 | 1 | Duplicate Removal | All categories |
 | 2 | SQL Executability | Answerable and ambiguous categories (`is_answerable()=True` or `is_solvable()=True`) |
-| 3 | Ground Truth Satisfaction | Answerable and ambiguous categories (`is_answerable()=True` or `is_solvable()=True`) |
-| 4 | Evidence Necessity | `AnswerableWithEvidenceCategory` only (hardcoded `isinstance` check) |
-| 5 | Ambiguity Verification | Ambiguous categories (`is_answerable()=False`, `is_solvable()=True`) |
-| 6 | Unsolvability Verification | Unanswerable categories (`is_answerable()=False`, `is_solvable()=False`) |
-| 7 | Feedback Quality Check | Unanswerable categories (`is_answerable()=False`, `is_solvable()=False`) |
-| 8 | Category Consistency | Ambiguous and unanswerable categories (excludes answerable) |
-| 9 | Difficulty Conformance | All categories |
+| 3 | Category Conformance | All categories |
+| 4 | Ground Truth Satisfaction | Answerable and ambiguous categories (`is_answerable()=True` or `is_solvable()=True`) |
+| 5 | Evidence Necessity | `AnswerableWithEvidenceCategory` only (hardcoded `isinstance` check) |
+| 6 | Ambiguity Verification | Ambiguous categories (`is_answerable()=False`, `is_solvable()=True`) |
+| 7 | Unsolvability Verification | Unanswerable categories (`is_answerable()=False`, `is_solvable()=False`) |
+| 8 | Feedback Quality Check | Unanswerable categories (`is_answerable()=False`, `is_solvable()=False`) |
+| 9 | Category Consistency | Ambiguous and unanswerable categories (excludes answerable) |
 | 10 | Style Conformance | All categories |
 
 When designing a custom category, ensure that `is_answerable()` and `is_solvable()` accurately reflect the nature of your category, as these flags determine the full validation path.

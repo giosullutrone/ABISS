@@ -21,7 +21,7 @@ class Chain:
         self.difficulties: list[QuestionDifficulty] = difficulties
         self.db_ids: list[str] = db_ids
 
-    def generate(self) -> tuple[list[Question], GenerationTrackingReport]:
-        generated_questions = self.generator.generate(self.db_ids, self.categories, self.styles, self.difficulties)
-        questions, report = self.generator.validate(generated_questions)
+    def generate(self, resume: bool = False) -> tuple[list[Question], GenerationTrackingReport]:
+        generated_questions = self.generator.generate(self.db_ids, self.categories, self.styles, self.difficulties, resume=resume)
+        questions, report = self.generator.validate(generated_questions, resume=resume)
         return questions, report

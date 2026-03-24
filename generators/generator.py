@@ -1,12 +1,14 @@
-from dataset_dataclasses.question import Question, QuestionStyle, QuestionDifficulty
+from dataset_dataclasses.question import Question, QuestionUnanswerable, QuestionStyle, QuestionDifficulty
 from dataset_dataclasses.council_tracking import ValidationStageResult, GenerationTrackingReport
 from categories.category import Category
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
-import json
 import logging
 import os
 from generators.prompts.generator_prompt import get_generation_prompt
+from generators.prompts.sql_generation_prompt import SQLGenerationOutput, get_sql_generation_prompt
+from generators.checkpoint import save_questions, save_tracking, load_tracking, load_checkpoint
+from validators.difficulty_conformance import classify_sql_difficulty
 from pydantic import BaseModel
 from validators.sql_executability import SQLExecutability
 from validators.ambiguity_verification import AmbiguityVerification
@@ -15,7 +17,6 @@ from validators.duplicate_removal import DuplicateRemoval
 from validators.unsolvability_verification import UnsolvabilityVerification
 from validators.category_consistency import CategoryConsistency
 from validators.style_conformance import StyleConformance
-from validators.difficulty_conformance import DifficultyConformance
 from validators.feedback_quality_check import FeedbackQualityCheck
 from validators.evidence_necessity import EvidenceNecessity
 from validators.category_conformance import CategoryConformance
@@ -25,27 +26,13 @@ from validators.validator import Validator
 logger = logging.getLogger(__name__)
 
 
-def load_questions_from_file(path: str) -> list[Question]:
-    """Load questions from an intermediate results JSON file."""
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    questions: list[Question] = []
-    for d in data:
-        if "hidden_knowledge" in d:
-            from dataset_dataclasses.question import QuestionUnanswerable
-            questions.append(QuestionUnanswerable.from_dict(d))
-        else:
-            questions.append(Question.from_dict(d))
-    return questions
-
-
 class Generator:
-    def __init__(self, 
-                 db: DBDataset, 
-                 models: list[Model], 
+    def __init__(self,
+                 db: DBDataset,
+                 models: list[Model],
                  models_validator: list[Model],
                  categories: list[Category],
-                 n_samples: int, 
+                 n_samples: int,
                  max_tokens: int,
                  max_gen_tokens: int,
                  intermediate_results_folder: str | None) -> None:
@@ -61,31 +48,30 @@ class Generator:
         self.unsolvability_verification_validator = UnsolvabilityVerification(db, models_validator, self.sql_executability_validator, self.gt_satisfaction_validator)
         self.category_consistency_validator = CategoryConsistency(db, models_validator, categories)
         self.style_conformance_validator = StyleConformance(db, models_validator)
-        self.difficulty_conformance_validator = DifficultyConformance()
         self.feedback_quality_check_validator = FeedbackQualityCheck(db, models_validator)
         self.evidence_necessity_validator = EvidenceNecessity(db, models_validator)
         self.category_conformance_validator = CategoryConformance(db, models_validator, max_tokens, max_gen_tokens)
 
-    def save_intermediate_results(self, questions: list[Question], stage: str) -> None:
+    def _save(self, questions: list[Question], label: str) -> None:
         if self.intermediate_results_folder is not None:
-            os.makedirs(self.intermediate_results_folder, exist_ok=True)
-            with open(os.path.join(self.intermediate_results_folder, f"intermediate_{stage}.json"), "w", encoding="utf-8") as f:
-                json.dump([q.to_dict() for q in questions], f, ensure_ascii=False, indent=4)
+            save_questions(questions, self.intermediate_results_folder, label)
+
+    def _save_tracking(self, stages: list[ValidationStageResult]) -> None:
+        if self.intermediate_results_folder is not None:
+            save_tracking(stages, self.intermediate_results_folder)
 
     def generate_for_model(self, model: Model, db_ids: list[str], categories: list[Category], styles: list[QuestionStyle], difficulties: list[QuestionDifficulty]) -> list[Question]:
         questions: list[Question] = []
-        
-        # Generate all prompts and constraints for all categories at once
+
+        # --- Phase 1: Question-only generation (no SQL) ---
         prompts: list[str] = []
         constraints: list[type[BaseModel]] = []
-        metadata: list[tuple[Category, str, QuestionStyle, QuestionDifficulty]] = []  # Track (category, db_id, style, difficulty) for each prompt
-        
+        metadata: list[tuple[Category, str, QuestionStyle, QuestionDifficulty]] = []
+
         for category in categories:
             for db_id in db_ids:
-                # Generate prompts for all combinations of style and difficulty
                 for style in styles:
                     for difficulty in difficulties:
-                        # Prepare the generation prompt
                         prompt = get_generation_prompt(
                             db=self.db,
                             is_solvable=category.is_solvable(),
@@ -101,28 +87,96 @@ class Generator:
                         prompts.append(prompt)
                         constraints.append(category.get_output())
                         metadata.append((category, db_id, style, difficulty))
-        
-        # Use the model to generate all questions in a single call
+
         model.init()
         responses: list[BaseModel | None] = model.generate_batch_with_constraints_unsafe(prompts, constraints)
-        model.close()
 
-        # Convert the responses into Question instances
+        # Convert responses into Question instances (sql=None for answerable/ambiguous)
         assert len(responses) == len(prompts) * self.n_samples, "Number of responses does not match number of prompts times n_samples."
         for idx, response in enumerate(responses):
             if response is not None:
                 category, db_id, style, difficulty = metadata[idx // self.n_samples]
                 question = category.get_question(db_id, response, style, difficulty)
                 questions.extend(question)
+
+        # --- Phase 2: SQL generation for solvable questions ---
+        sql_questions = [q for q in questions if q.category.is_solvable()]
+        if sql_questions:
+            sql_prompts = []
+            for q in sql_questions:
+                hidden_knowledge = q.hidden_knowledge if isinstance(q, QuestionUnanswerable) else None
+                sql_prompts.append(get_sql_generation_prompt(
+                    db=self.db,
+                    db_id=q.db_id,
+                    question=q.question,
+                    evidence=q.evidence,
+                    hidden_knowledge=hidden_knowledge,
+                    question_difficulty=q.question_difficulty
+                ))
+            sql_constraints: list[type[BaseModel]] = [SQLGenerationOutput] * len(sql_prompts)
+
+            # Override n=1 for Phase 2 (one SQL per question), then restore
+            original_sampling_kwargs = model.sampling_kwargs
+            model.sampling_kwargs = {**(model.sampling_kwargs or {}), 'n': 1}
+            model.rebuild_sampling_params()
+
+            sql_responses = model.generate_batch_with_constraints_unsafe(sql_prompts, sql_constraints)
+
+            model.sampling_kwargs = original_sampling_kwargs
+
+            assert len(sql_responses) == len(sql_prompts), \
+                f"Phase 2: expected {len(sql_prompts)} SQL responses, got {len(sql_responses)}"
+
+            # Assign SQL to solvable questions and filter out failures
+            sql_fail_count = 0
+            questions_with_sql: list[Question] = []
+            sql_idx = 0
+            for q in questions:
+                if q.category.is_solvable():
+                    resp = sql_responses[sql_idx]
+                    sql_idx += 1
+                    if resp is not None:
+                        assert isinstance(resp, SQLGenerationOutput)
+                        q.sql = resp.sql
+                        questions_with_sql.append(q)
+                    else:
+                        sql_fail_count += 1
+                else:
+                    questions_with_sql.append(q)  # unanswerable, keep as-is
+
+            if sql_fail_count > 0:
+                logger.info("Phase 2: dropped %d/%d solvable questions (SQL generation failed)", sql_fail_count, len(sql_questions))
+
+            questions = questions_with_sql
+
+        model.close()
+
+        # --- Difficulty re-assignment based on actual SQL ---
+        for q in questions:
+            if q.sql is not None:
+                q.question_difficulty = classify_sql_difficulty(q.sql)
+
         return questions
 
-    def generate(self, db_ids: list[str], categories: list[Category], styles: list[QuestionStyle], difficulties: list[QuestionDifficulty]) -> list[Question]:
+    def generate(self, db_ids: list[str], categories: list[Category], styles: list[QuestionStyle], difficulties: list[QuestionDifficulty], resume: bool = False) -> list[Question]:
         all_questions: list[Question] = []
+
         for model in self.models:
+            model_tag = os.path.basename(model.model_name)
+            checkpoint_label = f"gen_{model_tag}"
+
+            if resume:
+                cached = load_checkpoint(self.intermediate_results_folder, checkpoint_label)
+                if cached is not None:
+                    all_questions.extend(cached)
+                    continue
+
             questions = self.generate_for_model(model, db_ids, categories, styles, difficulties)
+            self._save(questions, checkpoint_label)
             all_questions.extend(questions)
+
         return all_questions
-    
+
     def apply_validator(self,
                         questions: list[Question],
                         validator: Validator,
@@ -158,77 +212,51 @@ class Generator:
         # Combine validated questions with those that didn't need validation
         questions.extend(questions_to_check)
 
-        self.save_intermediate_results(questions, intermediate_results_label)
+        self._save(questions, intermediate_results_label)
         return questions, result
 
-    def try_load_checkpoint(self, stage_label: str) -> list[Question] | None:
-        """Try to load questions from an existing intermediate results checkpoint."""
-        if self.intermediate_results_folder is None:
-            return None
-        path = os.path.join(self.intermediate_results_folder, f"intermediate_{stage_label}.json")
-        if not os.path.isfile(path):
-            return None
-        try:
-            questions = load_questions_from_file(path)
-            if len(questions) == 0:
-                return None
-            logger.info(
-                "Loaded checkpoint '%s' with %d questions (skipping generation, duplicate_removal, sql_executability)",
-                stage_label, len(questions),
-            )
-            return questions
-        except Exception as e:
-            logger.warning("Failed to load checkpoint '%s': %s", stage_label, e)
-            return None
+    def validate(self, questions: list[Question], resume: bool = False) -> tuple[list[Question], GenerationTrackingReport]:
+        # Ordered list of (validator, label, filter kwargs)
+        validation_steps: list[tuple[Validator, str, dict]] = [
+            (self.duplicate_removal_validator, "after_duplicate_removal", {}),
+            (self.sql_executability_validator, "after_sql_executability_check", {"check_if_amb_solvable": True, "check_if_answerable": True}),
+            (self.category_conformance_validator, "after_category_conformance_check", {}),
+            (self.gt_satisfaction_validator, "after_gt_satisfaction_check", {"check_if_amb_solvable": True, "check_if_answerable": True}),
+            (self.evidence_necessity_validator, "after_evidence_necessity_check", {"check_if_answerable_with_evidence": True}),
+            (self.ambiguity_verification_validator, "after_ambiguity_verification", {"check_if_amb_solvable": True}),
+            (self.unsolvability_verification_validator, "after_unsolvability_verification", {"check_if_amb_unsolvable": True}),
+            (self.feedback_quality_check_validator, "after_feedback_quality_check", {"check_if_amb_unsolvable": True}),
+            (self.category_consistency_validator, "after_category_consistency_check", {"check_if_amb_solvable": True, "check_if_amb_unsolvable": True}),
+            (self.style_conformance_validator, "after_style_conformance", {}),
+        ]
 
-    def validate(self, questions: list[Question]) -> tuple[list[Question], GenerationTrackingReport]:
         tracking_stages: list[ValidationStageResult] = []
 
-        self.save_intermediate_results(questions, "initial")
+        # If resuming, find the latest completed validation checkpoint and skip to it
+        resume_from_idx = -1
+        if resume:
+            saved_tracking = load_tracking(self.intermediate_results_folder)
+            for i in range(len(validation_steps) - 1, -1, -1):
+                _, label, _ = validation_steps[i]
+                cached = load_checkpoint(self.intermediate_results_folder, label)
+                if cached is not None:
+                    questions = cached
+                    resume_from_idx = i
+                    tracking_stages = saved_tracking
+                    logger.info("Resuming validation after '%s' (%d questions)", label, len(questions))
+                    break
 
-        questions, result = self.apply_validator(questions, self.duplicate_removal_validator, "after_duplicate_removal")
-        if result is not None:
-            tracking_stages.append(result)
+        if resume_from_idx < 0:
+            self._save(questions, "initial")
 
-        questions, result = self.apply_validator(questions, self.sql_executability_validator, "after_sql_executability_check", check_if_amb_solvable=True, check_if_answerable=True)
-        if result is not None:
-            tracking_stages.append(result)
+        for i, (validator, label, kwargs) in enumerate(validation_steps):
+            if i <= resume_from_idx:
+                continue
 
-        questions, result = self.apply_validator(questions, self.category_conformance_validator, "after_category_conformance_check")
-        if result is not None:
-            tracking_stages.append(result)
-
-        questions, result = self.apply_validator(questions, self.gt_satisfaction_validator, "after_gt_satisfaction_check", check_if_amb_solvable=True, check_if_answerable=True)
-        if result is not None:
-            tracking_stages.append(result)
-
-        questions, result = self.apply_validator(questions, self.evidence_necessity_validator, "after_evidence_necessity_check", check_if_answerable_with_evidence=True)
-        if result is not None:
-            tracking_stages.append(result)
-
-        questions, result = self.apply_validator(questions, self.ambiguity_verification_validator, "after_ambiguity_verification", check_if_amb_solvable=True)
-        if result is not None:
-            tracking_stages.append(result)
-
-        questions, result = self.apply_validator(questions, self.unsolvability_verification_validator, "after_unsolvability_verification", check_if_amb_unsolvable=True)
-        if result is not None:
-            tracking_stages.append(result)
-
-        questions, result = self.apply_validator(questions, self.feedback_quality_check_validator, "after_feedback_quality_check", check_if_amb_unsolvable=True)
-        if result is not None:
-            tracking_stages.append(result)
-
-        questions, result = self.apply_validator(questions, self.category_consistency_validator, "after_category_consistency_check", check_if_amb_solvable=True, check_if_amb_unsolvable=True)
-        if result is not None:
-            tracking_stages.append(result)
-
-        questions, result = self.apply_validator(questions, self.difficulty_conformance_validator, "after_difficulty_conformance")
-        if result is not None:
-            tracking_stages.append(result)
-
-        questions, result = self.apply_validator(questions, self.style_conformance_validator, "after_style_conformance")
-        if result is not None:
-            tracking_stages.append(result)
+            questions, result = self.apply_validator(questions, validator, label, **kwargs)
+            if result is not None:
+                tracking_stages.append(result)
+            self._save_tracking(tracking_stages)
 
         report = GenerationTrackingReport(stages=tracking_stages)
         return questions, report

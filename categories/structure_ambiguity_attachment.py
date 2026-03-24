@@ -11,8 +11,6 @@ class StructureAmbiguityAttachmentCategory(Category):
         question: Annotated[str, Field(description="A natural language question containing attachment ambiguity, where a modifier, condition, or clause syntactically follows a conjunction (e.g., 'A and B [modifier]') and it is unclear whether the modifier attaches only to the nearest element (low attachment) or to the entire conjunction (high attachment). The ambiguity must arise purely from sentence structure, NOT from user-specific references ('my', 'our'), NOT from which table/column a word maps to, and NOT from conflicting definitions.")]
         hidden_knowledge_last_only: Annotated[str, Field(description="A statement clarifying that the modifier attaches only to the nearest element (low attachment). It should clearly identify which element(s) the modifier applies to and which it does not. For example: 'The condition in engineering applies only to students, not to professors.'")]
         hidden_knowledge_all_elements: Annotated[str, Field(description="A statement clarifying that the modifier attaches to the entire conjunction (high attachment). It should clearly state that all elements are affected by the modifier. For example: 'The condition in engineering applies to both professors and students.'")]
-        sql_last_only: Annotated[str, Field(description="A valid, executable SQL query for the low-attachment interpretation, where the modifier filters only the nearest element. This often involves a UNION or subquery to separate filtered from unfiltered elements. The query must correctly answer the question under this interpretation. Ensure the filter scope is strictly limited to the low-attachment reading — do not apply the modifier to all elements.")]
-        sql_all_elements: Annotated[str, Field(description="A valid, executable SQL query for the high-attachment interpretation, where the modifier filters all elements equally. This often uses a straightforward WHERE clause applying the condition uniformly. The query must correctly answer the question under this interpretation. Ensure the filter scope covers all elements — do not restrict the modifier to only the nearest element.")]
 
     @staticmethod
     def get_name() -> str:
@@ -71,12 +69,12 @@ class StructureAmbiguityAttachmentCategory(Category):
             category=StructureAmbiguityAttachmentCategory(),
             question=output.question,
             evidence=None,
-            sql=sql,
+            sql=None,
             hidden_knowledge=hk,
             is_solvable=StructureAmbiguityAttachmentCategory.is_solvable(),
             question_style=question_style,
             question_difficulty=question_difficulty
-        ) for sql, hk in [
-            (output.sql_last_only, output.hidden_knowledge_last_only),
-            (output.sql_all_elements, output.hidden_knowledge_all_elements)
+        ) for hk in [
+            output.hidden_knowledge_last_only,
+            output.hidden_knowledge_all_elements
         ]]

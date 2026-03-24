@@ -10,7 +10,6 @@ class MissingUserKnowledgeCategory(Category):
     class MissingUserKnowledgeOutput(BaseModel):
         question: Annotated[str, Field(description="A natural language question containing user-specific references (e.g., 'my department', 'our projects', 'my courses', 'I am enrolled in') whose interpretation depends on knowing WHO is asking. The question MUST contain explicit user-referencing pronouns or possessives ('my', 'our', 'I', 'me', 'we'). The ambiguity is about user identity, NOT about sentence structure, NOT about which column a word maps to, NOT about vague terms, and NOT about conflicting definitions.")]
         hidden_knowledge: Annotated[str, Field(description="The objective user-specific fact that resolves the ambiguity. It should state a concrete fact about the user's identity or affiliation. For example: 'The user is in the Engineering department.' or 'The user is employee ID 12345.'")]
-        sql_with_user_knowledge: Annotated[str, Field(description="A valid, executable SQL query that correctly answers the question using the concrete user-specific fact from the hidden knowledge (e.g., WHERE department = 'Engineering' instead of the unresolved 'my department'). The query must faithfully represent the user's intent once the disambiguation is applied.")]
 
     @staticmethod
     def get_name() -> str:
@@ -66,7 +65,7 @@ class MissingUserKnowledgeCategory(Category):
             category=MissingUserKnowledgeCategory(),
             question=output.question,
             evidence=None,
-            sql=output.sql_with_user_knowledge,
+            sql=None,
             hidden_knowledge=output.hidden_knowledge,
             is_solvable=MissingUserKnowledgeCategory.is_solvable(),
             question_style=question_style,

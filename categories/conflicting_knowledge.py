@@ -13,8 +13,6 @@ class ConflictingKnowledgeCategory(Category):
         evidence_second: Annotated[str, Field(description="The second, conflicting evidence definition from the knowledge base. It must define the SAME concept differently, providing a non-equivalent alternative. For example: 'A student performance is defined as the credit-weighted average grade.'")]
         hidden_knowledge_first_evidence: Annotated[str, Field(description="A statement clarifying which evidence definition the user intends. It should unambiguously point to the first definition. For example: 'Use the simple average grade definition of performance.'")]
         hidden_knowledge_second_evidence: Annotated[str, Field(description="A statement clarifying which evidence definition the user intends. It should unambiguously point to the second definition. For example: 'Use the credit-weighted average definition of performance.'")]
-        sql_first_evidence: Annotated[str, Field(description="A valid, executable SQL query implementing the first evidence definition. The two SQL variants must differ in their computation logic (e.g., AVG(grade) vs. SUM(grade*credits)/SUM(credits)), not just in column selection or filtering. The query must correctly answer the question under this interpretation. Implement only the first evidence's computation logic — do not mix in computations from the second evidence definition.")]
-        sql_second_evidence: Annotated[str, Field(description="A valid, executable SQL query implementing the second evidence definition. The two SQL variants must differ in their computation logic (e.g., AVG(grade) vs. SUM(grade*credits)/SUM(credits)), not just in column selection or filtering. The query must correctly answer the question under this interpretation. Implement only the second evidence's computation logic — do not mix in computations from the first evidence definition.")]
 
     @staticmethod
     def get_name() -> str:
@@ -71,12 +69,12 @@ class ConflictingKnowledgeCategory(Category):
             category=ConflictingKnowledgeCategory(),
             question=output.question,
             evidence="Evidence 1: " + output.evidence_first + "\nEvidence 2: " + output.evidence_second,
-            sql=sql,
+            sql=None,
             hidden_knowledge=hk,
             is_solvable=ConflictingKnowledgeCategory.is_solvable(),
             question_style=question_style,
             question_difficulty=question_difficulty
-        ) for sql, hk in [
-            (output.sql_first_evidence, output.hidden_knowledge_first_evidence),
-            (output.sql_second_evidence, output.hidden_knowledge_second_evidence)
+        ) for hk in [
+            output.hidden_knowledge_first_evidence,
+            output.hidden_knowledge_second_evidence
         ]]
