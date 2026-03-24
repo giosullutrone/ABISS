@@ -1,35 +1,37 @@
-"""Unified user response: produces both relevancy label and answer in a single
-model call, then selects the best answer among label-consistent candidates.
+"""Two-stage user response: Stage 1 classifies and locates AST nodes,
+Stage 2 generates natural-language-only answers grounded in matched source.
 
-This replaces the separate QuestionRelevancy + UserAnswer two-step pipeline,
-eliminating ground-truth SQL leakage by never exposing the full GT SQL to any
-user-simulator prompt.
-
-Answer selection only considers candidates from models that agreed with the
-majority-voted relevancy label, avoiding evaluation of answers generated under
-a different classification intent.
+Replaces the previous single-stage pipeline. Following BIRD-Interact's
+(Li et al., 2025) function-driven approach adapted for ABISS.
 """
 
-from typing import Callable, cast
+from typing import Callable
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
 from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
 from dataset_dataclasses.question import QuestionUnanswerable
 from dataset_dataclasses.council_tracking import RelevancyVotes, TournamentVotes
 from users.best_user_answer import BestUserAnswer
-from users.prompts.user_response_prompt import (
-    get_user_response_prompt_solvable,
-    UserResponseSolvableModel,
-    get_user_response_solvable_result,
-    get_user_response_prompt_answerable,
-    UserResponseAnswerableModel,
-    get_user_response_answerable_result,
+from users.sql_ast import parse_sql_to_nodes, SQLNode
+from users.prompts.user_classify_prompt import (
+    UserClassifySolvable,
+    UserClassifyAnswerable,
+    get_user_classify_prompt_solvable,
+    get_user_classify_prompt_answerable,
+    get_classify_solvable_result,
+    get_classify_answerable_result,
+)
+from users.prompts.user_answer_prompt import (
+    UserAnswerModel,
+    get_user_answer_prompt_relevant,
+    get_user_answer_prompt_technical,
+    get_user_answer_prompt_irrelevant,
 )
 from pydantic import BaseModel
 
 
 class UserResponse:
-    """Single-step user response: classifies relevancy and generates an answer."""
+    """Two-stage user response pipeline."""
 
     def __init__(self, db: DBDataset, models: list[Model]) -> None:
         self.db = db
@@ -37,19 +39,10 @@ class UserResponse:
         self.best_user_answer = BestUserAnswer(db, models)
 
     def get_response(self, conversations: list[Conversation]) -> tuple[list[RelevancyVotes], list[TournamentVotes]]:
-        """Classify relevancy AND generate answer for each conversation in one step.
-
-        Unsolvable questions are short-circuited (IRRELEVANT + canned refusal).
-        All other conversations go through the unified prompt.
-        """
         # ---- short-circuit unsolvable questions ----
-        to_classify: list[int] = []
-        prompts: list[str] = []
-        model_classes: list[type[BaseModel]] = []
-        result_extractors: list[Callable] = []
+        to_process: list[int] = []
 
         for i, conv in enumerate(conversations):
-            is_answerable = conv.question.category.is_answerable()
             is_solvable = (
                 conv.question.category.is_solvable()
                 if isinstance(conv.question, QuestionUnanswerable)
@@ -57,124 +50,159 @@ class UserResponse:
             )
 
             if not is_solvable:
-                # Unsolvable: no interaction can resolve it.
                 conv.interactions[-1].relevance = RelevancyLabel.IRRELEVANT
-                conv.interactions[-1].user_response = (
-                    "That's not relevant to my question."
-                )
+                conv.interactions[-1].user_response = "That's not relevant to my question."
                 continue
 
-            to_classify.append(i)
+            to_process.append(i)
+
+        if not to_process:
+            return [], []
+
+        # ---- pre-parse GT SQL into AST nodes ----
+        nodes_per_conv: list[list[SQLNode]] = []
+        for idx in to_process:
+            sql = conversations[idx].question.sql
+            nodes_per_conv.append(parse_sql_to_nodes(sql))
+
+        # ---- STAGE 1: Classification + Source Identification ----
+        stage1_prompts: list[str] = []
+        stage1_model_classes: list[type[BaseModel]] = []
+        stage1_extractors: list[Callable] = []
+
+        for pidx, conv_idx in enumerate(to_process):
+            conv = conversations[conv_idx]
+            nodes = nodes_per_conv[pidx]
+            is_answerable = conv.question.category.is_answerable()
+
             if is_answerable:
-                prompts.append(get_user_response_prompt_answerable(conv))
-                model_classes.append(UserResponseAnswerableModel)
-                result_extractors.append(get_user_response_answerable_result)
+                stage1_prompts.append(get_user_classify_prompt_answerable(conv, nodes))
+                stage1_model_classes.append(UserClassifyAnswerable)
+                stage1_extractors.append(get_classify_answerable_result)
             else:
-                prompts.append(get_user_response_prompt_solvable(conv))
-                model_classes.append(UserResponseSolvableModel)
-                result_extractors.append(get_user_response_solvable_result)
+                stage1_prompts.append(get_user_classify_prompt_solvable(conv, nodes))
+                stage1_model_classes.append(UserClassifySolvable)
+                stage1_extractors.append(get_classify_solvable_result)
 
-        if not prompts:
-            return [], []  # all unsolvable
-
-        # ---- generate (relevancy, answer) pairs from every model ----
-        # relevancy_votes[prompt_idx] = {label: count}
+        # Collect per-model classifications
         relevancy_votes: list[dict[RelevancyLabel, int]] = [
             {RelevancyLabel.RELEVANT: 0, RelevancyLabel.TECHNICAL: 0, RelevancyLabel.IRRELEVANT: 0}
-            for _ in prompts
+            for _ in stage1_prompts
         ]
-        # per_model_results[prompt_idx] = list of (label, answer) per model
-        per_model_results: list[list[tuple[RelevancyLabel, str]]] = [[] for _ in prompts]
+        per_model_node_ids: list[list[list[int]]] = [[] for _ in stage1_prompts]
+        per_model_labels: list[list[RelevancyLabel]] = [[] for _ in stage1_prompts]
 
         for model in self.models:
             model.init()
-            responses = model.generate_batch_with_constraints(prompts, model_classes)
+            responses = model.generate_batch_with_constraints(stage1_prompts, stage1_model_classes)
             model.close()
 
             for pidx, response in enumerate(responses):
-                label, answer = result_extractors[pidx](response)
+                label, node_ids = stage1_extractors[pidx](response)
                 relevancy_votes[pidx][label] += 1
-                per_model_results[pidx].append((label, answer))
+                per_model_labels[pidx].append(label)
+                per_model_node_ids[pidx].append(node_ids)
 
-        # ---- majority vote on relevancy ----
+        # ---- Majority vote on labels ----
         final_labels: list[RelevancyLabel] = []
-        for pidx in range(len(prompts)):
+        for pidx in range(len(stage1_prompts)):
             votes = relevancy_votes[pidx]
             sorted_labels = sorted(votes.items(), key=lambda kv: kv[1], reverse=True)
             top_label, top_count = sorted_labels[0]
             _, second_count = sorted_labels[1]
-            # Ties resolve conservatively: default to IRRELEVANT (no info leaks)
             if top_count == second_count:
                 final_labels.append(RelevancyLabel.IRRELEVANT)
             else:
                 final_labels.append(top_label)
 
-        # ---- build relevancy tracking ----
+        # ---- Resolve sources based on winning label ----
+        resolved_fragments: list[list[str]] = []
+        for pidx in range(len(stage1_prompts)):
+            if final_labels[pidx] == RelevancyLabel.TECHNICAL:
+                union_ids: set[int] = set()
+                for midx in range(len(self.models)):
+                    if per_model_labels[pidx][midx] == RelevancyLabel.TECHNICAL:
+                        union_ids.update(per_model_node_ids[pidx][midx])
+                nodes = nodes_per_conv[pidx]
+                node_map = {n.node_id: n.sql_fragment for n in nodes}
+                fragments = [node_map[nid] for nid in sorted(union_ids) if nid in node_map]
+                resolved_fragments.append(fragments)
+            else:
+                resolved_fragments.append([])
+
+        # ---- Build relevancy tracking ----
         relevancy_tracking: list[RelevancyVotes] = []
-        for pidx, conv_idx in enumerate(to_classify):
-            per_model_labels = [
-                (self.models[midx].model_name, per_model_results[pidx][midx][0].value)
+        for pidx, conv_idx in enumerate(to_process):
+            model_labels = [
+                (self.models[midx].model_name, per_model_labels[pidx][midx].value)
                 for midx in range(len(self.models))
             ]
-            all_same = len(set(label for _, label in per_model_labels)) == 1
+            all_same = len(set(label for _, label in model_labels)) == 1
             relevancy_tracking.append(RelevancyVotes(
                 question_index=conv_idx,
                 interaction_step=len(conversations[conv_idx].interactions) - 1,
-                per_model_labels=per_model_labels,
+                per_model_labels=model_labels,
                 winning_label=final_labels[pidx].value,
                 unanimous=all_same,
             ))
 
-        # ---- assign relevancy labels ----
-        for pidx, conv_idx in enumerate(to_classify):
+        # ---- Assign labels ----
+        for pidx, conv_idx in enumerate(to_process):
             conversations[conv_idx].interactions[-1].relevance = final_labels[pidx]
 
-        # ---- filter to label-consistent answers only ----
-        consistent_answers: list[list[str]] = []
-        consistent_model_indices: list[list[int]] = []
-        for pidx in range(len(prompts)):
-            winning_label = final_labels[pidx]
-            filtered: list[str] = []
-            filtered_indices: list[int] = []
-            for midx, (label, answer) in enumerate(per_model_results[pidx]):
-                if label == winning_label:
-                    filtered.append(answer)
-                    filtered_indices.append(midx)
-            # If tie resolved to IRRELEVANT and no model actually voted IRRELEVANT,
-            # fall back to all answers (the tournament will pick the best refusal).
-            if not filtered:
-                filtered = [answer for _, answer in per_model_results[pidx]]
-                filtered_indices = list(range(len(per_model_results[pidx])))
-            consistent_answers.append(filtered)
-            consistent_model_indices.append(filtered_indices)
+        # ---- STAGE 2: Response Generation ----
+        stage2_prompts: list[str] = []
+        for pidx, conv_idx in enumerate(to_process):
+            conv = conversations[conv_idx]
+            label = final_labels[pidx]
+            if label == RelevancyLabel.RELEVANT:
+                stage2_prompts.append(get_user_answer_prompt_relevant(conv))
+            elif label == RelevancyLabel.TECHNICAL:
+                stage2_prompts.append(get_user_answer_prompt_technical(conv, resolved_fragments[pidx]))
+            else:
+                stage2_prompts.append(get_user_answer_prompt_irrelevant(conv))
 
-        # ---- select best answer ----
-        # If only one label-consistent answer, use it directly (skip tournament).
+        stage2_model_classes = [UserAnswerModel] * len(stage2_prompts)
+
+        per_model_answers: list[list[str]] = [[] for _ in stage2_prompts]
+        for model in self.models:
+            model.init()
+            responses = model.generate_batch_with_constraints(stage2_prompts, stage2_model_classes)
+            model.close()
+
+            for pidx, response in enumerate(responses):
+                validated = UserAnswerModel.model_validate(response)
+                per_model_answers[pidx].append(validated.answer.strip())
+
+        # ---- Select best answer via tournament ----
         best_answers: list[str] = []
         needs_tournament_indices: list[int] = []
         needs_tournament_convs: list[Conversation] = []
         needs_tournament_answers: list[list[str]] = []
-        needs_tournament_model_indices: list[list[int]] = []
+        needs_tournament_fragments: list[list[str]] = []
 
-        for pidx in range(len(prompts)):
-            if len(consistent_answers[pidx]) == 1:
-                best_answers.append(consistent_answers[pidx][0])
+        for pidx in range(len(stage2_prompts)):
+            answers = per_model_answers[pidx]
+            if len(answers) == 1 or len(set(answers)) == 1:
+                # Single answer or all answers identical: skip tournament (any would win).
+                best_answers.append(answers[0])
             else:
                 best_answers.append("")  # placeholder
                 needs_tournament_indices.append(pidx)
-                needs_tournament_convs.append(conversations[to_classify[pidx]])
-                needs_tournament_answers.append(consistent_answers[pidx])
-                needs_tournament_model_indices.append(consistent_model_indices[pidx])
+                needs_tournament_convs.append(conversations[to_process[pidx]])
+                needs_tournament_answers.append(answers)
+                needs_tournament_fragments.append(resolved_fragments[pidx])
 
         tournament_tracking: list[TournamentVotes] = []
         if needs_tournament_convs:
             tournament_results, tournament_tracking = self.best_user_answer.select_best_user_answers(
-                needs_tournament_convs, needs_tournament_answers, needs_tournament_model_indices
+                needs_tournament_convs, needs_tournament_answers,
+                sql_fragments_per_conv=needs_tournament_fragments,
             )
             for i, pidx in enumerate(needs_tournament_indices):
                 best_answers[pidx] = tournament_results[i]
 
-        for pidx, conv_idx in enumerate(to_classify):
+        for pidx, conv_idx in enumerate(to_process):
             conversations[conv_idx].interactions[-1].user_response = best_answers[pidx]
 
         return relevancy_tracking, tournament_tracking
