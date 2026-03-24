@@ -3,6 +3,7 @@ matplotlib
 numpy
 pydantic
 seaborn
+sqlglot
 sentence_transformers
 streamlit
 torch
