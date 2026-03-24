@@ -5,7 +5,10 @@ Replaces the previous single-stage pipeline. Following BIRD-Interact's
 (Li et al., 2025) function-driven approach adapted for ABISS.
 """
 
+import logging
 from typing import Callable
+
+logger = logging.getLogger(__name__)
 from db_datasets.db_dataset import DBDataset
 from models.model import Model
 from dataset_dataclasses.benchmark import Conversation, RelevancyLabel
@@ -125,6 +128,9 @@ class UserResponse:
                         union_ids.update(per_model_node_ids[pidx][midx])
                 nodes = nodes_per_conv[pidx]
                 node_map = {n.node_id: n.sql_fragment for n in nodes}
+                invalid_ids = union_ids - node_map.keys()
+                if invalid_ids:
+                    logger.warning("Classifier hallucinated node IDs %s (valid: %s)", invalid_ids, set(node_map.keys()))
                 fragments = [node_map[nid] for nid in sorted(union_ids) if nid in node_map]
                 resolved_fragments.append(fragments)
             else:

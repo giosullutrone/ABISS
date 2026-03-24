@@ -64,11 +64,11 @@ class UserClassifyAnswerable(BaseModel):
 def get_classify_solvable_result(response: BaseModel) -> tuple[RelevancyLabel, list[int]]:
     validated = UserClassifySolvable.model_validate(response)
     label_str = validated.relevancy.strip().lower()
-    if "irrelevant" in label_str:
+    if label_str == "irrelevant":
         label = RelevancyLabel.IRRELEVANT
-    elif "relevant" in label_str:
+    elif label_str == "relevant":
         label = RelevancyLabel.RELEVANT
-    elif "technical" in label_str:
+    elif label_str == "technical":
         label = RelevancyLabel.TECHNICAL
     else:
         raise ValueError(f"Invalid relevancy: {validated.relevancy}")
@@ -78,9 +78,9 @@ def get_classify_solvable_result(response: BaseModel) -> tuple[RelevancyLabel, l
 def get_classify_answerable_result(response: BaseModel) -> tuple[RelevancyLabel, list[int]]:
     validated = UserClassifyAnswerable.model_validate(response)
     label_str = validated.relevancy.strip().lower()
-    if "technical" in label_str:
+    if label_str == "technical":
         label = RelevancyLabel.TECHNICAL
-    elif "irrelevant" in label_str:
+    elif label_str == "irrelevant":
         label = RelevancyLabel.IRRELEVANT
     else:
         raise ValueError(f"Invalid relevancy: {validated.relevancy}")
