@@ -1,6 +1,5 @@
 from dataset_dataclasses.benchmark import Conversation
 from dataset_dataclasses.question import QuestionUnanswerable
-from db_datasets.db_dataset import DBDataset
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal
 from utils.prompt_utils import model_field_descriptions
@@ -16,7 +15,7 @@ def get_feedback_evaluation_result(response: BaseModel) -> bool:
     return "yes" in validated.matches.strip().lower()
 
 
-def get_feedback_evaluation_prompt(db: DBDataset, conversation: Conversation) -> str:
+def get_feedback_evaluation_prompt(conversation: Conversation) -> str:
     """
     Generate a prompt to evaluate whether the system's feedback correctly identifies
     why an unsolvable question cannot be answered.
@@ -37,9 +36,6 @@ def get_feedback_evaluation_prompt(db: DBDataset, conversation: Conversation) ->
     
     if question.evidence:
         prompt += f"**Additional Context:** {question.evidence}\n"
-    
-    prompt += "\n## Database Schema\n"
-    prompt += db.get_schema_prompt(question.db_id, rows=5) + "\n\n"
     
     prompt += "## Question Category\n"
     prompt += f"**Category:** {question.category.get_name()}"

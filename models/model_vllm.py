@@ -78,7 +78,7 @@ class ModelVLLM(Model):
                          model_kwargs,
                          max_batch_with_text_size)
 
-    def init(self):
+    def _do_init(self):
         # Prepare LoRA request if lora_name is provided
         self.lora_request: LoRARequest | None = LoRARequest(lora_name=self.lora_name, 
                                                             lora_int_id=0, 
@@ -240,7 +240,7 @@ class ModelVLLM(Model):
         # At this point, all responses are validated (or raise_exceptions is False)
         return validated_responses
 
-    def close(self):
+    def _do_close(self):
         del self.model
         del self.lora_request
         del self.sampling_params

@@ -31,11 +31,16 @@ class BestUserAnswer:
         answers: list[list[str]],
         candidate_model_indices: list[list[int]] | None = None,
         sql_fragments_per_conv: list[list[str]] | None = None,
+        conversation_indices: list[int] | None = None,
     ) -> tuple[list[str], list[TournamentVotes]]:
         """Run a pairwise tournament for each conversation's candidate answers.
 
         Uses combinations (A-vs-B once, not A-vs-B and B-vs-A) with
         randomized candidate ordering to mitigate positional bias.
+
+        Args:
+            conversation_indices: Global conversation indices for tracking.
+                If None, uses 0-based batch indices.
         """
         votes: list[list[int]] = [[0] * len(ans) for ans in answers]
 
@@ -135,8 +140,9 @@ class BestUserAnswer:
             sorted_tallies = sorted(tallies, reverse=True)
             second_max = sorted_tallies[1] if len(sorted_tallies) > 1 else 0
 
+            global_idx = conversation_indices[i] if conversation_indices is not None else i
             tournament_tracking.append(TournamentVotes(
-                question_index=i,
+                question_index=global_idx,
                 interaction_step=len(conversations[i].interactions) - 1,
                 pairwise_results=pairwise_for_tracking,
                 final_tallies=tallies,

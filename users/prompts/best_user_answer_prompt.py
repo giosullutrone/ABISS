@@ -26,31 +26,31 @@ class BestUserAnswerIrrelevantResponse(BaseModel):
 def get_best_user_answer_relevant_result(response: BaseModel) -> int:
     """Parses the model response and returns '0' or '1' based on whether Answer A is better or B."""
     answer = BestUserAnswerRelevantResponse.model_validate(response).answer.strip().upper()
-    if "A" in answer:
+    if answer == "A":
         return 0
-    elif "B" in answer:
+    elif answer == "B":
         return 1
-    raise ValueError("Invalid answer in BestUserAnswerRelevantResponse: must contain 'A' or 'B'.")
+    raise ValueError(f"Invalid answer in BestUserAnswerRelevantResponse: got '{answer}', expected 'A' or 'B'.")
 
 
 def get_best_user_answer_technical_result(response: BaseModel) -> int:
     """Parses the model response and returns '0' or '1' based on whether Answer A is better or B."""
     answer = BestUserAnswerTechnicalResponse.model_validate(response).answer.strip().upper()
-    if "A" in answer:
+    if answer == "A":
         return 0
-    elif "B" in answer:
+    elif answer == "B":
         return 1
-    raise ValueError("Invalid answer in BestUserAnswerTechnicalResponse: must contain 'A' or 'B'.")
+    raise ValueError(f"Invalid answer in BestUserAnswerTechnicalResponse: got '{answer}', expected 'A' or 'B'.")
 
 
 def get_best_user_answer_irrelevant_result(response: BaseModel) -> int:
     """Parses the model response and returns '0' or '1' based on whether Answer A is better or B."""
     answer = BestUserAnswerIrrelevantResponse.model_validate(response).answer.strip().upper()
-    if "A" in answer:
+    if answer == "A":
         return 0
-    elif "B" in answer:
+    elif answer == "B":
         return 1
-    raise ValueError("Invalid answer in BestUserAnswerIrrelevantResponse: must contain 'A' or 'B'.")
+    raise ValueError(f"Invalid answer in BestUserAnswerIrrelevantResponse: got '{answer}', expected 'A' or 'B'.")
 
 
 def _get_best_user_answer_prompt_common(db: DBDataset, 
@@ -97,12 +97,12 @@ def get_best_user_answer_relevant_prompt(db: DBDataset,
     prompt += "Both candidates were classified as RELEVANT and attempt to disambiguate. "
     prompt += "Select the one that is more **correct** and, as a tiebreaker, more natural.\n\n"
 
-    prompt += "**Correctness Criteria (Primary — decide the winner):**\n"
+    prompt += "**Correctness Criteria (Primary -- decide the winner):**\n"
     prompt += "1. **Factual Accuracy:** Does the answer correctly convey the hidden knowledge? An answer that distorts, invents, or omits the disambiguating intent is worse, regardless of style.\n"
     prompt += "2. **Disambiguation Completeness:** Does it fully resolve the ambiguity the system asked about, or only partially?\n"
     prompt += "3. **No Information Leakage:** Does it avoid revealing SQL details (table names, column names, JOIN conditions) that a real user wouldn't know?\n\n"
 
-    prompt += "**Style Criteria (Secondary — only used to break ties in correctness):**\n"
+    prompt += "**Style Criteria (Secondary -- only used to break ties in correctness):**\n"
     prompt += "- **Naturalness:** Sounds like a real user communicating their intent\n"
     prompt += "- **Style Consistency:** Maintains the style, register, formality, and vocabulary of the original question\n\n"
 
@@ -184,16 +184,16 @@ def get_best_user_answer_irrelevant_prompt(db: DBDataset,
     prompt += "Both candidates were classified as IRRELEVANT. "
     prompt += "Select the one that is more **correct** and, as a tiebreaker, more natural.\n\n"
 
-    prompt += "**Correctness Criteria (Primary — decide the winner):**\n"
+    prompt += "**Correctness Criteria (Primary -- decide the winner):**\n"
     prompt += "1. **Refusal present:** The answer MUST refuse to answer the irrelevant question. An answer that engages with or attempts to answer the question is automatically worse than one that refuses.\n"
     prompt += "2. **No Information Leakage:** Does not reveal SQL details, schema information, or any data that a real user wouldn't know.\n"
     prompt += "3. **No Fabrication:** Does not invent information or answer a question the user can't answer.\n\n"
 
     prompt += "**Hard Decision Rules:**\n"
-    prompt += "- If one refuses and the other doesn't → The refusing answer is AUTOMATICALLY better\n"
-    prompt += "- If neither refuses → Both fail, but select Answer A\n\n"
+    prompt += "- If one refuses and the other doesn't: The refusing answer is AUTOMATICALLY better\n"
+    prompt += "- If neither refuses: Both fail the primary criterion. Fall back to secondary criteria below to pick the less harmful response.\n\n"
 
-    prompt += "**Style Criteria (Secondary — only when both refuse correctly):**\n"
+    prompt += "**Style Criteria (Secondary -- used to break ties, or when both fail to refuse):**\n"
     prompt += "- **Clarity:** How clearly does the refusal indicate it's not answering?\n"
     prompt += "- **Brevity:** Concise and direct\n"
     prompt += "- **Politeness:** Professional but firm\n\n"

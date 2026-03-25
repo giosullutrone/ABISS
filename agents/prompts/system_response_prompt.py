@@ -1,6 +1,9 @@
+import logging
 from db_datasets.db_dataset import DBDataset
 from pydantic import BaseModel, Field, model_validator
 from typing import Annotated
+
+logger = logging.getLogger(__name__)
 from utils.prompt_utils import model_field_descriptions, get_conversation_history_prompt
 from dataset_dataclasses.benchmark import Conversation, SystemResponse
 from categories.category import Category
@@ -18,6 +21,14 @@ class SystemResponseModel(BaseModel):
         if non_null == 0:
             raise ValueError("At least one field must be non-null, got 0")
         if non_null > 1:
+            logger.warning(
+                "SystemResponseModel received %d non-null fields (question=%s, sql=%s, feedback=%s), "
+                "keeping highest priority",
+                non_null,
+                self.system_question is not None,
+                self.system_sql is not None,
+                self.system_feedback is not None,
+            )
             # Priority: system_question > system_sql > system_feedback
             if self.system_question is not None:
                 self.system_sql = None

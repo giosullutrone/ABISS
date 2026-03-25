@@ -146,8 +146,9 @@ def get_user_classify_prompt_solvable(conversation: Conversation, nodes: list[SQ
     if isinstance(question, QuestionUnanswerable) and question.hidden_knowledge:
         prompt += f"**Hidden Knowledge (Disambiguating Intent):** {question.hidden_knowledge}\n"
 
-    prompt += f"\n**Clarification Question:** {conversation.interactions[-1].system_response.system_question}\n\n"
+    prompt += "\n"
     prompt += get_conversation_history_prompt(conversation)
+    prompt += f"**Clarification Question:** {conversation.interactions[-1].system_response.system_question}\n\n"
 
     nodes_text = format_nodes_for_prompt(nodes)
     if nodes_text:
@@ -191,8 +192,9 @@ def get_user_classify_prompt_answerable(conversation: Conversation, nodes: list[
         prompt += f"**Additional Context:** {question.evidence}\n"
     prompt += "**Question Type:** Answerable -- question is already clear, no semantic ambiguity\n"
 
-    prompt += f"\n**Clarification Question:** {conversation.interactions[-1].system_response.system_question}\n\n"
+    prompt += "\n"
     prompt += get_conversation_history_prompt(conversation)
+    prompt += f"**Clarification Question:** {conversation.interactions[-1].system_response.system_question}\n\n"
 
     nodes_text = format_nodes_for_prompt(nodes)
     if nodes_text:

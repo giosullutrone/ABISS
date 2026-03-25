@@ -49,8 +49,8 @@ def parse_sql_to_nodes(sql: str | None) -> list[SQLNode]:
             ))
             node_id += 1
 
-    # --- JOIN clauses ---
-    for join in tree.find_all(exp.Join):
+    # --- JOIN clauses (outermost query only) ---
+    for join in (select_node.args.get("joins") or []) if select_node else []:
         nodes.append(SQLNode(
             node_id=node_id,
             clause_type="JOIN",

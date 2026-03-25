@@ -62,7 +62,7 @@ class Feedback(Evaluator):
         prompts: list[str] = []
         for idx in evaluable_indices:
             conversation = conversations[idx]
-            prompt = get_feedback_evaluation_prompt(self.db, conversation)
+            prompt = get_feedback_evaluation_prompt(conversation)
             prompts.append(prompt)
         
         # Collect votes from each model

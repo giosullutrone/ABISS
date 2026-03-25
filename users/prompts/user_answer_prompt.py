@@ -98,7 +98,7 @@ def get_user_answer_prompt_technical(conversation: Conversation, sql_fragments: 
         prompt += "\n"
     else:
         prompt += "## What You Want (Reference)\n"
-        prompt += "No specific preferences defined. Express genuine uncertainty.\n\n"
+        prompt += "No specific preferences are defined for this aspect of the query.\n\n"
 
     prompt += NL_CONSTRAINT
     prompt += "## Instructions\n"
@@ -109,8 +109,11 @@ def get_user_answer_prompt_technical(conversation: Conversation, sql_fragments: 
         prompt += "'Sort by frequency in descending order' (formal). "
         prompt += "Match the style of the original question.\n\n"
     else:
-        prompt += "Express genuine uncertainty. "
-        prompt += "Examples: 'Either way is fine', 'I'm not sure, whatever makes sense'.\n\n"
+        prompt += "You don't have a specific preference for what the system is asking about. "
+        prompt += "Say so directly rather than being vague. "
+        prompt += "Examples: 'I don't have a preference for the ordering, just show me the data', "
+        prompt += "'I don't really care about that, just pick whatever makes sense', "
+        prompt += "'That detail doesn't matter to me, focus on the main results'.\n\n"
 
     prompt += _style_section(conversation)
 

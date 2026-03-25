@@ -62,6 +62,13 @@ class UserResponse:
         if not to_process:
             return [], []
 
+        # Pin single-model councils to avoid redundant GPU load/unload between stages.
+        # Multi-model councils must init/close per model per stage because they share GPU.
+        single_model = len(self.models) == 1
+        if single_model:
+            self.models[0].init()
+            self.models[0]._pinned = True
+
         # ---- pre-parse GT SQL into AST nodes ----
         nodes_per_conv: list[list[SQLNode]] = []
         for idx in to_process:
@@ -186,6 +193,7 @@ class UserResponse:
         needs_tournament_convs: list[Conversation] = []
         needs_tournament_answers: list[list[str]] = []
         needs_tournament_fragments: list[list[str]] = []
+        needs_tournament_global_indices: list[int] = []
 
         for pidx in range(len(stage2_prompts)):
             answers = per_model_answers[pidx]
@@ -198,17 +206,24 @@ class UserResponse:
                 needs_tournament_convs.append(conversations[to_process[pidx]])
                 needs_tournament_answers.append(answers)
                 needs_tournament_fragments.append(resolved_fragments[pidx])
+                needs_tournament_global_indices.append(to_process[pidx])
 
         tournament_tracking: list[TournamentVotes] = []
         if needs_tournament_convs:
             tournament_results, tournament_tracking = self.best_user_answer.select_best_user_answers(
                 needs_tournament_convs, needs_tournament_answers,
                 sql_fragments_per_conv=needs_tournament_fragments,
+                conversation_indices=needs_tournament_global_indices,
             )
             for i, pidx in enumerate(needs_tournament_indices):
                 best_answers[pidx] = tournament_results[i]
 
         for pidx, conv_idx in enumerate(to_process):
             conversations[conv_idx].interactions[-1].user_response = best_answers[pidx]
+
+        # Unpin and close single-model council
+        if single_model:
+            self.models[0]._pinned = False
+            self.models[0].close()
 
         return relevancy_tracking, tournament_tracking

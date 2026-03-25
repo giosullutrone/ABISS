@@ -69,20 +69,23 @@ class Benchmark:
 
         # Step 2: Run the interactions
         # Keep track of which conversation still hasn't received a final response (solution or feedback)
-        unfinished_conversations: list[int] = list(range(len(conversations)))
+        unfinished_conversations: set[int] = set(range(len(conversations)))
         # We run the loop until all conversations are finished or we reach max steps + 1 (to allow for final feedback)
         all_relevancy: list[RelevancyVotes] = []
         all_tournament: list[TournamentVotes] = []
 
         step = 0
-        while len(unfinished_conversations) > 0 and step < self.max_steps + 1:
+        while unfinished_conversations and step < self.max_steps + 1:
             # Get system responses for unfinished conversations
             # First we prepare the predicted categories:
             # - If category_use is NO_CATEGORY, we pass None
             # - If category_use is PREDICTED, we pass the predicted category
             # - If category_use is GROUND_TRUTH, we pass the ground truth category from the question
+            # Snapshot sorted order for consistent indexing with system_responses
+            unfinished_sorted = sorted(unfinished_conversations)
+
             categories_to_pass: list[Category | None] = []
-            for idx in unfinished_conversations:
+            for idx in unfinished_sorted:
                 conv = conversations[idx]
                 if conv.category_use == CategoryUse.NO_CATEGORY:
                     categories_to_pass.append(None)
@@ -92,14 +95,14 @@ class Benchmark:
                     categories_to_pass.append(conv.question.category)
 
             system_responses: list[SystemResponse] = self.system.get_system_response(
-                [conversations[idx] for idx in unfinished_conversations],
+                [conversations[idx] for idx in unfinished_sorted],
                 categories_to_pass,
-                [step for _ in unfinished_conversations]
+                [step for _ in unfinished_sorted]
             )
 
             # Process each system response
             # First we create an Interaction for each conversation with the system response
-            for i, idx in enumerate(unfinished_conversations):
+            for i, idx in enumerate(unfinished_sorted):
                 conv = conversations[idx]
                 sys_resp = system_responses[i]
                 interaction = Interaction(system_response=sys_resp)
@@ -107,34 +110,32 @@ class Benchmark:
 
             # Second we update the predicted SQL and the feedback if the system provided one
             # and stop the conversations that received a final response
-            indices_to_remove: list[int] = []
-            for i, idx in enumerate(unfinished_conversations):
+            indices_to_remove: set[int] = set()
+            for i, idx in enumerate(sorted(unfinished_conversations)):
                 conv = conversations[idx]
                 sys_resp = system_responses[i]
 
                 # If the system response is completely empty (all None), stop this conversation
                 if sys_resp.system_question is None and sys_resp.system_sql is None and sys_resp.system_feedback is None:
-                    indices_to_remove.append(idx)
+                    indices_to_remove.add(idx)
                     continue
 
                 if sys_resp.system_sql is not None:
                     conv.predicted_sql = sys_resp.system_sql
-                    indices_to_remove.append(idx)
+                    indices_to_remove.add(idx)
 
                 if sys_resp.system_feedback is not None:
                     conv.predicted_feedback = sys_resp.system_feedback
-                    indices_to_remove.append(idx)
+                    indices_to_remove.add(idx)
 
             # Remove finished conversations
-            for idx in indices_to_remove:
-                if idx in unfinished_conversations:
-                    unfinished_conversations.remove(idx)
+            unfinished_conversations -= indices_to_remove
 
             # Classify relevancy and generate user answers in a single step
             # for conversations that received a clarification question
-            if len(unfinished_conversations) > 0:
+            if unfinished_conversations:
                 relevancy_tracking, tournament_tracking = self.user.get_response(
-                    [conversations[idx] for idx in unfinished_conversations]
+                    [conversations[idx] for idx in sorted(unfinished_conversations)]
                 )
                 all_relevancy.extend(relevancy_tracking)
                 all_tournament.extend(tournament_tracking)

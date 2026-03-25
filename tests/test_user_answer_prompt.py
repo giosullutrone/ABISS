@@ -70,10 +70,10 @@ class TestTechnicalPrompt:
         assert "natural language" in prompt.lower()
         assert "NEVER" in prompt
 
-    def test_empty_fragments_shows_uncertainty_instruction(self):
+    def test_empty_fragments_shows_no_preference_instruction(self):
         conv = _make_conversation()
         prompt = get_user_answer_prompt_technical(conv, [])
-        assert "uncertainty" in prompt.lower()
+        assert "don't have a specific preference" in prompt.lower() or "no specific preferences" in prompt.lower()
 
     def test_contains_style_info(self):
         conv = _make_conversation(style=QuestionStyle.COLLOQUIAL)
