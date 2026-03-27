@@ -20,10 +20,15 @@ class UserAnswerModel(BaseModel):
 NL_CONSTRAINT = (
     "**CRITICAL CONSTRAINT:** You are a non-technical user. "
     "Respond in natural language ONLY. "
-    "NEVER use SQL syntax, column names, table aliases, or query structure. "
+    "NEVER use SQL syntax, column names, table names, table aliases, "
+    "CTE names, or query structure. "
     "Express the intent behind the information, not its SQL representation. "
     "The SQL source material is provided as reference for what you want; "
-    "your answer must sound like a real non-technical user speaking in their own voice.\n\n"
+    "your answer must sound like a real non-technical user speaking in their own voice.\n"
+    "Bad examples: 'Use the per_acc table', 'Join on the CDS code column', "
+    "'Filter by the supertypes field'.\n"
+    "Good examples: 'Use the per-account summary amounts', "
+    "'Match schools by their identifier', 'I want the general type category'.\n\n"
 )
 
 
@@ -108,6 +113,15 @@ def get_user_answer_prompt_technical(conversation: Conversation, sql_fragments: 
         prompt += "'I want the most popular ones first' (colloquial) or "
         prompt += "'Sort by frequency in descending order' (formal). "
         prompt += "Match the style of the original question.\n\n"
+
+        prompt += "**GROUNDING CONSTRAINT:** "
+        prompt += "ONLY describe what the reference fragments above express. "
+        prompt += "Do NOT add new requirements, filters, aggregations, time constraints, "
+        prompt += "or conditions that are not reflected in the fragments. "
+        prompt += "Do NOT 'improve' on the fragments (e.g., do not add tie-breaking, "
+        prompt += "deduplication, or date filtering unless a fragment says so). "
+        prompt += "If the fragments don't cover what the system is asking about, "
+        prompt += "say you have no preference for that aspect.\n\n"
     else:
         prompt += "You don't have a specific preference for what the system is asking about. "
         prompt += "Say so directly rather than being vague. "
